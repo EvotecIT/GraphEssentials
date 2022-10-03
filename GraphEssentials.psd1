@@ -6,7 +6,7 @@
     CompatiblePSEditions = @('Desktop', 'Core')
     Copyright            = '(c) 2011 - 2022 Przemyslaw Klys @ Evotec. All rights reserved.'
     Description          = 'GraphEssentials is a PowerShell that help with Office 365 / Azure AD using mostly Graph'
-    FunctionsToExport    = @('Get-MyApp', 'Get-MyAppCredentials', 'New-MyAppCredentials', 'Show-MyApp')
+    FunctionsToExport    = @('Get-MyApp', 'Get-MyAppCredentials', 'New-MyApp', 'New-MyAppCredentials', 'Show-MyApp')
     GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
     ModuleVersion        = '0.0.1'
     PowerShellVersion    = '5.1'
@@ -17,7 +17,7 @@
         }
     }
     RequiredModules      = @(@{
-            ModuleVersion = '0.0.238'
+            ModuleVersion = '0.0.246'
             ModuleName    = 'PSSharedGoods'
             Guid          = 'ee272aa8-baaa-4edf-9f45-b6d6f7d844fe'
         }, @{
