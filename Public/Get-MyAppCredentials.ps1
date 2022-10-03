@@ -2,11 +2,13 @@
     [cmdletBinding()]
     param(
         [int] $LessThanDaysToExpire,
-        [switch] $Expired
+        [switch] $Expired,
+        [Parameter(DontShow)][Array] $Application
     )
 
-    $Application = Get-MgApplication
-
+    if (-not $Application) {
+        $Application = Get-MgApplication
+    }
     $ApplicationsWithCredentials = foreach ($App in $Application) {
         if ($App.PasswordCredentials) {
             foreach ($Credentials in $App.PasswordCredentials) {
@@ -33,8 +35,8 @@
 
                 $Creds = [PSCustomObject] @{
                     Id                  = $App.Id
-                    AppId               = $App.AppId
-                    AppName             = $App.DisplayName
+                    ApplicationID       = $App.AppId
+                    ApplicationName     = $App.DisplayName
                     CreatedDate         = $App.CreatedDateTime
                     CredentialName      = $DisplayName
                     Expired             = $Expired
