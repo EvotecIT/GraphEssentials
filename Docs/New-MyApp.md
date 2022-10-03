@@ -5,21 +5,16 @@ online version:
 schema: 2.0.0
 ---
 
-# New-MyAppCredentials
+# New-MyApp
 
 ## SYNOPSIS
 {{ Fill in the Synopsis }}
 
 ## SYNTAX
 
-### AppName (Default)
 ```
-New-MyAppCredentials -AppName <String> [-DisplayName <String>] [-MonthsValid <Int32>] [<CommonParameters>]
-```
-
-### AppId
-```
-New-MyAppCredentials -ObjectID <String> [-DisplayName <String>] [-MonthsValid <Int32>] [<CommonParameters>]
+New-MyApp [-ApplicationName] <String> [-DisplayNameCredentials] <String> [[-MonthsValid] <Int32>]
+ [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -36,31 +31,31 @@ PS C:\> {{ Add example code here }}
 
 ## PARAMETERS
 
-### -AppName
-{{ Fill AppName Description }}
-
-```yaml
-Type: String
-Parameter Sets: AppName
-Aliases:
-
-Required: True
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -DisplayName
-{{ Fill DisplayName Description }}
+### -ApplicationName
+{{ Fill ApplicationName Description }}
 
 ```yaml
 Type: String
 Parameter Sets: (All)
 Aliases:
 
-Required: False
-Position: Named
+Required: True
+Position: 0
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -DisplayNameCredentials
+{{ Fill DisplayNameCredentials Description }}
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases:
+
+Required: True
+Position: 1
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -75,22 +70,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -ObjectID
-{{ Fill ObjectID Description }}
-
-```yaml
-Type: String
-Parameter Sets: AppId
-Aliases:
-
-Required: True
-Position: Named
+Position: 2
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False

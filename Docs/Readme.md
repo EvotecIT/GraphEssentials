@@ -12,14 +12,17 @@ Locale: en-US
 
 ## GraphEssentials Cmdlets
 ### [Get-MyApp](Get-MyApp.md)
-{{ Fill in the Description }}
+{{ Fill in the Synopsis }}
 
 ### [Get-MyAppCredentials](Get-MyAppCredentials.md)
-{{ Fill in the Description }}
+{{ Fill in the Synopsis }}
+
+### [New-MyApp](New-MyApp.md)
+{{ Fill in the Synopsis }}
 
 ### [New-MyAppCredentials](New-MyAppCredentials.md)
-{{ Fill in the Description }}
+{{ Fill in the Synopsis }}
 
 ### [Show-MyApp](Show-MyApp.md)
-{{ Fill in the Description }}
+{{ Fill in the Synopsis }}
 
