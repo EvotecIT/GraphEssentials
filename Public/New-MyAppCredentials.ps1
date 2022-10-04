@@ -2,17 +2,17 @@
     [cmdletbinding(DefaultParameterSetName = 'AppName')]
     param(
         [parameter(Mandatory, ParameterSetName = 'AppId')][string] $ObjectID,
-        [parameter(Mandatory, ParameterSetName = 'AppName')][string] $AppName,
+        [alias('AppName')] [parameter(Mandatory, ParameterSetName = 'AppName')][string] $ApplicationName,
         [string] $DisplayName,
         [int] $MonthsValid = 12
     )
 
     if ($AppName) {
-        $Application = Get-MgApplication -Filter "DisplayName eq '$AppName'" -ConsistencyLevel eventual
+        $Application = Get-MgApplication -Filter "DisplayName eq '$ApplicationName'" -ConsistencyLevel eventual
         if ($Application) {
             $ID = $Application.Id
         } else {
-            Write-Warning -Message "Application with name '$AppName' not found"
+            Write-Warning -Message "Application with name '$ApplicationName' not found"
             return
         }
     } else {
@@ -26,6 +26,9 @@
         $PasswordCredential.DisplayName = $DisplayName
     }
     $PasswordCredential.EndDateTime = [datetime]::Now.AddMonths($MonthsValid)
-
-    Add-MgApplicationPassword -ApplicationId $ID -PasswordCredential $PasswordCredential
+    try {
+        Add-MgApplicationPassword -ApplicationId $ID -PasswordCredential $PasswordCredential
+    } catch {
+        Write-Warning -Message "Failed to add password credential to application $ID / $ApplicationName"
+    }
 }

@@ -34,18 +34,19 @@
                 }
 
                 $Creds = [PSCustomObject] @{
-                    Id                  = $App.Id
-                    ApplicationID       = $App.AppId
+                    ObjectId            = $App.Id
                     ApplicationName     = $App.DisplayName
+                    ClientID            = $App.AppId
                     CreatedDate         = $App.CreatedDateTime
-                    CredentialName      = $DisplayName
+                    ClientSecretName    = $DisplayName
+                    ClientSecretId      = $Credentials.KeyId
+                    #ClientSecret        = $Credentials.SecretTex
+                    ClientSecretHint    = $Credentials.Hint
                     Expired             = $Expired
                     DaysToExpire        = ($Credentials.EndDateTime - [DateTime]::Now).Days
                     StartDateTime       = $Credentials.StartDateTime
                     EndDateTime         = $Credentials.EndDateTime
-                    Hint                = $Credentials.Hint
-                    KeyId               = $Credentials.KeyId
-                    SecretText          = $Credentials.SecretTex
+
                     CustomKeyIdentifier = $Credentials.CustomKeyIdentifier
                 }
                 if ($PSBoundParameters.ContainsKey('LessThanDaysToExpire')) {

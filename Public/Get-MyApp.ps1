@@ -20,8 +20,8 @@
         }
 
         [PSCustomObject] @{
-            Id                   = $App.Id
-            ApplicationID        = $App.AppId
+            ObjectId             = $App.Id
+            ClientID             = $App.AppId
             ApplicationName      = $App.DisplayName
             CreatedDate          = $App.CreatedDateTime
             KeysCount            = $App.PasswordCredentials.Count
@@ -29,8 +29,6 @@
             KeysDateNewest       = if ($DatesSorted.Count -gt 0) { $DatesSorted[-1] } else { }
             KeysDescription      = $AppCredentials.CredentialName
             DescriptionWithEmail = $DescriptionWithEmail
-            #SignInAudience       = $App.SignInAudience
-            #Web                  = $App.Web.RedirectUris
         }
     }
     $Applications
