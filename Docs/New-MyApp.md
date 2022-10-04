@@ -14,7 +14,7 @@ schema: 2.0.0
 
 ```
 New-MyApp [-ApplicationName] <String> [-DisplayNameCredentials] <String> [[-MonthsValid] <Int32>]
- [<CommonParameters>]
+ [-RemoveOldCredentials] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -71,6 +71,21 @@ Aliases:
 
 Required: False
 Position: 2
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -RemoveOldCredentials
+{{ Fill RemoveOldCredentials Description }}
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False

@@ -14,7 +14,8 @@ schema: 2.0.0
 
 ### AppName (Default)
 ```
-New-MyAppCredentials -AppName <String> [-DisplayName <String>] [-MonthsValid <Int32>] [<CommonParameters>]
+New-MyAppCredentials -ApplicationName <String> [-DisplayName <String>] [-MonthsValid <Int32>]
+ [<CommonParameters>]
 ```
 
 ### AppId
@@ -36,13 +37,13 @@ PS C:\> {{ Add example code here }}
 
 ## PARAMETERS
 
-### -AppName
-{{ Fill AppName Description }}
+### -ApplicationName
+{{ Fill ApplicationName Description }}
 
 ```yaml
 Type: String
 Parameter Sets: AppName
-Aliases:
+Aliases: AppName
 
 Required: True
 Position: Named
