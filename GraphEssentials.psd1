@@ -25,7 +25,7 @@
             ModuleName    = 'Microsoft.Graph.Applications'
             Guid          = '467f54f2-44a8-4993-8e75-b96c3e443098'
         }, @{
-            ModuleVersion = '0.0.177'
+            ModuleVersion = '0.0.179'
             ModuleName    = 'PSWriteHTML'
             Guid          = 'a7bdf640-f5cb-4acf-9de0-365b322d245c'
         }, 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security', 'Microsoft.PowerShell.Utility')
