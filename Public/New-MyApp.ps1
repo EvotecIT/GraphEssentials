@@ -4,12 +4,17 @@
         [parameter(Mandatory)][string] $ApplicationName,
         [parameter(Mandatory)][string] $DisplayNameCredentials,
         [int] $MonthsValid = 12,
-        [switch] $RemoveOldCredentials
+        [switch] $RemoveOldCredentials,
+        [switch] $ServicePrincipal
     )
     $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'"
     if (-not $Application) {
         Write-Verbose -Message "New-MyApp - Creating application $ApplicationName"
         $Application = New-MgApplication -DisplayName $ApplicationName
+        if ($ServicePrincipal) {
+            Write-Verbose -Message "New-MyApp - Creating service principal for $ApplicationName"
+            $ServicePrincipalData = New-MgServicePrincipal -AppId $App.AppId -AccountEnabled:$true
+        }
     } else {
         Write-Verbose -Message "New-MyApp - Application $ApplicationName already exists. Reusing..."
     }
