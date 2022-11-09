@@ -13,7 +13,13 @@
         $Application = New-MgApplication -DisplayName $ApplicationName
         if ($ServicePrincipal) {
             Write-Verbose -Message "New-MyApp - Creating service principal for $ApplicationName"
-            $ServicePrincipalData = New-MgServicePrincipal -AppId $App.AppId -AccountEnabled:$true
+            # not sure if it will help, but lets try it
+            Start-Sleep -Seconds 5
+            try {
+                $ServicePrincipalData = New-MgServicePrincipal -AppId $App.AppId -AccountEnabled:$true
+            } catch {
+                Write-Warning -Message "New-MyApp - Failed to create service principal for $ApplicationName. Error: $($_.Exception.Message)"
+            }
         }
     } else {
         Write-Verbose -Message "New-MyApp - Application $ApplicationName already exists. Reusing..."
