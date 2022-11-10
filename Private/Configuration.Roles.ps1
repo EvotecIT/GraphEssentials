@@ -16,8 +16,8 @@
     Solution   = {
         if ($Script:Reporting['Roles']['Data']) {
             New-HTMLTable -DataTable $Script:Reporting['Roles']['Data'] -Filtering {
-                New-HTMLTableCondition -Name 'IsEnabled' -Operator eq -Value $true -ComparisonType string -BackgroundColor GreenLeaf -FailBackgroundColor Salmon
-            }
+                New-HTMLTableCondition -Name 'IsEnabled' -Operator eq -Value $true -ComparisonType string -BackgroundColor SpringGreen -FailBackgroundColor Salmon
+            } -ScrollX
         }
     }
 }
