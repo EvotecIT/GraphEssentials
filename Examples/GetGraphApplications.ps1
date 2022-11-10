@@ -3,6 +3,6 @@
 Connect-MgGraph -Scopes Application.ReadWrite.All
 
 $Applications = Get-MyApp
-$ApplicationsPassword = Get-MyAppCredentials
 $Applications | Format-Table
+$ApplicationsPassword = Get-MyAppCredentials
 $ApplicationsPassword | Format-Table *
