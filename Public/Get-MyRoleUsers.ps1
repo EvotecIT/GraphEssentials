@@ -4,9 +4,9 @@
         [switch] $OnlyWithRoles,
         [switch] $RolePerColumn
     )
-    $Users = Get-MgUser -All -Property DisplayName, 'AccountEnabled', 'Mail', 'UserPrincipalName', 'Id'
+    $Users = Get-MgUser -All -Property DisplayName, 'AccountEnabled', 'Mail', 'UserPrincipalName', 'Id', 'UserType', 'OnPremisesDistinguishedName', 'OnPremisesSamAccountName', 'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesUserPrincipalName'
     #$Apps = Get-MgApplication -All
-    $ServicePrincipals = Get-MgServicePrincipal -All
+    $ServicePrincipals = Get-MgServicePrincipal -All -Property 'ServicePrincipalType', 'DisplayName', 'AccountEnabled', 'Id', 'AppID'
     #$DirectoryRole = Get-MgDirectoryRole -All
     $Roles = Get-MgRoleManagementDirectoryRoleDefinition -All
     $RolesAssignement = Get-MgRoleManagementDirectoryRoleAssignment -All #-ExpandProperty "principal"
@@ -86,21 +86,48 @@
             }
         }
 
+        $Type = if ($CacheUsersAndApps[$Identity].Identity.ServicePrincipalType) {
+            $CacheUsersAndApps[$Identity].Identity.ServicePrincipalType
+        } elseif ($CacheUsersAndApps[$Identity].Identity.UserType) {
+            $CacheUsersAndApps[$Identity].Identity.UserType
+        } else {
+            $null
+        }
+        $IsSynced = if ($CacheUsersAndApps[$Identity].Identity.OnPremisesLastSyncDateTime) {
+            'Synchronized'
+        } else {
+            'Online'
+        }
+        $CanonicalName = if ($CacheUsersAndApps[$Identity].Identity.OnPremisesDistinguishedName) {
+            ConvertFrom-DistinguishedName -DistinguishedName $CacheUsersAndApps[$Identity].Identity.OnPremisesDistinguishedName -ToOrganizationalUnit
+        } else {
+            $null
+        }
+
         if (-not $RolePerColumn) {
             [PSCustomObject] @{
                 Name              = $CacheUsersAndApps[$Identity].Identity.DisplayName
                 Enabled           = $CacheUsersAndApps[$Identity].Identity.AccountEnabled
+                Status            = $IsSynced
+                Type              = $Type
                 Mail              = $CacheUsersAndApps[$Identity].Identity.Mail
                 UserPrincipalName = $CacheUsersAndApps[$Identity].Identity.UserPrincipalName
+                AppId             = $CacheUsersAndApps[$Identity].Identity.AppID
                 DirectCount       = $CacheUsersAndApps[$Identity].Roles.Count
                 EligibleCount     = $CacheUsersAndApps[$Identity].Eligible.Count
                 Direct            = $CacheUsersAndApps[$Identity].Roles.DisplayName
                 Eligible          = $CacheUsersAndApps[$Identity].Eligible.DisplayName
+                Location          = $CanonicalName
+
+                #OnPremisesSamAccountName    = $CacheUsersAndApps[$Identity].Identity.OnPremisesSamAccountName
+                #OnPremisesLastSyncDateTime  = $CacheUsersAndApps[$Identity].Identity.OnPremisesLastSyncDateTime
             }
         } else {
             $UserIdentity = [ordered] @{
                 Name              = $CacheUsersAndApps[$Identity].Identity.DisplayName
                 Enabled           = $CacheUsersAndApps[$Identity].Identity.AccountEnabled
+                Status            = $IsSynced
+                Type              = $Type
                 Mail              = $CacheUsersAndApps[$Identity].Identity.Mail
                 UserPrincipalName = $CacheUsersAndApps[$Identity].Identity.UserPrincipalName
             }
@@ -113,6 +140,7 @@
             foreach ($Role in $CacheUsersAndApps[$Identity].Roles) {
                 $UserIdentity[$Role.DisplayName] = 'Direct'
             }
+            $UserIdentity['Location'] = $CanonicalName
             [PSCustomObject] $UserIdentity
         }
     }

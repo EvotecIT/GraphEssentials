@@ -55,7 +55,7 @@
                     ServicePrincipals = [System.Collections.Generic.List[object]]::new()
                 }
                 $CacheRoles[$Role.RoleDefinitionId].Direct.Add($CacheUsersAndApps[$Role.PrincipalId])
-                if ($CacheUsersAndApps[$Role.PrincipalId].GetType().Name -eq 'MicrosoftGraphServicePrincipal') {
+                if ($CacheUsersAndApps[$Role.PrincipalId].GetType().Name -ne 'MicrosoftGraphServicePrincipal') {
                     $CacheRoles[$Role.RoleDefinitionId].Users.Add($CacheUsersAndApps[$Role.PrincipalId])
                 } else {
                     $CacheRoles[$Role.RoleDefinitionId].ServicePrincipals.Add($CacheUsersAndApps[$Role.PrincipalId])
@@ -67,7 +67,7 @@
     foreach ($Role in $EligibilityAssignement) {
         if ($CacheRoles[$Role.RoleDefinitionId]) {
             $CacheRoles[$Role.RoleDefinitionId].Eligible.Add($CacheUsersAndApps[$Role.PrincipalId])
-            if ($CacheUsersAndApps[$Role.PrincipalId].GetType().Name -eq 'MicrosoftGraphServicePrincipal') {
+            if ($CacheUsersAndApps[$Role.PrincipalId].GetType().Name -ne 'MicrosoftGraphServicePrincipal') {
                 $CacheRoles[$Role.RoleDefinitionId].Users.Add($CacheUsersAndApps[$Role.PrincipalId])
             } else {
                 $CacheRoles[$Role.RoleDefinitionId].ServicePrincipals.Add($CacheUsersAndApps[$Role.PrincipalId])
