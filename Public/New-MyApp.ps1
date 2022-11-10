@@ -7,7 +7,7 @@
         [switch] $RemoveOldCredentials,
         [switch] $ServicePrincipal
     )
-    $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'"
+    $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All
     if (-not $Application) {
         Write-Verbose -Message "New-MyApp - Creating application $ApplicationName"
         $Application = New-MgApplication -DisplayName $ApplicationName

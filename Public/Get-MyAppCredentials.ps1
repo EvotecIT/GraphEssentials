@@ -7,7 +7,7 @@
     )
 
     if (-not $Application) {
-        $Application = Get-MgApplication
+        $Application = Get-MgApplication -All
     }
     $ApplicationsWithCredentials = foreach ($App in $Application) {
         if ($App.PasswordCredentials) {

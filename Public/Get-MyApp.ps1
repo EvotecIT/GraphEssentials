@@ -3,7 +3,7 @@
     param(
 
     )
-    $Application = Get-MgApplication -ConsistencyLevel eventual
+    $Application = Get-MgApplication -ConsistencyLevel eventual -All
     $Applications = foreach ($App in $Application) {
         [Array] $DatesSorted = $App.PasswordCredentials.StartDateTime | Sort-Object
 

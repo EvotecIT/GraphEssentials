@@ -8,7 +8,7 @@
     )
 
     if ($AppName) {
-        $Application = Get-MgApplication -Filter "DisplayName eq '$ApplicationName'" -ConsistencyLevel eventual
+        $Application = Get-MgApplication -Filter "DisplayName eq '$ApplicationName'" -ConsistencyLevel eventual -All
         if ($Application) {
             $ID = $Application.Id
         } else {
