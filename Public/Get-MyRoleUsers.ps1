@@ -4,26 +4,68 @@
         [switch] $OnlyWithRoles,
         [switch] $RolePerColumn
     )
-    $Users = Get-MgUser -All -Property DisplayName, 'AccountEnabled', 'Mail', 'UserPrincipalName', 'Id', 'UserType', 'OnPremisesDistinguishedName', 'OnPremisesSamAccountName', 'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesUserPrincipalName'
+    $ErrorsCount = 0
+    try {
+        $Users = Get-MgUser -ErrorAction Stop -All -Property DisplayName, CreatedDateTime, 'AccountEnabled', 'Mail', 'UserPrincipalName', 'Id', 'UserType', 'OnPremisesDistinguishedName', 'OnPremisesSamAccountName', 'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesUserPrincipalName'
+    } catch {
+        Write-Warning -Message "Get-MyRoleUsers - Failed to get users. Error: $($_.Exception.Message)"
+        $ErrorsCount++
+    }
+    try {
+        $Groups = Get-MgGroup -ErrorAction Stop -All -Filter "IsAssignableToRole eq true" -Property CreatedDateTime, Id, DisplayName, Mail, OnPremisesLastSyncDateTime, SecurityEnabled
+    } catch {
+        Write-Warning -Message "Get-MyRoleUsers - Failed to get groups. Error: $($_.Exception.Message)"
+        $ErrorsCount++
+    }
     #$Apps = Get-MgApplication -All
-    $ServicePrincipals = Get-MgServicePrincipal -All -Property 'ServicePrincipalType', 'DisplayName', 'AccountEnabled', 'Id', 'AppID'
+    try {
+        $ServicePrincipals = Get-MgServicePrincipal -ErrorAction Stop -All -Property CreatedDateTime, 'ServicePrincipalType', 'DisplayName', 'AccountEnabled', 'Id', 'AppID'
+    } catch {
+        Write-Warning -Message "Get-MyRoleUsers - Failed to get service principals. Error: $($_.Exception.Message)"
+        $ErrorsCount++
+    }
     #$DirectoryRole = Get-MgDirectoryRole -All
-    $Roles = Get-MgRoleManagementDirectoryRoleDefinition -All
-    $RolesAssignement = Get-MgRoleManagementDirectoryRoleAssignment -All #-ExpandProperty "principal"
-    $EligibilityAssignement = Get-MgRoleManagementDirectoryRoleEligibilitySchedule -All
+    try {
+        $Roles = Get-MgRoleManagementDirectoryRoleDefinition -ErrorAction Stop -All
+    } catch {
+        Write-Warning -Message "Get-MyRoleUsers - Failed to get roles. Error: $($_.Exception.Message)"
+        $ErrorsCount++
+    }
+    try {
+        $RolesAssignement = Get-MgRoleManagementDirectoryRoleAssignment -ErrorAction Stop -All #-ExpandProperty "principal"
+    } catch {
+        Write-Warning -Message "Get-MyRoleUsers - Failed to get roles assignement. Error: $($_.Exception.Message)"
+        $ErrorsCount++
+    }
+    try {
+        $EligibilityAssignement = Get-MgRoleManagementDirectoryRoleEligibilitySchedule -ErrorAction Stop -All
+    } catch {
+        Write-Warning -Message "Get-MyRoleUsers - Failed to get eligibility assignement. Error: $($_.Exception.Message)"
+        $ErrorsCount++
+    }
+    if ($ErrorsCount -gt 0) {
+        return
+    }
 
     $CacheUsersAndApps = [ordered] @{}
     foreach ($User in $Users) {
         $CacheUsersAndApps[$User.Id] = @{
             Identity = $User
-            Roles    = [System.Collections.Generic.List[object]]::new()
+            Direct   = [System.Collections.Generic.List[object]]::new()
             Eligible = [System.Collections.Generic.List[object]]::new()
         }
     }
     foreach ($ServicePrincipal in $ServicePrincipals) {
         $CacheUsersAndApps[$ServicePrincipal.Id] = @{
             Identity = $ServicePrincipal
-            Roles    = [System.Collections.Generic.List[object]]::new()
+            Direct   = [System.Collections.Generic.List[object]]::new()
+            Eligible = [System.Collections.Generic.List[object]]::new()
+        }
+    }
+    foreach ($Group in $Groups) {
+        $CacheUsersAndApps[$Group.Id] = @{
+            Identity = $Group
+            Direct   = [System.Collections.Generic.List[object]]::new()
             Eligible = [System.Collections.Generic.List[object]]::new()
         }
     }
@@ -35,15 +77,20 @@
             Members           = [System.Collections.Generic.List[object]]::new()
             Users             = [System.Collections.Generic.List[object]]::new()
             ServicePrincipals = [System.Collections.Generic.List[object]]::new()
+            GroupsDirect      = [System.Collections.Generic.List[object]]::new()
+            GroupsEligible    = [System.Collections.Generic.List[object]]::new()
         }
     }
 
     foreach ($Role in $RolesAssignement) {
         if ($CacheRoles[$Role.RoleDefinitionId]) {
-            $CacheUsersAndApps[$Role.PrincipalId].Roles.Add($CacheRoles[$Role.RoleDefinitionId].Role)
+            $CacheUsersAndApps[$Role.PrincipalId].Direct.Add($CacheRoles[$Role.RoleDefinitionId].Role)
+            if ($CacheUsersAndApps[$Role.PrincipalId].Identity.GetType().Name -eq 'MicrosoftGraphGroup') {
+                $CacheRoles[$Role.RoleDefinitionId].GroupsDirect.Add($CacheUsersAndApps[$Role.PrincipalId].Identity)
+            }
         } else {
             try {
-                $TemporaryRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $Role.RoleDefinitionId
+                $TemporaryRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $Role.RoleDefinitionId -ErrorAction Stop
             } catch {
                 Write-Warning -Message "Role $($Role.RoleDefinitionId) was not found. Using direct query failed."
             }
@@ -58,40 +105,110 @@
                         ServicePrincipals = [System.Collections.Generic.List[object]]::new()
                     }
                 }
-                $CacheUsersAndApps[$Role.PrincipalId].Roles.Add($CacheRoles[$Role.RoleDefinitionId].Role)
+                $CacheUsersAndApps[$Role.PrincipalId].Direct.Add($CacheRoles[$Role.RoleDefinitionId].Role)
             }
         }
     }
     foreach ($Role in $EligibilityAssignement) {
         if ($CacheRoles[$Role.RoleDefinitionId]) {
             $CacheUsersAndApps[$Role.PrincipalId].Eligible.Add($CacheRoles[$Role.RoleDefinitionId].Role)
+            if ($CacheUsersAndApps[$Role.PrincipalId].Identity.GetType().Name -eq 'MicrosoftGraphGroup') {
+                $CacheRoles[$Role.RoleDefinitionId].GroupsEligible.Add($CacheUsersAndApps[$Role.PrincipalId].Identity)
+            }
         } else {
             Write-Warning -Message $Role
         }
     }
     $ListActiveRoles = foreach ($Identity in $CacheUsersAndApps.Keys) {
         if ($OnlyWithRoles) {
-            if ($CacheUsersAndApps[$Identity].Roles.Count -eq 0 -and $CacheUsersAndApps[$Identity].Eligible.Count -eq 0) {
+            if ($CacheUsersAndApps[$Identity].Direct.Count -eq 0 -and $CacheUsersAndApps[$Identity].Eligible.Count -eq 0) {
                 continue
             }
-            $CacheUsersAndApps[$Identity].Roles.DisplayName
+            $CacheUsersAndApps[$Identity].Direct.DisplayName
             $CacheUsersAndApps[$Identity].Eligible.DisplayName
         }
     }
 
-    foreach ($Identity in $CacheUsersAndApps.Keys) {
-        if ($OnlyWithRoles) {
-            if ($CacheUsersAndApps[$Identity].Roles.Count -eq 0 -and $CacheUsersAndApps[$Identity].Eligible.Count -eq 0) {
-                continue
+    # lets get group members of groups we have members in and roles are there too
+    $CacheGroupMembers = [ordered] @{}
+    $CacheUserMembers = [ordered] @{}
+    foreach ($Role in $CacheRoles.Keys) {
+        if ($CacheRoles[$Role].GroupsDirect.Count -gt 0) {
+            foreach ($Group in $CacheRoles[$Role].GroupsDirect) {
+                if (-not $CacheGroupMembers[$Group.DisplayName]) {
+                    $CacheGroupMembers[$Group.DisplayName] = [ordered] @{
+                        Group   = $Group
+                        Members = Get-MgGroupMember -GroupId $Group.Id -All
+                    }
+                }
+                foreach ($GroupMember in $CacheGroupMembers[$Group.DisplayName].Members) {
+                    #$CacheGroupMembers[$Group.DisplayName].Add($CacheUsersAndApps[$GroupMember.Id])
+                    if (-not $CacheUserMembers[$GroupMember.Id]) {
+                        $CacheUserMembers[$GroupMember.Id] = [ordered] @{
+                            Identity = $GroupMember
+                            Role     = [ordered] @{}
+                            #Direct   = [System.Collections.Generic.List[object]]::new()
+                            #Eligible = [System.Collections.Generic.List[object]]::new()
+                        }
+                    }
+                    #$CacheUserMembers[$GroupMember.Id].Direct.Add($Group)
+                    $RoleDisplayName = $CacheRoles[$Role].Role.DisplayName
+                    if (-not $CacheUserMembers[$GroupMember.Id]['Role'][$RoleDisplayName]) {
+                        $CacheUserMembers[$GroupMember.Id]['Role'][$RoleDisplayName] = [ordered] @{
+                            Role           = $CacheRoles[$Role].Role
+                            GroupsDirect   = [System.Collections.Generic.List[object]]::new()
+                            GroupsEligible = [System.Collections.Generic.List[object]]::new()
+                        }
+                    }
+                    $CacheUserMembers[$GroupMember.Id]['Role'][$RoleDisplayName].GroupsDirect.Add($Group)
+                }
             }
         }
-
+        if ($CacheRoles[$Role].GroupsEligible.Count -gt 0) {
+            foreach ($Group in $CacheRoles[$Role].GroupsEligible) {
+                if (-not $CacheGroupMembers[$Group.DisplayName]) {
+                    $CacheGroupMembers[$Group.DisplayName] = [ordered] @{
+                        Group   = $Group
+                        Members = Get-MgGroupMember -GroupId $Group.Id -All
+                    }
+                }
+                foreach ($GroupMember in $CacheGroupMembers[$Group.DisplayName].Members) {
+                    if (-not $CacheUserMembers[$GroupMember.Id]) {
+                        $CacheUserMembers[$GroupMember.Id] = [ordered] @{
+                            Identity = $GroupMember
+                            Role     = [ordered] @{}
+                            #Direct   = [System.Collections.Generic.List[object]]::new()
+                            #Eligible = [System.Collections.Generic.List[object]]::new()
+                        }
+                    }
+                    $RoleDisplayName = $CacheRoles[$Role].Role.DisplayName
+                    if (-not $CacheUserMembers[$GroupMember.Id]['Role'][$RoleDisplayName]) {
+                        $CacheUserMembers[$GroupMember.Id]['Role'][$RoleDisplayName] = [ordered] @{
+                            Role           = $CacheRoles[$Role].Role
+                            GroupsDirect   = [System.Collections.Generic.List[object]]::new()
+                            GroupsEligible = [System.Collections.Generic.List[object]]::new()
+                        }
+                    }
+                    $CacheUserMembers[$GroupMember.Id]['Role'][$RoleDisplayName].GroupsEligible.Add($Group)
+                    #$CacheUserMembers[$GroupMember.Id].Eligible.Add($Group)
+                }
+                #}
+            }
+        }
+    }
+    foreach ($Identity in $CacheUsersAndApps.Keys) {
         $Type = if ($CacheUsersAndApps[$Identity].Identity.ServicePrincipalType) {
             $CacheUsersAndApps[$Identity].Identity.ServicePrincipalType
         } elseif ($CacheUsersAndApps[$Identity].Identity.UserType) {
             $CacheUsersAndApps[$Identity].Identity.UserType
+        } elseif ($null -ne $CacheUsersAndApps[$Identity].Identity.SecurityEnabled) {
+            if ($CacheUsersAndApps[$Identity].Identity.SecurityEnabled) {
+                "SecurityGroup"
+            } else {
+                "DistributionGroup"
+            }
         } else {
-            $null
+            "Unknown"
         }
         $IsSynced = if ($CacheUsersAndApps[$Identity].Identity.OnPremisesLastSyncDateTime) {
             'Synchronized'
@@ -105,17 +222,23 @@
         }
 
         if (-not $RolePerColumn) {
+            if ($OnlyWithRoles) {
+                if ($CacheUsersAndApps[$Identity].Direct.Count -eq 0 -and $CacheUsersAndApps[$Identity].Eligible.Count -eq 0) {
+                   continue
+                }
+            }
             [PSCustomObject] @{
                 Name              = $CacheUsersAndApps[$Identity].Identity.DisplayName
                 Enabled           = $CacheUsersAndApps[$Identity].Identity.AccountEnabled
                 Status            = $IsSynced
                 Type              = $Type
+                CreatedDateTime   = $CacheUsersAndApps[$Identity].Identity.CreatedDateTime
                 Mail              = $CacheUsersAndApps[$Identity].Identity.Mail
                 UserPrincipalName = $CacheUsersAndApps[$Identity].Identity.UserPrincipalName
                 AppId             = $CacheUsersAndApps[$Identity].Identity.AppID
-                DirectCount       = $CacheUsersAndApps[$Identity].Roles.Count
+                DirectCount       = $CacheUsersAndApps[$Identity].Direct.Count
                 EligibleCount     = $CacheUsersAndApps[$Identity].Eligible.Count
-                Direct            = $CacheUsersAndApps[$Identity].Roles.DisplayName
+                Direct            = $CacheUsersAndApps[$Identity].Direct.DisplayName
                 Eligible          = $CacheUsersAndApps[$Identity].Eligible.DisplayName
                 Location          = $CanonicalName
 
@@ -123,11 +246,28 @@
                 #OnPremisesLastSyncDateTime  = $CacheUsersAndApps[$Identity].Identity.OnPremisesLastSyncDateTime
             }
         } else {
+            # we need to use different way to count roles for each user
+            # this is because we also count the roles of users nested in groups
+            $RolesCount = 0
+            $GroupNameMember = $CacheUserMembers[$CacheUsersAndApps[$Identity].Identity.Id]
+            if ($GroupNameMember) {
+                # $GroupNameMember['Role']
+
+                # $DirectRoles = $CacheUsersAndApps[$GroupNameMember.id].Direct
+                # $EligibleRoles = $CacheUsersAndApps[$GroupNameMember.id].Eligible
+                # $IdentityOfGroup = $CacheUsersAndApps[$GroupNameMember.id].Identity.DisplayName
+            } else {
+                # $DirectRoles = $null
+                # $EligibleRoles = $null
+                # $IdentityOfGroup = $null
+            }
+
             $UserIdentity = [ordered] @{
                 Name              = $CacheUsersAndApps[$Identity].Identity.DisplayName
                 Enabled           = $CacheUsersAndApps[$Identity].Identity.AccountEnabled
                 Status            = $IsSynced
                 Type              = $Type
+                CreatedDateTime   = $CacheUsersAndApps[$Identity].Identity.CreatedDateTime
                 Mail              = $CacheUsersAndApps[$Identity].Identity.Mail
                 UserPrincipalName = $CacheUsersAndApps[$Identity].Identity.UserPrincipalName
             }
@@ -135,15 +275,56 @@
                 $UserIdentity[$Role] = ''
             }
             foreach ($Role in $CacheUsersAndApps[$Identity].Eligible) {
-                $UserIdentity[$Role.DisplayName] = 'Eligible'
+                if (-not $UserIdentity[$Role.DisplayName] ) {
+                    $UserIdentity[$Role.DisplayName] = [System.Collections.Generic.List[string]]::new()
+                }
+                $UserIdentity[$Role.DisplayName].Add('Eligible')
+                $RolesCount++
             }
-            foreach ($Role in $CacheUsersAndApps[$Identity].Roles) {
-                $UserIdentity[$Role.DisplayName] = 'Direct'
+            foreach ($Role in $CacheUsersAndApps[$Identity].Direct) {
+                if (-not $UserIdentity[$Role.DisplayName] ) {
+                    $UserIdentity[$Role.DisplayName] = [System.Collections.Generic.List[string]]::new()
+                }
+                $UserIdentity[$Role.DisplayName].Add('Direct')
+                $RolesCount++
+            }
+            if ($GroupNameMember) {
+                foreach ($Role in $GroupNameMember['Role'].Keys) {
+                    foreach ($Group in $GroupNameMember['Role'][$Role].GroupsDirect) {
+                        if (-not $UserIdentity[$Role] ) {
+                            $UserIdentity[$Role] = [System.Collections.Generic.List[string]]::new()
+                        }
+                        $UserIdentity[$Role].Add($Group.DisplayName)
+                        $RolesCount++
+                    }
+                    foreach ($Group in $GroupNameMember['Role'][$Role].GroupsEligible) {
+                        if (-not $UserIdentity[$Role] ) {
+                            $UserIdentity[$Role] = [System.Collections.Generic.List[string]]::new()
+                        }
+                        $UserIdentity[$Role].Add($Group.DisplayName)
+                        $RolesCount++
+                    }
+                }
+                # foreach ($Role in $DirectRoles) {
+                #     if (-not $UserIdentity[$Role.DisplayName] ) {
+                #         $UserIdentity[$Role.DisplayName] = [System.Collections.Generic.List[string]]::new()
+                #     }
+                #     $UserIdentity[$Role.DisplayName].Add($IdentityOfGroup)
+                # }
+                # foreach ($Role in $EligibleRoles) {
+                #     if (-not $UserIdentity[$Role.DisplayName]) {
+                #         $UserIdentity[$Role.DisplayName] = [System.Collections.Generic.List[string]]::new()
+                #     }
+                #     $UserIdentity[$Role.DisplayName].Add($IdentityOfGroup)
+                # }
             }
             $UserIdentity['Location'] = $CanonicalName
+            if ($OnlyWithRoles) {
+                if ($RolesCount -eq 0) {
+                   continue
+                }
+            }
             [PSCustomObject] $UserIdentity
         }
     }
-
-
 }
