@@ -42,6 +42,7 @@ $Configuration = @{
                 @{ ModuleName = 'PSWriteHTML'; ModuleVersion = 'Latest'; Guid = 'a7bdf640-f5cb-4acf-9de0-365b322d245c' }
                 @{ ModuleName = 'Microsoft.Graph.DeviceManagement.Enrolment'; ModuleVersion = 'Latest'; Guid = '447dd5b5-a01b-45bb-a55c-c9ecce3e820f' }
                 @{ ModuleName = 'Microsoft.Graph.Users'; ModuleVersion = 'Latest'; Guid = '71150504-37a3-48c6-82c7-7a00a12168db' }
+                @{ ModuleName = 'Microsoft.Graph.Groups'; ModuleVersion = 'Latest'; Guid = '50bc9e18-e281-4208-8913-c9e1bef6083d' }
             )
             ExternalModuleDependencies = @(
                 'Microsoft.PowerShell.Management'
