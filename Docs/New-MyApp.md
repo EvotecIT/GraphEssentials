@@ -13,8 +13,8 @@ schema: 2.0.0
 ## SYNTAX
 
 ```
-New-MyApp [-ApplicationName] <String> [-DisplayNameCredentials] <String> [[-MonthsValid] <Int32>]
- [-RemoveOldCredentials] [-ServicePrincipal] [<CommonParameters>]
+New-MyApp [-ApplicationName] <String> [-DisplayNameCredentials] <String> [[-Description] <String>]
+ [[-MonthsValid] <Int32>] [-RemoveOldCredentials] [-ServicePrincipal] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -37,10 +37,25 @@ PS C:\> {{ Add example code here }}
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases:
+Aliases: AppName, DisplayName
 
 Required: True
 Position: 0
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Description
+{{ Fill Description Description }}
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: 2
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -52,7 +67,7 @@ Accept wildcard characters: False
 ```yaml
 Type: String
 Parameter Sets: (All)
-Aliases:
+Aliases: DescriptionCredentials
 
 Required: True
 Position: 1
@@ -70,7 +85,7 @@ Parameter Sets: (All)
 Aliases:
 
 Required: False
-Position: 2
+Position: 3
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
