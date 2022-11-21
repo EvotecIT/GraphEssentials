@@ -1,9 +1,13 @@
 ﻿function Get-MyApp {
     [cmdletBinding()]
     param(
-
+        [string] $ApplicationName
     )
-    $Application = Get-MgApplication -ConsistencyLevel eventual -All
+    if ($ApplicationName) {
+        $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual
+    } else {
+        $Application = Get-MgApplication -ConsistencyLevel eventual -All
+    }
     $Applications = foreach ($App in $Application) {
         [Array] $DatesSorted = $App.PasswordCredentials.StartDateTime | Sort-Object
 
