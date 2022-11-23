@@ -32,6 +32,9 @@ Locale: en-US
 ### [New-MyAppCredentials](New-MyAppCredentials.md)
 {{ Fill in the Synopsis }}
 
+### [Remove-MyAppCredentials](Remove-MyAppCredentials.md)
+{{ Fill in the Synopsis }}
+
 ### [Show-MyApp](Show-MyApp.md)
 {{ Fill in the Synopsis }}
 
