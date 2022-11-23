@@ -6,22 +6,26 @@
         [int] $GreaterThanDaysToExpire,
         [switch] $Expired,
         [alias('DescriptionCredentials', 'ClientSecretName')][string] $DisplayNameCredentials,
-        [Parameter(DontShow)][Array] $Application
+        [Parameter(DontShow)][Array] $ApplicationList
     )
-    if (-not $Application) {
+    if (-not $ApplicationList) {
         if ($ApplicationName) {
-            $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual
+            $ApplicationList = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual
         } else {
-            $Application = Get-MgApplication -All
+            $ApplicationList = Get-MgApplication -All
         }
     } else {
-        $Application = foreach ($App in $Application) {
-            if ($App.DisplayName -eq $ApplicationName) {
+        $ApplicationList = foreach ($App in $ApplicationList) {
+            if ($PSBoundParameters.ContainsKey('ApplicationName')) {
+                if ($App.DisplayName -eq $ApplicationName) {
+                    $App
+                }
+            } else {
                 $App
             }
         }
     }
-    $ApplicationsWithCredentials = foreach ($App in $Application) {
+    $ApplicationsWithCredentials = foreach ($App in $ApplicationList) {
         if ($App.PasswordCredentials) {
             foreach ($Credentials in $App.PasswordCredentials) {
                 if ($Credentials.EndDateTime -lt [DateTime]::Now) {

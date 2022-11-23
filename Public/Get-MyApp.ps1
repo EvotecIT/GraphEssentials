@@ -13,7 +13,7 @@
         [Array] $DatesSorted = $App.PasswordCredentials.StartDateTime | Sort-Object
 
         # Lets translate credentials to different format
-        $AppCredentials = Get-MyAppCredentials -Application $App
+        $AppCredentials = Get-MyAppCredentials -ApplicationList $App
 
         # Lets find if description has email
         $DescriptionWithEmail = $false
