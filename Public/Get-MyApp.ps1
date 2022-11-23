@@ -1,7 +1,8 @@
 ﻿function Get-MyApp {
     [cmdletBinding()]
     param(
-        [string] $ApplicationName
+        [string] $ApplicationName,
+        [switch] $IncludeCredentials
     )
     if ($ApplicationName) {
         $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual
@@ -33,7 +34,7 @@
             $Expired = 'Not available'
         }
 
-        [PSCustomObject] @{
+        $AppInformation = [ordered] @{
             ObjectId             = $App.Id
             ClientID             = $App.AppId
             ApplicationName      = $App.DisplayName
@@ -46,7 +47,12 @@
             KeysDateNewest       = if ($DatesSorted.Count -gt 0) { $DatesSorted[-1] } else { }
             KeysDescription      = $AppCredentials.ClientSecretName
             DescriptionWithEmail = $DescriptionWithEmail
+
         }
+        if ($IncludeCredentials) {
+            $AppInformation['Keys'] = $AppCredentials
+        }
+        [PSCustomObject] $AppInformation
     }
     $Applications
 }

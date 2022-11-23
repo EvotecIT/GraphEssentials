@@ -8,7 +8,7 @@
         [switch] $RemoveOldCredentials,
         [switch] $ServicePrincipal
     )
-    $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All
+    $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ErrorAction Stop
     if (-not $Application) {
         Write-Verbose -Message "New-MyApp - Creating application $ApplicationName"
         $newMgApplicationSplat = @{
@@ -16,7 +16,7 @@
             Description = $Description
         }
         Remove-EmptyValue -Hashtable $newMgApplicationSplat
-        $Application = New-MgApplication @newMgApplicationSplat
+        $Application = New-MgApplication @newMgApplicationSplat -ErrorAction Stop
     } else {
         Write-Verbose -Message "New-MyApp - Application $ApplicationName already exists. Reusing..."
     }
@@ -49,11 +49,16 @@
         Write-Warning -Message "New-MyApp - Application or credentials for $ApplicationName was not created."
     }
     if ($ServicePrincipal) {
-        Write-Verbose -Message "New-MyApp - Creating service principal for $ApplicationName"
-        try {
-            $null = New-MgServicePrincipal -AppId $Application.AppId -AccountEnabled:$true -ErrorAction Stop
-        } catch {
-            Write-Warning -Message "New-MyApp - Failed to create service principal for $ApplicationName. Error: $($_.Exception.Message)"
+        $ServicePrincipalApp = Get-MgServicePrincipal -Filter "appId eq '$($Application.AppId)'" -All -ConsistencyLevel eventual -ErrorAction Stop
+        if (-not $ServicePrincipalApp) {
+            Write-Verbose -Message "New-MyApp - Creating service principal for $ApplicationName"
+            try {
+                $null = New-MgServicePrincipal -AppId $Application.AppId -AccountEnabled:$true -ErrorAction Stop
+            } catch {
+                Write-Warning -Message "New-MyApp - Failed to create service principal for $ApplicationName. Error: $($_.Exception.Message)"
+            }
+        } else {
+            Write-Verbose -Message "New-MyApp - Service principal for $ApplicationName already exists. Skipping..."
         }
     }
 }

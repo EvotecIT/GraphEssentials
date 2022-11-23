@@ -1,21 +1,33 @@
 ﻿function Get-MyAppCredentials {
     [cmdletBinding()]
     param(
+        [string] $ApplicationName,
         [int] $LessThanDaysToExpire,
+        [int] $GreaterThanDaysToExpire,
         [switch] $Expired,
+        [alias('DescriptionCredentials', 'ClientSecretName')][string] $DisplayNameCredentials,
         [Parameter(DontShow)][Array] $Application
     )
-
     if (-not $Application) {
-        $Application = Get-MgApplication -All
+        if ($ApplicationName) {
+            $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual
+        } else {
+            $Application = Get-MgApplication -All
+        }
+    } else {
+        $Application = foreach ($App in $Application) {
+            if ($App.DisplayName -eq $ApplicationName) {
+                $App
+            }
+        }
     }
     $ApplicationsWithCredentials = foreach ($App in $Application) {
         if ($App.PasswordCredentials) {
             foreach ($Credentials in $App.PasswordCredentials) {
                 if ($Credentials.EndDateTime -lt [DateTime]::Now) {
-                    $Expired = $true
+                    $IsExpired = $true
                 } else {
-                    $Expired = $false
+                    $IsExpired = $false
                 }
                 if ($null -ne $Credentials.DisplayName) {
                     $DisplayName = $Credentials.DisplayName
@@ -34,30 +46,46 @@
                 }
 
                 $Creds = [PSCustomObject] @{
-                    ObjectId            = $App.Id
-                    ApplicationName     = $App.DisplayName
-                    ClientID            = $App.AppId
-                    CreatedDate         = $App.CreatedDateTime
-                    ClientSecretName    = $DisplayName
-                    ClientSecretId      = $Credentials.KeyId
+                    ObjectId         = $App.Id
+                    ApplicationName  = $App.DisplayName
+                    ClientID         = $App.AppId
+                    CreatedDate      = $App.CreatedDateTime
+                    ClientSecretName = $DisplayName
+                    ClientSecretId   = $Credentials.KeyId
                     #ClientSecret        = $Credentials.SecretTex
-                    ClientSecretHint    = $Credentials.Hint
-                    Expired             = $Expired
-                    DaysToExpire        = ($Credentials.EndDateTime - [DateTime]::Now).Days
-                    StartDateTime       = $Credentials.StartDateTime
-                    EndDateTime         = $Credentials.EndDateTime
-
-                    CustomKeyIdentifier = $Credentials.CustomKeyIdentifier
+                    ClientSecretHint = $Credentials.Hint
+                    Expired          = $IsExpired
+                    DaysToExpire     = ($Credentials.EndDateTime - [DateTime]::Now).Days
+                    StartDateTime    = $Credentials.StartDateTime
+                    EndDateTime      = $Credentials.EndDateTime
+                    #CustomKeyIdentifier = $Credentials.CustomKeyIdentifier
+                }
+                if ($PSBoundParameters.ContainsKey('DisplayNameCredentials')) {
+                    if ($Creds.ClientSecretName -notlike $DisplayNameCredentials) {
+                        continue
+                    }
                 }
                 if ($PSBoundParameters.ContainsKey('LessThanDaysToExpire')) {
                     if ($LessThanDaysToExpire -ge $Creds.DaysToExpire) {
-                        $Creds
+                        #$Creds
+                    } else {
+                        continue
                     }
                 } elseif ($PSBoundParameters.ContainsKey('Expired')) {
-                    $Creds
-                } else {
-                    $Creds
+                    if ($Creds.Expired -eq $true) {
+
+                    } else {
+                        continue
+                    }
+                } elseif ($PSBoundParameters.ContainsKey('GreaterThanDaysToExpire')) {
+                    if ($GreaterThanDaysToExpire -le $Creds.DaysToExpire) {
+                        #$Creds
+                    } else {
+                        continue
+                    }
                 }
+                $Creds
+
             }
         }
     }

@@ -27,8 +27,8 @@
     }
     $PasswordCredential.EndDateTime = [datetime]::Now.AddMonths($MonthsValid)
     try {
-        Add-MgApplicationPassword -ApplicationId $ID -PasswordCredential $PasswordCredential
+        Add-MgApplicationPassword -ApplicationId $ID -PasswordCredential $PasswordCredential -ErrorAction Stop
     } catch {
-        Write-Warning -Message "Failed to add password credential to application $ID / $ApplicationName"
+        Write-Warning -Message "Failed to add password credential to application $ID / $ApplicationName. Error: $($_.Exception.Message)"
     }
 }
