@@ -43,6 +43,8 @@ $Configuration = @{
                 @{ ModuleName = 'Microsoft.Graph.DeviceManagement.Enrolment'; ModuleVersion = 'Latest'; Guid = '447dd5b5-a01b-45bb-a55c-c9ecce3e820f' }
                 @{ ModuleName = 'Microsoft.Graph.Users'; ModuleVersion = 'Latest'; Guid = '71150504-37a3-48c6-82c7-7a00a12168db' }
                 @{ ModuleName = 'Microsoft.Graph.Groups'; ModuleVersion = 'Latest'; Guid = '50bc9e18-e281-4208-8913-c9e1bef6083d' }
+                @{ ModuleName = 'O365Essentials'; ModuleVersion = 'Latest'; Guid = 'a8752d7b-17c8-41db-b3f9-b8f225de028d' }
+                @{ ModuleName = 'Mailozaurr'; ModuleVersion = 'Latest'; Guid = '2b0ea9f1-3ff1-4300-b939-106d5da608fa' }
             )
             ExternalModuleDependencies = @(
                 'Microsoft.PowerShell.Management'
@@ -115,7 +117,7 @@ $Configuration = @{
                 RemoveComments = $false
             }
             Integrate      = @{
-                ApprovedModules = @('PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword')
+                ApprovedModules = @('PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword', 'O365Essentials')
             }
         }
         Standard          = @{
@@ -164,10 +166,10 @@ $Configuration = @{
             Verbose         = $false
         }
         PublishModule      = @{  # requires Enable to be on to process all of that
-            Enabled      = $true
+            Enabled      = $false
             Prerelease   = ''
             RequireForce = $false
-            GitHub       = $true
+            GitHub       = $false
         }
     }
 }
