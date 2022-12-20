@@ -14,7 +14,7 @@ schema: 2.0.0
 
 ```
 Send-MyApp [-ApplicationName] <Array> [-EmailFrom] <String> [-EmailTo] <String[]> [[-EmailSubject] <String>]
- [-Domain] <String> [<CommonParameters>]
+ [-Domain] <String> [-RemoveOldCredentials] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -101,6 +101,21 @@ Aliases:
 
 Required: True
 Position: 2
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -RemoveOldCredentials
+{{ Fill RemoveOldCredentials Description }}
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
