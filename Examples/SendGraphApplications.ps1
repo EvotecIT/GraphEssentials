@@ -1,10 +1,10 @@
-﻿Import-Module .\KnaufAzure.psd1 -Force
+﻿Import-Module .\GraphEssentials.psd1 -Force
 
 Connect-MgGraph -Scopes Application.ReadWrite.All, Mail.Send
 
 # email information
-$EmailFrom = 'przemyslaw.klys@evotec.pl'
-$EmailTo = 'przemyslaw.klys@evotec.pl'
+$EmailFrom = 'przemyslaw.klys@test.pl'
+$EmailTo = 'przemyslaw.klys@test.pl'
 
 ## app names
 $AppNames = @(
@@ -14,4 +14,6 @@ $AppNames = @(
     'ServiceNow Intune Integration1'
 )
 
-Send-MyApp -EmailFrom $EmailFrom -EmailTo $EmailTo -ApplicationName $AppNames -Domain 'knauf.com'
+$Output = Send-MyApp -EmailFrom $EmailFrom -EmailTo $EmailTo -ApplicationName $AppNames -Domain 'evotec.pl' -RemoveOldCredentials
+$Output.EmailStatus | Format-Table
+$Output.Applications | Format-Table
