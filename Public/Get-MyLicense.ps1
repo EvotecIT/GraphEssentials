@@ -1,18 +1,22 @@
 ﻿function Get-MyLicense {
     [CmdletBinding()]
     param(
-        [switch] $Internal
+        [Parameter(DontShow)][switch] $Internal
     )
     $Skus = Get-MgSubscribedSku -All
     if ($Internal) {
-        $Licenses = [ordered] @{}
+        # This is used by Get-MyUser to get the list of licenses and service plans and faster search
+        $Output = [ordered] @{
+            Licenses     = [ordered] @{}
+            ServicePlans = [ordered] @{}
+        }
         foreach ($SKU in $Skus) {
-            $Licenses[$Sku.SkuId] = Convert-Office365License -License $SKU.SkuPartNumber
+            $Output['Licenses'][$Sku.SkuId] = Convert-Office365License -License $SKU.SkuPartNumber
             foreach ($Plan in $Sku.ServicePlans) {
-                $Licenses[$Plan.ServicePlanId] = Convert-Office365License -License $Plan.ServicePlanName
+                $Output['ServicePlans'][$Plan.ServicePlanId] = Convert-Office365License -License $Plan.ServicePlanName
             }
         }
-        $Licenses
+        $Output
     } else {
         foreach ($SKU in $Skus) {
             [PSCustomObject] @{
