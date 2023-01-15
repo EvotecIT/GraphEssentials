@@ -37,3 +37,21 @@ Update-Module -Name GraphEssentials
 That's it. Whenever there's a new version, you run the command, and you can enjoy it. Remember that you may need to close, reopen PowerShell session if you have already used module before updating it.
 
 **The essential thing** is if something works for you on production, keep using it till you test the new version on a test computer. I do changes that may not be big, but big enough that auto-update may break your code. For example, small rename to a parameter and your code stops working! Be responsible!
+
+### Using Graph
+
+#### Connecting with ApplicationID, ApplicationSecret as an application
+
+
+```powershell
+# Client secret Encrypted can be saved to file and then loaded from file
+$ClientSecretEncrypted = 'ClientSecretToEncrypt' | ConvertTo-SecureString -AsPlainText | ConvertFrom-SecureString
+$AccessToken = Get-MgToken -Domain 'evotec.pl' -ClientID 'ClientID' -ClientSecretEncrypted $ClientSecretEncrypted
+Connect-MgGraph -AccessToken $AccessToken
+```
+
+### Connecting with delegated rights
+
+```powershell
+Connect-MgGraph -Scopes Application.ReadWrite.All, AccessReview.Read.All, AdministrativeUnit.Read.All, 'User.Read.All', RoleManagement.Read.Directory, Directory.Read.All, EntitlementManagement.Read.All
+```

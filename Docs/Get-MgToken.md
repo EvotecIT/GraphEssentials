@@ -12,8 +12,14 @@ schema: 2.0.0
 
 ## SYNTAX
 
+### Domain (Default)
 ```
-Get-MgToken [[-ClientID] <String>] [[-ClientSecret] <String>] [[-TenantID] <String>] [<CommonParameters>]
+Get-MgToken -ClientID <String> -ClientSecret <String> -Domain <String> [<CommonParameters>]
+```
+
+### TenantID
+```
+Get-MgToken -ClientID <String> -ClientSecret <String> -TenantID <String> [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -38,8 +44,8 @@ Type: String
 Parameter Sets: (All)
 Aliases: ApplicationID
 
-Required: False
-Position: 0
+Required: True
+Position: Named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -53,8 +59,23 @@ Type: String
 Parameter Sets: (All)
 Aliases:
 
-Required: False
-Position: 1
+Required: True
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Domain
+{{ Fill Domain Description }}
+
+```yaml
+Type: String
+Parameter Sets: Domain
+Aliases:
+
+Required: True
+Position: Named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -65,11 +86,11 @@ Accept wildcard characters: False
 
 ```yaml
 Type: String
-Parameter Sets: (All)
+Parameter Sets: TenantID
 Aliases:
 
-Required: False
-Position: 2
+Required: True
+Position: Named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
