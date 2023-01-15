@@ -5,26 +5,15 @@ online version:
 schema: 2.0.0
 ---
 
-# Get-MyUser
+# Get-MgToken
 
 ## SYNOPSIS
 {{ Fill in the Synopsis }}
 
 ## SYNTAX
 
-### Default (Default)
 ```
-Get-MyUser [<CommonParameters>]
-```
-
-### PerLicense
-```
-Get-MyUser [-PerLicense] [<CommonParameters>]
-```
-
-### PerServicePlan
-```
-Get-MyUser [-PerServicePlan] [<CommonParameters>]
+Get-MgToken [[-ClientID] <String>] [[-ClientSecret] <String>] [[-TenantID] <String>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -41,31 +30,46 @@ PS C:\> {{ Add example code here }}
 
 ## PARAMETERS
 
-### -PerLicense
-{{ Fill PerLicense Description }}
+### -ClientID
+{{ Fill ClientID Description }}
 
 ```yaml
-Type: SwitchParameter
-Parameter Sets: PerLicense
-Aliases:
+Type: String
+Parameter Sets: (All)
+Aliases: ApplicationID
 
 Required: False
-Position: Named
+Position: 0
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -PerServicePlan
-{{ Fill PerServicePlan Description }}
+### -ClientSecret
+{{ Fill ClientSecret Description }}
 
 ```yaml
-Type: SwitchParameter
-Parameter Sets: PerServicePlan
+Type: String
+Parameter Sets: (All)
 Aliases:
 
 Required: False
-Position: Named
+Position: 1
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -TenantID
+{{ Fill TenantID Description }}
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: 2
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
