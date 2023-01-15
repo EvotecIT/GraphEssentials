@@ -17,10 +17,16 @@ Locale: en-US
 ### [Get-MyAppCredentials](Get-MyAppCredentials.md)
 {{ Fill in the Synopsis }}
 
+### [Get-MyLicense](Get-MyLicense.md)
+{{ Fill in the Synopsis }}
+
 ### [Get-MyRole](Get-MyRole.md)
 {{ Fill in the Synopsis }}
 
 ### [Get-MyRoleUsers](Get-MyRoleUsers.md)
+{{ Fill in the Synopsis }}
+
+### [Get-MyUser](Get-MyUser.md)
 {{ Fill in the Synopsis }}
 
 ### [Invoke-MyGraphEssentials](Invoke-MyGraphEssentials.md)
