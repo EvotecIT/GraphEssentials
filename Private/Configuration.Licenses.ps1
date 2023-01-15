@@ -1,5 +1,5 @@
 ﻿$Script:Licenses = [ordered] @{
-    Name       = 'Azure Active Directory Licenses'
+    Name       = 'Azure Licenses'
     Enabled    = $true
     Execute    = {
         Get-MyLicense
