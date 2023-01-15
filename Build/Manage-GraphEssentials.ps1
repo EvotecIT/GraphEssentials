@@ -39,6 +39,7 @@ $Configuration = @{
             RequiredModules            = @(
                 @{ ModuleName = 'PSSharedGoods'; ModuleVersion = "Latest"; Guid = 'ee272aa8-baaa-4edf-9f45-b6d6f7d844fe' }
                 @{ ModuleName = 'Microsoft.Graph.Applications'; ModuleVersion = 'Latest'; Guid = '467f54f2-44a8-4993-8e75-b96c3e443098' }
+                @{ ModuleName = 'Microsoft.Graph.Identity.DirectoryManagement'; ModuleVersion = 'Latest'; Guid = 'c767240d-585c-42cb-bb2f-6e76e6d639d4' }
                 @{ ModuleName = 'PSWriteHTML'; ModuleVersion = 'Latest'; Guid = 'a7bdf640-f5cb-4acf-9de0-365b322d245c' }
                 @{ ModuleName = 'Microsoft.Graph.DeviceManagement.Enrolment'; ModuleVersion = 'Latest'; Guid = '447dd5b5-a01b-45bb-a55c-c9ecce3e820f' }
                 @{ ModuleName = 'Microsoft.Graph.Users'; ModuleVersion = 'Latest'; Guid = '71150504-37a3-48c6-82c7-7a00a12168db' }
