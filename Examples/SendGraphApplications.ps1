@@ -3,13 +3,13 @@
 Connect-MgGraph -Scopes Application.ReadWrite.All, Mail.Send
 
 # email information
-$EmailFrom = 'przemyslaw.klys@test.pl'
-$EmailTo = 'przemyslaw.klys@test.pl'
+$EmailFrom = 'przemyslaw.klys@evotec.pl'
+$EmailTo = 'przemyslaw.klys@evotec.pl'
 
 ## app names
 $AppNames = @(
-    #@{ ApplicationName = '1sp-ct-knaufnow-prod'; Description = 'Management SP Knauf Now - Production'; ServicePrincipal = $true }
-    #@{ ApplicationName = '1sp-ct-knaufnow-non-prod' ; Description = 'Management SP Knauf Now - Non Production'; ServicePrincipal = $true }
+    #@{ ApplicationName = '1sp-ct-prod'; Description = 'Management SP Now - Production'; ServicePrincipal = $true }
+    #@{ ApplicationName = '1sp-ct-non-prod' ; Description = 'Management SP Now - Non Production'; ServicePrincipal = $true }
     #@{ ApplicationName = '1sp-ct-sandbox'; Description = 'Management SP for sandbox subscription'; ServicePrincipal = $true }
     'ServiceNow Intune Integration1'
 )
