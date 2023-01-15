@@ -27,8 +27,6 @@
             'Mail'                       = $User.Mail
             'Manager'                    = if ($User.Manager.Id) { $User.Manager.Id } else { $null }
             'LastPasswordChangeDateTime' = $User.LastPasswordChangeDateTime
-            'LicensesStatus'             = [System.Collections.Generic.List[string]]::new()
-            'LicensesErrors'             = [System.Collections.Generic.List[string]]::new()
             #'AssignedLicenses'           = $User.AssignedLicenses
         }
         if ($PerLicense) {
