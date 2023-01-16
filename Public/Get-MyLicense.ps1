@@ -19,13 +19,18 @@
         $Output
     } else {
         foreach ($SKU in $Skus) {
+            if ($SKU.PrepaidUnits.Enabled -gt 0) {
+                $LicensesUsedPercent = [math]::Round(($SKU.ConsumedUnits / $SKU.PrepaidUnits.Enabled) * 100, 0)
+            } else {
+                $LicensesUsedPercent = 100
+            }
             [PSCustomObject] @{
                 Name                  = Convert-Office365License -License $SKU.SkuPartNumber
                 SkuId                 = $SKU.SkuId                # : 26124093 - 3d78-432b-b5dc-48bf992543d5
                 SkuPartNumber         = $SKU.SkuPartNumber        # : IDENTITY_THREAT_PROTECTION
                 AppliesTo             = $SKU.AppliesTo            # : User
                 CapabilityStatus      = $SKU.CapabilityStatus     # : Enabled
-                LicensesUsedPercent   = [math]::Round(($SKU.ConsumedUnits / $SKU.PrepaidUnits.Enabled) * 100, 0)
+                LicensesUsedPercent   = $LicensesUsedPercent
                 LicensesUsedCount     = $SKU.ConsumedUnits        # : 1
                 #Id                   = $SKU.Id                   # : ceb371f6 - 8745 - 4876-a040 - 69f2d10a9d1a_26124093-3d78-432b-b5dc-48bf992543d5
                 LicenseCountEnabled   = $SKU.PrepaidUnits.Enabled
