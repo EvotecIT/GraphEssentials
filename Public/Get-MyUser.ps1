@@ -9,14 +9,26 @@
         'LicenseAssignmentStates', 'AccountEnabled', 'AssignedLicenses', 'AssignedPlans', 'DisplayName',
         'Id', 'GivenName', 'SurName', 'JobTitle', 'LastPasswordChangeDateTime', 'Mail', 'Manager'
     )
+    Write-Verbose -Message "Get-MyUser - Getting list of licenses"
+    $AllLicenses = Get-MyLicense -Internal
+    $AllLicensesValues = $AllLicenses['Licenses'].Values | Sort-Object
+    $AllServicePlansValues = $AllLicenses['ServicePlans'].Values | Sort-Object
+
     $getMgUserSplat = @{
         All      = $true
         Property = $Properties
     }
-
-    $AllLicenses = Get-MyLicense -Internal
+    Write-Verbose -Message "Get-MyUser - Getting list of all users"
+    $StartTime = [System.Diagnostics.Stopwatch]::StartNew()
     $AllUsers = Get-MgUser @getMgUserSplat
+    $EndTime = Stop-TimeLog -Time $StartTime -Option OneLiner
+    Write-Verbose -Message "Get-MyUser - Got $($AllUsers.Count) users in $($EndTime). Now processing them."
+
+    $StartTime = [System.Diagnostics.Stopwatch]::StartNew()
+    $Count = 0
     foreach ($User in $AllUsers) {
+        $Count++
+        Write-Verbose -Message "Get-MyUser - Processing $($User.DisplayName) - $Count/$($AllUsers.Count)"
         $OutputUser = [ordered] @{
             'DisplayName'                = $User.DisplayName
             'Id'                         = $User.Id
@@ -32,32 +44,35 @@
         if ($PerLicense) {
             $LicensesErrors = [System.Collections.Generic.List[string]]::new()
             $OutputUser['NotMatched'] = [System.Collections.Generic.List[string]]::new()
-            foreach ($License in $AllLicenses['Licenses'].Values | Sort-Object) {
+            foreach ($License in $AllLicensesValues) {
                 $OutputUser[$License] = [System.Collections.Generic.List[string]]::new()
             }
             foreach ($License in $User.LicenseAssignmentStates) {
-                $LicenseFound = $AllLicenses['Licenses'][$License.SkuId]
-                if ($LicenseFound) {
-                    if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
-                        $OutputUser[$LicenseFound].Add('Group')
-                    } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
-                        $OutputUser[$LicenseFound].Add('Direct')
+                try {
+                    $LicenseFound = $AllLicenses['Licenses'][$License.SkuId]
+                    if ($LicenseFound) {
+                        if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
+                            $OutputUser[$LicenseFound].Add('Group')
+                        } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
+                            $OutputUser[$LicenseFound].Add('Direct')
+                        }
+                    } else {
+                        if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
+                            $OutputUser['DifferentLicense'].Add("Group $($License.SkuId)")
+                        } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
+                            $OutputUser['DifferentLicense'].Add("Direct $($License.SkuId)")
+                        }
+                        Write-Warning -Message "$($License.SkuId) not found in AllLicenses"
+                        $LicensesErrors.Add("License ID $(License.SkuId) not found in All Licenses")
                     }
-                } else {
-                    if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
-                        $OutputUser['DifferentLicense'].Add("Group $($License.SkuId)")
-                    } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
-                        $OutputUser['DifferentLicense'].Add("Direct $($License.SkuId)")
-                    }
-
-                    Write-Warning -Message "$($License.SkuId) not found in AllLicenses"
-                    $LicensesErrors.Add("License ID $(License.SkuId) not found in All Licenses")
+                } catch {
+                    Write-Warning -Message "Error processing $($License.SkuId) for $($User.DisplayName)"
                 }
             }
             $OutputUser['LicensesErrors'] = $LicensesErrors | Sort-Object -Unique
         } elseif ($PerServicePlan) {
             $OutputUser['DeletedServicePlans'] = [System.Collections.Generic.List[string]]::new()
-            foreach ($ServicePlan in $AllLicenses['ServicePlans'].Values | Sort-Object) {
+            foreach ($ServicePlan in $AllServicePlansValues) {
                 $OutputUser[$ServicePlan] = ''
             }
             foreach ($ServicePlan in $User.AssignedPlans) {
@@ -84,88 +99,27 @@
                         $LicensesStatus.Add('Direct')
                     } else {
                         $LicensesStatus.Add($_.State)
-                        $LicensesErrors.Add($_.Error)
+                        if ($LicensesErrors -notcontains $_.Error) {
+                            $LicensesErrors.Add($_.Error)
+                        }
                     }
                 } else {
                     $LicensesStatus.Add("Duplicate")
                 }
-                <#
-AssignedByGroup                      DisabledPlans Error LastUpdatedDateTime SkuId                                State
----------------                      ------------- ----- ------------------- -----                                -----
-afcbd319-f9d2-45b2-b7a4-6024ed6bb6a2 {}            None  2023-01-15 09:46:31 6fd2c87f-b296-42f0-b197-1e91e994b900 Active
-                                     {}            None  2022-05-12 12:50:06 26124093-3d78-432b-b5dc-48bf992543d5 Active
-                                     {}            None  2022-05-12 12:50:06 6fd2c87f-b296-42f0-b197-1e91e994b900 Active
-                                     {}            None  2022-05-12 12:50:06 b05e124f-c7cc-45a0-a6aa-8cf78c946968 Active
-                                     {}            None  2022-05-12 12:50:06 f30db892-07e9-47e9-837c-80727f46fd3d Active
-                                     {}            None  2022-05-12 12:50:06 f8a1db68-be16-40ed-86d5-cb42ce701560 Active
-#>
+            }
+            $Plans = foreach ($Object in $User.AssignedPlans) {
+                if ($Object.CapabilityStatus -ne 'Deleted') {
+                    $AllLicenses['ServicePlans'][$Object.ServicePlanId]
+                }
             }
 
             $OutputUser['LicensesStatus'] = $LicensesStatus | Sort-Object -Unique
-            $OutputUser['LicensesErrors'] = $LicensesErrors | Sort-Object -Unique
+            $OutputUser['LicensesErrors'] = $LicensesErrors
             $OutputUser['Licenses'] = $LicensesList
-            $OutputUser['Plans'] = $User.AssignedPlans | ForEach-Object {
-                if ($_.CapabilityStatus -ne 'Deleted') {
-                    #$_.Service
-                    #Convert-Office365License -License $_.ServicePlanId
-                    $AllLicenses['ServicePlans'][$_.ServicePlanId]
-                }
-            }
+            $OutputUser['Plans'] = $Plans
         }
         [PSCustomObject] $OutputUser
-        #}
-
-        # if ($User.AssignedLicenses) {
-        <#
-DisabledPlans SkuId
-------------- -----
-{}            f30db892-07e9-47e9-837c-80727f46fd3d
-{}            6fd2c87f-b296-42f0-b197-1e91e994b900
-#>
-
-        #$User.AssignedLicenses | Format-List
-
-        #  }
-        # if ($User.LicenseAssignmentStates) {
-        #$User.LicenseAssignmentStates | Format-List
-        <#
-AssignedByGroup      :
-DisabledPlans        : {}
-Error                : None
-LastUpdatedDateTime  : 2020-02-07 08:56:49
-SkuId                : 6fd2c87f-b296-42f0-b197-1e91e994b900
-State                : Active
-AdditionalProperties : {}
-
-AssignedByGroup      :
-DisabledPlans        : {}
-Error                : None
-LastUpdatedDateTime  : 2020-02-07 08:56:49
-SkuId                : f30db892-07e9-47e9-837c-80727f46fd3d
-State                : Active
-AdditionalProperties : {}
-#>
-
-        # }
-        #if ($User.AssignedPlans) {
-        #   $User.AssignedPlans | Format-List
-
-        <#
-AssignedDateTime     : 2019-06-10 12:53:08
-CapabilityStatus     : Deleted
-Service              : Sway
-ServicePlanId        : a23b959c-7ce8-4e57-9140-b90eb88a9e97
-AdditionalProperties : {}
-
-AssignedDateTime     : 2019-06-10 12:53:08
-CapabilityStatus     : Deleted
-Service              : YammerEnterprise
-ServicePlanId        : 7547a3fe-08ee-4ccb-b430-5077c5041653
-AdditionalProperties : {}
-            #>
-
-        #}
     }
-
-    # return $AllUsers | Select-Object -Property $Properties
+    $EndTime = Stop-TimeLog -Time $StartTime -Option OneLiner
+    Write-Verbose -Message "Get-MyUser - Processed all users in $($EndTime)."
 }
