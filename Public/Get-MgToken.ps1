@@ -57,20 +57,20 @@
         [Parameter(ParameterSetName = 'DomainEncrypted', Mandatory)]
         [Parameter(ParameterSetName = 'Domain', Mandatory)][string] $Domain,
 
-        [Parameter(ParameterSetName = 'TenantID', Mandatory)]
-        [Parameter(ParameterSetName = 'Domain', Mandatory)]
-        [Parameter(ParameterSetName = 'TenantIDEncrypted', Mandatory)]
-        [Parameter(ParameterSetName = 'DomainEncrypted', Mandatory)]
+        [Parameter(ParameterSetName = 'TenantID')]
+        [Parameter(ParameterSetName = 'Domain')]
+        [Parameter(ParameterSetName = 'TenantIDEncrypted')]
+        [Parameter(ParameterSetName = 'DomainEncrypted')]
         [string] $Proxy,
-        [Parameter(ParameterSetName = 'TenantID', Mandatory)]
-        [Parameter(ParameterSetName = 'Domain', Mandatory)]
-        [Parameter(ParameterSetName = 'TenantIDEncrypted', Mandatory)]
-        [Parameter(ParameterSetName = 'DomainEncrypted', Mandatory)]
+        [Parameter(ParameterSetName = 'TenantID')]
+        [Parameter(ParameterSetName = 'Domain')]
+        [Parameter(ParameterSetName = 'TenantIDEncrypted')]
+        [Parameter(ParameterSetName = 'DomainEncrypted')]
         [PSCredential] $ProxyCredential,
-        [Parameter(ParameterSetName = 'TenantID', Mandatory)]
-        [Parameter(ParameterSetName = 'Domain', Mandatory)]
-        [Parameter(ParameterSetName = 'TenantIDEncrypted', Mandatory)]
-        [Parameter(ParameterSetName = 'DomainEncrypted', Mandatory)]
+        [Parameter(ParameterSetName = 'TenantID')]
+        [Parameter(ParameterSetName = 'Domain')]
+        [Parameter(ParameterSetName = 'TenantIDEncrypted')]
+        [Parameter(ParameterSetName = 'DomainEncrypted')]
         [switch] $ProxyUseDefaultCredentials
 
     )
