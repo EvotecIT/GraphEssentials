@@ -30,17 +30,33 @@
             #'AssignedLicenses'           = $User.AssignedLicenses
         }
         if ($PerLicense) {
+            $LicensesErrors = [System.Collections.Generic.List[string]]::new()
+            $OutputUser['NotMatched'] = [System.Collections.Generic.List[string]]::new()
             foreach ($License in $AllLicenses['Licenses'].Values | Sort-Object) {
                 $OutputUser[$License] = [System.Collections.Generic.List[string]]::new()
             }
             foreach ($License in $User.LicenseAssignmentStates) {
-                if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
-                    $OutputUser[$AllLicenses['Licenses'][$License.SkuId]].Add('Group')
-                } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
-                    $OutputUser[$AllLicenses['Licenses'][$License.SkuId]].Add('Direct')
+                $LicenseFound = $AllLicenses['Licenses'][$License.SkuId]
+                if ($LicenseFound) {
+                    if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
+                        $OutputUser[$LicenseFound].Add('Group')
+                    } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
+                        $OutputUser[$LicenseFound].Add('Direct')
+                    }
+                } else {
+                    if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
+                        $OutputUser['DifferentLicense'].Add("Group $($License.SkuId)")
+                    } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
+                        $OutputUser['DifferentLicense'].Add("Direct $($License.SkuId)")
+                    }
+
+                    Write-Warning -Message "$($License.SkuId) not found in AllLicenses"
+                    $LicensesErrors.Add("License ID $(License.SkuId) not found in All Licenses")
                 }
             }
+            $OutputUser['LicensesErrors'] = $LicensesErrors | Sort-Object -Unique
         } elseif ($PerServicePlan) {
+            $OutputUser['DeletedServicePlans'] = [System.Collections.Generic.List[string]]::new()
             foreach ($ServicePlan in $AllLicenses['ServicePlans'].Values | Sort-Object) {
                 $OutputUser[$ServicePlan] = ''
             }
@@ -50,6 +66,8 @@
                 } else {
                     if ($ServicePlan.CapabilityStatus -ne 'Deleted') {
                         Write-Warning -Message "$($ServicePlan.ServicePlanId) $($ServicePlan.Service) not found in AllLicenses"
+                    } else {
+                        $OutputUser['DeletedServicePlans'].Add($ServicePlan.ServicePlanId)
                     }
                 }
             }
