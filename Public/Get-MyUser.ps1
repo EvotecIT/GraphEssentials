@@ -63,7 +63,7 @@
                             $OutputUser['DifferentLicense'].Add("Direct $($License.SkuId)")
                         }
                         Write-Warning -Message "$($License.SkuId) not found in AllLicenses"
-                        $LicensesErrors.Add("License ID $(License.SkuId) not found in All Licenses")
+                        $LicensesErrors.Add("License ID $($License.SkuId) not found in All Licenses")
                     }
                 } catch {
                     Write-Warning -Message "Error processing $($License.SkuId) for $($User.DisplayName)"
