@@ -17,6 +17,16 @@ schema: 2.0.0
 Get-MgToken -ClientID <String> -ClientSecret <String> -Domain <String> [<CommonParameters>]
 ```
 
+### DomainEncrypted
+```
+Get-MgToken -ClientID <String> -ClientSecretEncrypted <String> -Domain <String> [<CommonParameters>]
+```
+
+### TenantIDEncrypted
+```
+Get-MgToken -ClientID <String> -ClientSecretEncrypted <String> -TenantID <String> [<CommonParameters>]
+```
+
 ### TenantID
 ```
 Get-MgToken -ClientID <String> -ClientSecret <String> -TenantID <String> [<CommonParameters>]
@@ -56,7 +66,7 @@ Accept wildcard characters: False
 
 ```yaml
 Type: String
-Parameter Sets: (All)
+Parameter Sets: Domain, TenantID
 Aliases:
 
 Required: True
@@ -66,12 +76,12 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Domain
-{{ Fill Domain Description }}
+### -ClientSecretEncrypted
+{{ Fill ClientSecretEncrypted Description }}
 
 ```yaml
 Type: String
-Parameter Sets: Domain
+Parameter Sets: DomainEncrypted, TenantIDEncrypted
 Aliases:
 
 Required: True
@@ -86,7 +96,22 @@ Accept wildcard characters: False
 
 ```yaml
 Type: String
-Parameter Sets: TenantID
+Parameter Sets: TenantIDEncrypted, TenantID
+Aliases:
+
+Required: True
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Domain
+{{ Fill Domain Description }}
+
+```yaml
+Type: String
+Parameter Sets: Domain, DomainEncrypted
 Aliases:
 
 Required: True
