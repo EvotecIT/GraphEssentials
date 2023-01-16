@@ -8,7 +8,7 @@
     Description          = 'GraphEssentials is a PowerShell that help with Office 365 / Azure AD using mostly Graph'
     FunctionsToExport    = @('Get-MgToken', 'Get-MyApp', 'Get-MyAppCredentials', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleUsers', 'Get-MyUser', 'Invoke-MyGraphEssentials', 'New-MyApp', 'New-MyAppCredentials', 'Remove-MyAppCredentials', 'Send-MyApp', 'Show-MyApp')
     GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
-    ModuleVersion        = '0.0.18'
+    ModuleVersion        = '0.0.19'
     PowerShellVersion    = '5.1'
     PrivateData          = @{
         PSData = @{
