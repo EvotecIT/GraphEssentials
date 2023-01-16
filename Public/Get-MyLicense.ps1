@@ -22,7 +22,11 @@
             if ($SKU.PrepaidUnits.Enabled -gt 0) {
                 $LicensesUsedPercent = [math]::Round(($SKU.ConsumedUnits / $SKU.PrepaidUnits.Enabled) * 100, 0)
             } else {
-                $LicensesUsedPercent = 100
+                if ($SKU.ConsumedUnits -gt 0) {
+                    $LicensesUsedPercent = [math]::Round($SKU.ConsumedUnits * 100, 0)
+                } else {
+                    $LicensesUsedPercent = 0
+                }
             }
             [PSCustomObject] @{
                 Name                  = Convert-Office365License -License $SKU.SkuPartNumber
