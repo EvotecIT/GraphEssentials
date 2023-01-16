@@ -55,7 +55,23 @@
         [Parameter(ParameterSetName = 'TenantID', Mandatory)][string] $TenantID,
 
         [Parameter(ParameterSetName = 'DomainEncrypted', Mandatory)]
-        [Parameter(ParameterSetName = 'Domain', Mandatory)][string] $Domain
+        [Parameter(ParameterSetName = 'Domain', Mandatory)][string] $Domain,
+
+        [Parameter(ParameterSetName = 'TenantID', Mandatory)]
+        [Parameter(ParameterSetName = 'Domain', Mandatory)]
+        [Parameter(ParameterSetName = 'TenantIDEncrypted', Mandatory)]
+        [Parameter(ParameterSetName = 'DomainEncrypted', Mandatory)]
+        [string] $Proxy,
+        [Parameter(ParameterSetName = 'TenantID', Mandatory)]
+        [Parameter(ParameterSetName = 'Domain', Mandatory)]
+        [Parameter(ParameterSetName = 'TenantIDEncrypted', Mandatory)]
+        [Parameter(ParameterSetName = 'DomainEncrypted', Mandatory)]
+        [PSCredential] $ProxyCredential,
+        [Parameter(ParameterSetName = 'TenantID', Mandatory)]
+        [Parameter(ParameterSetName = 'Domain', Mandatory)]
+        [Parameter(ParameterSetName = 'TenantIDEncrypted', Mandatory)]
+        [Parameter(ParameterSetName = 'DomainEncrypted', Mandatory)]
+        [switch] $ProxyUseDefaultCredentials
 
     )
     if ($PSBoundParameters.ContainsKey('ClientSecretEncrypted')) {
@@ -79,6 +95,20 @@
     if (-not $Tenant) {
         throw "Get-MgToken - Unable to get Tenant ID"
     }
-    $connection = Invoke-RestMethod -Uri "https://login.microsoftonline.com/$Tenant/oauth2/v2.0/token" -Method POST -Body $Body
+    $invokeRestMethodSplat = @{
+        Uri    = "https://login.microsoftonline.com/$Tenant/oauth2/v2.0/token"
+        Method = 'POST'
+        Body   = $Body
+    }
+    if ($PSBoundParameters.ContainsKey('Proxy')) {
+        $invokeRestMethodSplat.Proxy = $Proxy
+    }
+    if ($PSBoundParameters.ContainsKey('ProxyCredential')) {
+        $invokeRestMethodSplat.ProxyCredential = $ProxyCredential
+    }
+    if ($PSBoundParameters.ContainsKey('ProxyUseDefaultCredentials')) {
+        $invokeRestMethodSplat.ProxyUseDefaultCredentials = $ProxyUseDefaultCredentials
+    }
+    $connection = Invoke-RestMethod @invokeRestMethodSplat
     $connection.access_token
 }
