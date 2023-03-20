@@ -14,26 +14,26 @@ schema: 2.0.0
 
 ### Domain (Default)
 ```
-Get-MgToken -ClientID <String> -ClientSecret <String> -Domain <String> -Proxy <String>
- -ProxyCredential <PSCredential> [-ProxyUseDefaultCredentials] [<CommonParameters>]
+Get-MgToken -ClientID <String> -ClientSecret <String> -Domain <String> [-Proxy <String>]
+ [-ProxyCredential <PSCredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
 ```
 
 ### DomainEncrypted
 ```
-Get-MgToken -ClientID <String> -ClientSecretEncrypted <String> -Domain <String> -Proxy <String>
- -ProxyCredential <PSCredential> [-ProxyUseDefaultCredentials] [<CommonParameters>]
+Get-MgToken -ClientID <String> -ClientSecretEncrypted <String> -Domain <String> [-Proxy <String>]
+ [-ProxyCredential <PSCredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
 ```
 
 ### TenantIDEncrypted
 ```
-Get-MgToken -ClientID <String> -ClientSecretEncrypted <String> -TenantID <String> -Proxy <String>
- -ProxyCredential <PSCredential> [-ProxyUseDefaultCredentials] [<CommonParameters>]
+Get-MgToken -ClientID <String> -ClientSecretEncrypted <String> -TenantID <String> [-Proxy <String>]
+ [-ProxyCredential <PSCredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
 ```
 
 ### TenantID
 ```
-Get-MgToken -ClientID <String> -ClientSecret <String> -TenantID <String> -Proxy <String>
- -ProxyCredential <PSCredential> [-ProxyUseDefaultCredentials] [<CommonParameters>]
+Get-MgToken -ClientID <String> -ClientSecret <String> -TenantID <String> [-Proxy <String>]
+ [-ProxyCredential <PSCredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -133,7 +133,7 @@ Type: String
 Parameter Sets: (All)
 Aliases:
 
-Required: True
+Required: False
 Position: Named
 Default value: None
 Accept pipeline input: False
@@ -148,7 +148,7 @@ Type: PSCredential
 Parameter Sets: (All)
 Aliases:
 
-Required: True
+Required: False
 Position: Named
 Default value: None
 Accept pipeline input: False
@@ -163,7 +163,7 @@ Type: SwitchParameter
 Parameter Sets: (All)
 Aliases:
 
-Required: True
+Required: False
 Position: Named
 Default value: False
 Accept pipeline input: False

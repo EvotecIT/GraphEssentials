@@ -29,10 +29,16 @@ Locale: en-US
 ### [Get-MyRoleUsers](Get-MyRoleUsers.md)
 {{ Fill in the Synopsis }}
 
+### [Get-MyUsageReports](Get-MyUsageReports.md)
+{{ Fill in the Synopsis }}
+
 ### [Get-MyUser](Get-MyUser.md)
 {{ Fill in the Synopsis }}
 
 ### [Invoke-MyGraphEssentials](Invoke-MyGraphEssentials.md)
+{{ Fill in the Synopsis }}
+
+### [Invoke-MyGraphUsageReports](Invoke-MyGraphUsageReports.md)
 {{ Fill in the Synopsis }}
 
 ### [New-MyApp](New-MyApp.md)
