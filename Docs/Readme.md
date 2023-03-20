@@ -11,9 +11,6 @@ Locale: en-US
 {{ Fill in the Description }}
 
 ## GraphEssentials Cmdlets
-### [Get-MgToken](Get-MgToken.md)
-{{ Fill in the Synopsis }}
-
 ### [Get-MyApp](Get-MyApp.md)
 {{ Fill in the Synopsis }}
 
