@@ -4,10 +4,12 @@
         [Parameter(ParameterSetName = 'PerLicense')][switch] $PerLicense,
         [Parameter(ParameterSetName = 'PerServicePlan')][switch] $PerServicePlan
     )
+    $Today = Get-Date
     $Properties = @(
         #'LicenseDetails',
         'LicenseAssignmentStates', 'AccountEnabled', 'AssignedLicenses', 'AssignedPlans', 'DisplayName',
         'Id', 'GivenName', 'SurName', 'JobTitle', 'LastPasswordChangeDateTime', 'Mail', 'Manager'
+        'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesDistinguishedName'
     )
     Write-Verbose -Message "Get-MyUser - Getting list of licenses"
     $AllLicenses = Get-MyLicense -Internal
@@ -20,7 +22,7 @@
     }
     Write-Verbose -Message "Get-MyUser - Getting list of all users"
     $StartTime = [System.Diagnostics.Stopwatch]::StartNew()
-    $AllUsers = Get-MgUser @getMgUserSplat
+    $AllUsers = Get-MgUser @getMgUserSplat -ExpandProperty Manager
     $EndTime = Stop-TimeLog -Time $StartTime -Option OneLiner
     Write-Verbose -Message "Get-MyUser - Got $($AllUsers.Count) users in $($EndTime). Now processing them."
 
@@ -29,17 +31,37 @@
     foreach ($User in $AllUsers) {
         $Count++
         Write-Verbose -Message "Get-MyUser - Processing $($User.DisplayName) - $Count/$($AllUsers.Count)"
+
+        if ($User.LastPasswordChangeDateTime) {
+            $LastPasswordChangeDays = $( - $($User.LastPasswordChangeDateTime - $Today).Days)
+        } else {
+            $LastPasswordChangeDays = $null
+        }
+
+        if ($User.OnPremisesLastSyncDateTime) {
+            $LastSynchronizedDays = $( - $($User.OnPremisesLastSyncDateTime - $Today).Days)
+        } else {
+            $LastSynchronizedDays = $null
+        }
+
         $OutputUser = [ordered] @{
-            'DisplayName'                = $User.DisplayName
-            'Id'                         = $User.Id
-            'GivenName'                  = $User.GivenName
-            'SurName'                    = $User.SurName
-            'AccountEnabled'             = $User.AccountEnabled
-            'JobTitle'                   = $User.JobTitle
-            'Mail'                       = $User.Mail
-            'Manager'                    = if ($User.Manager.Id) { $User.Manager.Id } else { $null }
-            'LastPasswordChangeDateTime' = $User.LastPasswordChangeDateTime
-            #'AssignedLicenses'           = $User.AssignedLicenses
+            'DisplayName'                 = $User.DisplayName
+            'Id'                          = $User.Id
+            'GivenName'                   = $User.GivenName
+            'SurName'                     = $User.SurName
+            'Enabled'                     = $User.AccountEnabled
+            'JobTitle'                    = $User.JobTitle
+            'Mail'                        = $User.Mail
+            'Manager'                     = if ($User.Manager.Id) { $User.Manager.Id } else { $null }
+            'ManagerDisplayName'          = if ($User.Manager.Id) { $User.Manager.AdditionalProperties.displayName } else { $null }
+            'ManagerUserPrincipalName'    = if ($User.Manager.Id) { $User.Manager.AdditionalProperties.userPrincipalName } else { $null }
+            'ManagerIsSynchronized'       = if ($User.Manager.Id) { if ($User.Manager.AdditionalProperties.onPremisesSyncEnabled) { $User.Manager.AdditionalProperties.onPremisesSyncEnabled } else { $false } } else { $null }
+            'LastPasswordChangeDateTime'  = $User.LastPasswordChangeDateTime
+            'LastPasswordChangeDays'      = $LastPasswordChangeDays
+            'IsSynchronized'              = if ($User.OnPremisesSyncEnabled) { $User.OnPremisesSyncEnabled } else { $null }
+            'LastSynchronized'            = $User.OnPremisesLastSyncDateTime
+            'LastSynchronizedDays'        = $LastSynchronizedDays
+            'OnPremisesDistinguishedName' = $User.OnPremisesDistinguishedName
         }
         if ($PerLicense) {
             $LicensesErrors = [System.Collections.Generic.List[string]]::new()
