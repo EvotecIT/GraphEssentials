@@ -58,7 +58,7 @@
             Imei                                    = $DeviceI.Imei                                      # :
             IsEncrypted                             = $DeviceI.IsEncrypted                               # : True
             IsSupervised                            = $DeviceI.IsSupervised                              # : False
-            JailBroken                              = $DeviceI.JailBroken                                # : Unknown
+            IsJailBroken                            = $DeviceI.JailBroken                                # : Unknown
             Manufacturer                            = $DeviceI.Manufacturer                              # : ASUS
             Meid                                    = $DeviceI.Meid                                      # :
             Model                                   = $DeviceI.Model                                     # : System Product Name
