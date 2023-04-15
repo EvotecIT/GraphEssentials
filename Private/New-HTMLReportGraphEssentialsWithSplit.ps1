@@ -18,7 +18,7 @@
             $NewFileName = $FileName + '_' + $T + "_" + $DateName + '.html'
             $FilePath = [io.path]::Combine($DirectoryName, $NewFileName)
 
-            New-HTML -Author 'Przemysław Kłys' -TitleText "GraphEssentials $CurrentReport Report" {
+            New-HTML -Author 'Przemysław Kłys @ Evotec' -TitleText "GraphEssentials $CurrentReport Report" {
                 New-HTMLTabStyle -BorderRadius 0px -TextTransform capitalize -BackgroundColorActive SlateGrey
                 New-HTMLSectionStyle -BorderRadius 0px -HeaderBackGroundColor Grey -RemoveShadow
                 New-HTMLPanelStyle -BorderRadius 0px
