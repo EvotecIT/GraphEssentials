@@ -7,7 +7,7 @@
         [string] $FilePath
     )
 
-    New-HTML -Author 'Przemysław Kłys' -TitleText 'GraphEssentials Report' {
+    New-HTML -Author 'Przemysław Kłys @ Evotec' -TitleText 'GraphEssentials Report' {
         New-HTMLTabStyle -BorderRadius 0px -TextTransform capitalize -BackgroundColorActive SlateGrey
         New-HTMLSectionStyle -BorderRadius 0px -HeaderBackGroundColor Grey -RemoveShadow
         New-HTMLPanelStyle -BorderRadius 0px
