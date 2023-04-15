@@ -1,6 +1,8 @@
 ﻿$Script:GraphEssentialsConfiguration = [ordered] @{
     Apps                = $Script:Apps
     AppsCredentials     = $Script:AppsCredentials
+    Devices             = $Script:Devices
+    DevicesIntune       = $Script:DevicesIntune
     Licenses            = $Script:Licenses
     Roles               = $Script:Roles
     RolesUsers          = $Script:RolesUsers
