@@ -2,9 +2,9 @@
 
 Connect-MgGraph -Scopes Application.ReadWrite.All, AccessReview.Read.All, AdministrativeUnit.Read.All, 'User.Read.All', RoleManagement.Read.Directory, Directory.Read.All, EntitlementManagement.Read.All
 
-Get-MyUser | Format-Table
-Get-MyUser -PerServicePlan | Format-Table
-Get-MyUser -PerLicense | Format-Table
+# Get-MyUser -Verbose | Format-Table Manager, Display*
+# Get-MyUser -PerServicePlan | Format-Table
+# Get-MyUser -PerLicense | Format-Table
 
 # Alternative to Invoke-ADessentials - doing reports by hand
 New-HTML {
