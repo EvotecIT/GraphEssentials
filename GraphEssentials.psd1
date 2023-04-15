@@ -6,9 +6,9 @@
     CompatiblePSEditions = @('Desktop', 'Core')
     Copyright            = '(c) 2011 - 2023 Przemyslaw Klys @ Evotec. All rights reserved.'
     Description          = 'GraphEssentials is a PowerShell that help with Office 365 / Azure AD using mostly Graph'
-    FunctionsToExport    = @('Get-MyApp', 'Get-MyAppCredentials', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleUsers', 'Get-MyUsageReports', 'Get-MyUser', 'Invoke-MyGraphEssentials', 'Invoke-MyGraphUsageReports', 'New-MyApp', 'New-MyAppCredentials', 'Remove-MyAppCredentials', 'Send-MyApp', 'Show-MyApp')
+    FunctionsToExport    = @('Get-MyApp', 'Get-MyAppCredentials', 'Get-MyDevice', 'Get-MyDeviceIntune', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleUsers', 'Get-MyUsageReports', 'Get-MyUser', 'Invoke-MyGraphEssentials', 'Invoke-MyGraphUsageReports', 'New-MyApp', 'New-MyAppCredentials', 'Remove-MyAppCredentials', 'Send-MyApp', 'Show-MyApp')
     GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
-    ModuleVersion        = '0.0.21'
+    ModuleVersion        = '0.0.22'
     PowerShellVersion    = '5.1'
     PrivateData          = @{
         PSData = @{
@@ -18,31 +18,31 @@
     }
     RequiredModules      = @(@{
             ModuleName    = 'PSSharedGoods'
-            ModuleVersion = '0.0.259'
+            ModuleVersion = '0.0.260'
             Guid          = 'ee272aa8-baaa-4edf-9f45-b6d6f7d844fe'
         }, @{
             ModuleName    = 'Microsoft.Graph.Applications'
-            ModuleVersion = '1.23.0'
+            ModuleVersion = '1.25.0'
             Guid          = '467f54f2-44a8-4993-8e75-b96c3e443098'
         }, @{
             ModuleName    = 'Microsoft.Graph.Identity.DirectoryManagement'
-            ModuleVersion = '1.23.0'
+            ModuleVersion = '1.25.0'
             Guid          = 'c767240d-585c-42cb-bb2f-6e76e6d639d4'
         }, @{
             ModuleName    = 'PSWriteHTML'
-            ModuleVersion = '0.0.183'
+            ModuleVersion = '0.0.184'
             Guid          = 'a7bdf640-f5cb-4acf-9de0-365b322d245c'
         }, @{
             ModuleName    = 'Microsoft.Graph.DeviceManagement.Enrolment'
-            ModuleVersion = '1.23.0'
+            ModuleVersion = '1.25.0'
             Guid          = '447dd5b5-a01b-45bb-a55c-c9ecce3e820f'
         }, @{
             ModuleName    = 'Microsoft.Graph.Users'
-            ModuleVersion = '1.23.0'
+            ModuleVersion = '1.25.0'
             Guid          = '71150504-37a3-48c6-82c7-7a00a12168db'
         }, @{
             ModuleName    = 'Microsoft.Graph.Groups'
-            ModuleVersion = '1.23.0'
+            ModuleVersion = '1.25.0'
             Guid          = '50bc9e18-e281-4208-8913-c9e1bef6083d'
         }, @{
             ModuleName    = 'O365Essentials'
