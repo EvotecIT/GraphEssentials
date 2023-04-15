@@ -27,7 +27,6 @@
             Name                   = $Device.DisplayName
             Id                     = $Device.Id
             Enabled                = $Device.AccountEnabled
-            DeviceId               = $Device.DeviceId
             OperatingSystem        = $Device.OperatingSystem
             OperatingSystemVersion = $Device.OperatingSystemVersion
             TrustType              = $TrustTypes[$Device.TrustType]
@@ -39,6 +38,7 @@
             LastSynchronizedDays   = $LastSynchronizedDays
             IsCompliant            = $Device.IsCompliant
             IsManaged              = $Device.IsManaged
+            DeviceId               = $Device.DeviceId
         }
     }
 }
