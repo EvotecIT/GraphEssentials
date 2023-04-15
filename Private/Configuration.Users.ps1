@@ -16,8 +16,8 @@
     Solution   = {
         if ($Script:Reporting['Users']['Data']) {
             New-HTMLTable -DataTable $Script:Reporting['Users']['Data'] -Filtering {
-                New-HTMLTableCondition -Name 'AccountEnabled' -Operator eq -Value $false -ComparisonType string -BackgroundColor Salmon
-                New-HTMLTableCondition -Name 'AccountEnabled' -Operator eq -Value $true -ComparisonType string -BackgroundColor SpringGreen
+                New-HTMLTableCondition -Name 'Enabled' -Operator eq -Value $false -ComparisonType string -BackgroundColor Salmon
+                New-HTMLTableCondition -Name 'Enabled' -Operator eq -Value $true -ComparisonType string -BackgroundColor SpringGreen
 
                 New-HTMLTableCondition -Name 'LicensesStatus' -Operator contains -Value 'Direct' -ComparisonType string -BackgroundColor LightSkyBlue
                 New-HTMLTableCondition -Name 'LicensesStatus' -Operator contains -Value 'Group' -ComparisonType string -BackgroundColor LightGreen
