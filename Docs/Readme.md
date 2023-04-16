@@ -11,6 +11,9 @@ Locale: en-US
 {{ Fill in the Description }}
 
 ## GraphEssentials Cmdlets
+### [Get-MgToken](Get-MgToken.md)
+Provides a way to get a token for Microsoft Graph API to be used with Connect-MGGraph
+
 ### [Get-MyApp](Get-MyApp.md)
 {{ Fill in the Synopsis }}
 
