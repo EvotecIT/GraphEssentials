@@ -1,4 +1,7 @@
-﻿### 0.0.24 - 2023-04-16
+﻿### 0.0.25 - 2023-04-16
+- Fixes signature on PSM1/PSD1 files
+
+### 0.0.24 - 2023-04-16
 - Fixes `Get-MyDevice` when trust type is null
 
 ### 0.0.23 - 2023-04-16
