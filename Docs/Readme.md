@@ -17,6 +17,12 @@ Locale: en-US
 ### [Get-MyAppCredentials](Get-MyAppCredentials.md)
 {{ Fill in the Synopsis }}
 
+### [Get-MyDevice](Get-MyDevice.md)
+{{ Fill in the Synopsis }}
+
+### [Get-MyDeviceIntune](Get-MyDeviceIntune.md)
+{{ Fill in the Synopsis }}
+
 ### [Get-MyLicense](Get-MyLicense.md)
 {{ Fill in the Synopsis }}
 
