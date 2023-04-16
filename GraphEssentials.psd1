@@ -45,6 +45,10 @@
             ModuleVersion = '1.25.0'
             Guid          = '50bc9e18-e281-4208-8913-c9e1bef6083d'
         }, @{
+            ModuleName    = 'Microsoft.Graph.DeviceManagement'
+            ModuleVersion = '1.25.0'
+            Guid          = '4131557d-8635-4903-9cfd-d59ddef4a597'
+        }, @{
             ModuleName    = 'O365Essentials'
             ModuleVersion = '0.0.11'
             Guid          = 'a8752d7b-17c8-41db-b3f9-b8f225de028d'
