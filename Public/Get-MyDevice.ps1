@@ -23,13 +23,20 @@
         } else {
             $LastSynchronizedDays = $null
         }
+
+        if ($Device.TrustType) {
+            $TrustType = $TrustTypes[$Device.TrustType]
+        } else {
+            $TrustType = 'Not available'
+        }
+
         [PSCustomObject] @{
             Name                   = $Device.DisplayName
             Id                     = $Device.Id
             Enabled                = $Device.AccountEnabled
             OperatingSystem        = $Device.OperatingSystem
             OperatingSystemVersion = $Device.OperatingSystemVersion
-            TrustType              = $TrustTypes[$Device.TrustType]
+            TrustType              = $TrustType
             FirstSeen              = $Device.AdditionalProperties.registrationDateTime
             LastSeen               = $Device.ApproximateLastSignInDateTime
             LastSeenDays           = $LastSeenDays
