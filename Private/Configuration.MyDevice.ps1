@@ -32,6 +32,8 @@
                 New-HTMLTableCondition -Name 'LastSynchronizedDays' -Value 180 -Operator le -ComparisonType number -BackgroundColor SunsetOrange -HighlightHeaders 'LastSynchronizedDays', 'LastSynchronized'
                 New-HTMLTableCondition -Name 'LastSynchronizedDays' -Value 90 -Operator le -ComparisonType number -BackgroundColor LaserLemon -HighlightHeaders 'LastSynchronizedDays', 'LastSynchronized'
                 New-HTMLTableCondition -Name 'LastSynchronizedDays' -Value 30 -Operator le -ComparisonType number -BackgroundColor MediumSpringGreen -HighlightHeaders 'LastSynchronizedDays', 'LastSynchronized'
+                New-HTMLTableCondition -Name 'OwnerEnabled' -ComparisonType string -Operator eq -Value $true -BackgroundColor MediumSpringGreen
+                New-HTMLTableCondition -Name 'OwnerEnabled' -ComparisonType string -Operator eq -Value $false -BackgroundColor Cinnabar
             } -ScrollX
         }
     }
