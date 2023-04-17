@@ -11,7 +11,7 @@
     }
 
     $Today = Get-Date
-    $Devices = Get-MgDevice -All
+    $Devices = Get-MgDevice -All -ExpandProperty RegisteredOwners
     foreach ($Device in $Devices) {
         if ($Device.ApproximateLastSignInDateTime) {
             $LastSeenDays = $( - $($Device.ApproximateLastSignInDateTime - $Today).Days)
@@ -37,15 +37,24 @@
             OperatingSystem        = $Device.OperatingSystem
             OperatingSystemVersion = $Device.OperatingSystemVersion
             TrustType              = $TrustType
+            ProfileType            = $Device.ProfileType
             FirstSeen              = $Device.AdditionalProperties.registrationDateTime
             LastSeen               = $Device.ApproximateLastSignInDateTime
             LastSeenDays           = $LastSeenDays
+            Status                 = $Device.AdditionalProperties.deviceOwnership
+            OwnerDisplayName       = $Device.RegisteredOwners.AdditionalProperties.displayName
+            OwnerEnabled           = $Device.RegisteredOwners.AdditionalProperties.accountEnabled
+            OwnerUserPrincipalName = $Device.RegisteredOwners.AdditionalProperties.userPrincipalName
             IsSynchronized         = if ($Device.OnPremisesSyncEnabled) { $true } else { $false }
             LastSynchronized       = $Device.OnPremisesLastSyncDateTime
             LastSynchronizedDays   = $LastSynchronizedDays
             IsCompliant            = $Device.IsCompliant
             IsManaged              = $Device.IsManaged
-            DeviceId               = $Device.DeviceId
+            #DeviceId               = $Device.DeviceId
+            Model                  = $Device.AdditionalProperties.model
+            Manufacturer           = $Device.AdditionalProperties.manufacturer
+            ManagementType         = $Device.AdditionalProperties.managementType
+            EnrollmentType         = $Device.AdditionalProperties.enrollmentType
         }
     }
 }
