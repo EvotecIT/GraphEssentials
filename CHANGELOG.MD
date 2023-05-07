@@ -1,4 +1,7 @@
-﻿### 0.0.26 - 2023.04.17
+﻿### 0.0.27 - 2023.05.07
+- Improve MyDevices, MyDevicesIntune error handling
+
+### 0.0.26 - 2023.04.17
 - Improve MyDevices, MyDevicesIntune, MyUsers reports
 
 ### 0.0.25 - 2023.04.16
