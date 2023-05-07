@@ -8,18 +8,22 @@
     Description          = 'GraphEssentials is a PowerShell that help with Office 365 / Azure AD using mostly Graph'
     FunctionsToExport    = @('Get-MgToken', 'Get-MyApp', 'Get-MyAppCredentials', 'Get-MyDevice', 'Get-MyDeviceIntune', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleUsers', 'Get-MyUsageReports', 'Get-MyUser', 'Invoke-MyGraphEssentials', 'Invoke-MyGraphUsageReports', 'New-MyApp', 'New-MyAppCredentials', 'Remove-MyAppCredentials', 'Send-MyApp', 'Show-MyApp')
     GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
-    ModuleVersion        = '0.0.26'
+    ModuleVersion        = '0.0.27'
     PowerShellVersion    = '5.1'
     PrivateData          = @{
         PSData = @{
             Tags                       = @('Windows')
-            ExternalModuleDependencies = @('Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security', 'Microsoft.PowerShell.Utility')
+            ExternalModuleDependencies = @('Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security')
         }
     }
     RequiredModules      = @(@{
             ModuleName    = 'PSSharedGoods'
-            ModuleVersion = '0.0.260'
+            ModuleVersion = '0.0.262'
             Guid          = 'ee272aa8-baaa-4edf-9f45-b6d6f7d844fe'
+        }, @{
+            ModuleName    = 'PSWriteColor'
+            ModuleVersion = '1.0.1'
+            Guid          = '0b0ba5c5-ec85-4c2b-a718-874e55a8bc3f'
         }, @{
             ModuleName    = 'Microsoft.Graph.Applications'
             ModuleVersion = '1.25.0'
@@ -30,7 +34,7 @@
             Guid          = 'c767240d-585c-42cb-bb2f-6e76e6d639d4'
         }, @{
             ModuleName    = 'PSWriteHTML'
-            ModuleVersion = '0.0.184'
+            ModuleVersion = '0.0.186'
             Guid          = 'a7bdf640-f5cb-4acf-9de0-365b322d245c'
         }, @{
             ModuleName    = 'Microsoft.Graph.DeviceManagement.Enrolment'
@@ -56,6 +60,6 @@
             ModuleName    = 'Mailozaurr'
             ModuleVersion = '1.0.0'
             Guid          = '2b0ea9f1-3ff1-4300-b939-106d5da608fa'
-        }, 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security', 'Microsoft.PowerShell.Utility')
+        }, 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security')
     RootModule           = 'GraphEssentials.psm1'
 }
