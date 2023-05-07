@@ -1,7 +1,8 @@
 ﻿function Get-MyDevice {
     [cmdletBinding()]
     param(
-
+        [ValidateSet('Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', 'Not available')][string[]] $Type,
+        [switch] $Synchronized
     )
 
     $TrustTypes = @{
@@ -11,7 +12,12 @@
     }
 
     $Today = Get-Date
-    $Devices = Get-MgDevice -All -ExpandProperty RegisteredOwners
+    try {
+        $Devices = Get-MgDevice -All -ExpandProperty RegisteredOwners -ErrorAction Stop
+    } catch {
+        Write-Warning -Message "Get-MyDevice - Failed to get devices. Error: $($_.Exception.Message)"
+        return
+    }
     foreach ($Device in $Devices) {
         if ($Device.ApproximateLastSignInDateTime) {
             $LastSeenDays = $( - $($Device.ApproximateLastSignInDateTime - $Today).Days)
@@ -28,6 +34,19 @@
             $TrustType = $TrustTypes[$Device.TrustType]
         } else {
             $TrustType = 'Not available'
+        }
+
+        if ($Synchronized) {
+            # Only return synchronized devices
+            if (-not $Device.OnPremisesSyncEnabled) {
+                continue
+            }
+        }
+        if ($Type) {
+            # Only return devices of the specified type
+            if ($Type -notcontains $TrustType) {
+                continue
+            }
         }
 
         [PSCustomObject] @{
@@ -50,7 +69,7 @@
             LastSynchronizedDays   = $LastSynchronizedDays
             IsCompliant            = $Device.IsCompliant
             IsManaged              = $Device.IsManaged
-            #DeviceId               = $Device.DeviceId
+            DeviceId               = $Device.DeviceId
             Model                  = $Device.AdditionalProperties.model
             Manufacturer           = $Device.AdditionalProperties.manufacturer
             ManagementType         = $Device.AdditionalProperties.managementType
