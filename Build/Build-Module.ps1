@@ -22,7 +22,6 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
     New-ConfigurationModule -Type RequiredModule -Name @(
         'PSSharedGoods'
         'PSWriteColor'
-        'PSEventViewer'
         'Microsoft.Graph.Applications'
         'Microsoft.Graph.Identity.DirectoryManagement'
         'PSWriteHTML'
