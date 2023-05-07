@@ -4,7 +4,12 @@
 
     )
     $Today = Get-Date
-    $DevicesIntune = Get-MgDeviceManagementManagedDevice -All
+    try {
+        $DevicesIntune = Get-MgDeviceManagementManagedDevice -All -ErrorAction Stop
+    } catch {
+        Write-Warning -Message "Get-MyDeviceIntune - Failed to get intune devices. Error: $($_.Exception.Message)"
+        return
+    }
     foreach ($DeviceI in $DevicesIntune) {
         if ($DeviceI.LastSyncDateTime) {
             $LastSynchronizedDays = $( - $($DeviceI.LastSyncDateTime - $Today).Days)
