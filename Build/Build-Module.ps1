@@ -29,11 +29,13 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         'Microsoft.Graph.Users'
         'Microsoft.Graph.Groups'
         'Microsoft.Graph.DeviceManagement'
+        'Microsoft.Graph.Teams'
         'O365Essentials'
         'Mailozaurr'
     ) -Guid Auto -Version Latest
     New-ConfigurationModule -Type ExternalModule -Name 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security'
     New-ConfigurationModule -Type ApprovedModule -Name 'O365Essentials', 'PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword', 'PSPublishModule'
+
 
     $ConfigurationFormat = [ordered] @{
         RemoveComments                              = $false
