@@ -10,4 +10,5 @@
     Users               = $Script:Users
     UsersPerLicense     = $Script:UsersPerLicense
     UsersPerServicePlan = $Script:UsersPerServicePlan
+    Teams               = $Script:Teams
 }
