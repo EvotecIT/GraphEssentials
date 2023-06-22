@@ -1,4 +1,11 @@
-﻿### 0.0.27 - 2023.05.07
+﻿### 0.0.29 - 2023.06.22
+- Improvement to `Get-MyUser` by adding `UserPrincipalName``
+
+### 0.0.28 - 2023.06.21
+- Added Teams Report
+- Small improvements
+
+### 0.0.27 - 2023.05.07
 - Improve MyDevices, MyDevicesIntune error handling
 
 ### 0.0.26 - 2023.04.17
