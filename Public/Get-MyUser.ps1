@@ -6,10 +6,10 @@
     )
     $Today = Get-Date
     $Properties = @(
-        #'LicenseDetails',
         'LicenseAssignmentStates', 'AccountEnabled', 'AssignedLicenses', 'AssignedPlans', 'DisplayName',
         'Id', 'GivenName', 'SurName', 'JobTitle', 'LastPasswordChangeDateTime', 'Mail', 'Manager'
-        'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesDistinguishedName'
+        'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesDistinguishedName',
+        'UserPrincipalName'
     )
     Write-Verbose -Message "Get-MyUser - Getting list of licenses"
     $AllLicenses = Get-MyLicense -Internal
@@ -47,6 +47,7 @@
         $OutputUser = [ordered] @{
             'DisplayName'                 = $User.DisplayName
             'Id'                          = $User.Id
+            'UserPrincipalName'           = $User.UserPrincipalName
             'GivenName'                   = $User.GivenName
             'SurName'                     = $User.SurName
             'Enabled'                     = $User.AccountEnabled
