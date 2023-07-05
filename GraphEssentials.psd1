@@ -5,10 +5,10 @@
     CompanyName          = 'Evotec'
     CompatiblePSEditions = @('Desktop', 'Core')
     Copyright            = '(c) 2011 - 2023 Przemyslaw Klys @ Evotec. All rights reserved.'
-    Description          = 'GraphEssentials is a PowerShell that help with Office 365 / Azure AD using mostly Graph'
+    Description          = 'GraphEssentials is a PowerShell module that helps with Office 365 / Azure AD using mostly Graph'
     FunctionsToExport    = @('Get-MgToken', 'Get-MyApp', 'Get-MyAppCredentials', 'Get-MyDevice', 'Get-MyDeviceIntune', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleUsers', 'Get-MyTeam', 'Get-MyUsageReports', 'Get-MyUser', 'Invoke-MyGraphEssentials', 'Invoke-MyGraphUsageReports', 'New-MyApp', 'New-MyAppCredentials', 'Remove-MyAppCredentials', 'Send-MyApp', 'Show-MyApp')
     GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
-    ModuleVersion        = '0.0.29'
+    ModuleVersion        = '0.0.30'
     PowerShellVersion    = '5.1'
     PrivateData          = @{
         PSData = @{
@@ -34,7 +34,7 @@
             Guid          = 'c767240d-585c-42cb-bb2f-6e76e6d639d4'
         }, @{
             ModuleName    = 'PSWriteHTML'
-            ModuleVersion = '0.0.190'
+            ModuleVersion = '0.0.191'
             Guid          = 'a7bdf640-f5cb-4acf-9de0-365b322d245c'
         }, @{
             ModuleName    = 'Microsoft.Graph.DeviceManagement.Enrolment'
