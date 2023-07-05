@@ -8,7 +8,7 @@ Connect-MgGraph -Scopes Application.ReadWrite.All, AccessReview.Read.All, Admini
 
 # Alternative to Invoke-ADessentials - doing reports by hand
 New-HTML {
-    New-HTMLTableOption -DataStore JavaScript -ArrayJoinString ", " -ArrayJoin
+    New-HTMLTableOption -DataStore JavaScript -ArrayJoinString ", " -ArrayJoin -BoolAsString
     New-HTMLSection -HeaderText 'Users' -Content {
         New-HTMLTable -DataTable (Get-MyUser) -ScrollX -Filtering
     }
