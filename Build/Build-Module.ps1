@@ -10,7 +10,7 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         Author               = 'Przemyslaw Klys'
         CompanyName          = 'Evotec'
         Copyright            = "(c) 2011 - $((Get-Date).Year) Przemyslaw Klys @ Evotec. All rights reserved."
-        Description          = 'GraphEssentials is a PowerShell that help with Office 365 / Azure AD using mostly Graph'
+        Description          = 'GraphEssentials is a PowerShell module that helps with Office 365 / Azure AD using mostly Graph'
         PowerShellVersion    = '5.1'
         Tags                 = @('Windows')
         #IconUri              = 'https://evotec.xyz/wp-content/uploads/2023/04/CleanupMonster.png'
