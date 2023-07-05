@@ -1,4 +1,7 @@
-﻿### 0.0.29 - 2023.06.22
+﻿### 0.0.30 - 2023.07.05
+- Fixes Teams report
+
+### 0.0.29 - 2023.06.22
 - Improvement to `Get-MyUser` by adding `UserPrincipalName`
 
 ### 0.0.28 - 2023.06.21
