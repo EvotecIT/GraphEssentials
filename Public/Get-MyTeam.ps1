@@ -7,12 +7,21 @@
 
     $OwnerShip = [ordered] @{}
     try {
-        $TeamsRaw = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/beta/teams" -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
+        $Url = "https://graph.microsoft.com/beta/teams"
+        $Teams = Do {
+            $TeamsRaw = Invoke-MgGraphRequest -Method GET -Uri $Url -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
+            if ($TeamsRaw.value) {
+                $TeamsRaw.value
+            }
+            if ($TeamsRaw."@odata.nextLink") {
+                $Url = $TeamsRaw."@odata.nextLink"
+            }
+        } While ($null -ne $TeamsRaw."@odata.nextLink")
     } catch {
         Write-Warning -Message "Get-MyTeam - Couldn't get list of teams. Error: $($_.Exception.Message)"
         return
     }
-    foreach ($Team in $TeamsRaw.value) {
+    foreach ($Team in $Teams) {
         try {
             $Owner = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/groups/$($Team.id)/owners" -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
         } catch {
