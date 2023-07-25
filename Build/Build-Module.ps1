@@ -24,8 +24,9 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         'PSWriteColor'
         'Microsoft.Graph.Applications'
         'Microsoft.Graph.Identity.DirectoryManagement'
+        'Microsoft.Graph.Identity.Governance'
         'PSWriteHTML'
-        'Microsoft.Graph.DeviceManagement.Enrolment'
+        'Microsoft.Graph.DeviceManagement.Enrollment'
         'Microsoft.Graph.Users'
         'Microsoft.Graph.Groups'
         'Microsoft.Graph.DeviceManagement'
@@ -33,6 +34,8 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         'O365Essentials'
         'Mailozaurr'
     ) -Guid Auto -Version Latest
+
+
     New-ConfigurationModule -Type ExternalModule -Name 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security'
     New-ConfigurationModule -Type ApprovedModule -Name 'O365Essentials', 'PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword', 'PSPublishModule'
 
@@ -81,7 +84,7 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
 
     New-ConfigurationImportModule -ImportSelf
 
-    New-ConfigurationBuild -Enable:$true -SignModule -MergeModuleOnBuild -MergeFunctionsFromApprovedModules -CertificateThumbprint '36A8A2D0E227D81A2D3B60DCE0CFCF23BEFC343B'
+    New-ConfigurationBuild -Enable:$true -SignModule -MergeModuleOnBuild -MergeFunctionsFromApprovedModules -CertificateThumbprint '483292C9E317AA13B07BB7A96AE9D1A5ED9E7703'
 
     #New-ConfigurationArtefact -Type Unpacked -Enable -Path "$PSScriptRoot\..\Artefacts\Unpacked" -ModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -RequiredModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -AddRequiredModules
     New-ConfigurationArtefact -Type Packed -Enable -Path "$PSScriptRoot\..\Artefacts\Packed" -ArtefactName '<ModuleName>.v<ModuleVersion>.zip'
