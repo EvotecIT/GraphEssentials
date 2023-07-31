@@ -6,17 +6,23 @@
     )
 
     $OwnerShip = [ordered] @{}
+    # try {
+    #     $Url = "https://graph.microsoft.com/beta/teams"
+    #     $Teams1 = Do {
+    #         $TeamsRaw = Invoke-MgGraphRequest -Method GET -Uri $Url -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
+    #         if ($TeamsRaw.value) {
+    #             $TeamsRaw.value
+    #         }
+    #         if ($TeamsRaw."@odata.nextLink") {
+    #             $Url = $TeamsRaw."@odata.nextLink"
+    #         }
+    #     } While ($null -ne $TeamsRaw."@odata.nextLink")
+    # } catch {
+    #     Write-Warning -Message "Get-MyTeam - Couldn't get list of teams. Error: $($_.Exception.Message)"
+    #     return
+    # }
     try {
-        $Url = "https://graph.microsoft.com/beta/teams"
-        $Teams = Do {
-            $TeamsRaw = Invoke-MgGraphRequest -Method GET -Uri $Url -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
-            if ($TeamsRaw.value) {
-                $TeamsRaw.value
-            }
-            if ($TeamsRaw."@odata.nextLink") {
-                $Url = $TeamsRaw."@odata.nextLink"
-            }
-        } While ($null -ne $TeamsRaw."@odata.nextLink")
+        $Teams = Get-MgTeam -All -ErrorAction Stop #-Property 'id','displayName','visibility','description','isArchived','summary'
     } catch {
         Write-Warning -Message "Get-MyTeam - Couldn't get list of teams. Error: $($_.Exception.Message)"
         return
@@ -25,14 +31,14 @@
         try {
             $Owner = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/groups/$($Team.id)/owners" -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
         } catch {
-            Write-Warning -Message "Get-MyTeam - Couldn't get list of owners. Error: $($_.Exception.Message)"
-            return
+            Write-Warning -Message "Get-MyTeam - Error list of owners on team $($Team.DisplayName) / $($Team.id): $($_.Exception.Message)"
+            continue
         }
         try {
             $TeamDetails = Get-MgTeam -TeamId $Team.id -ErrorAction Stop
         } catch {
-            Write-Warning -Message "Get-MyTeam - Error: $($_.Exception.Message)"
-            return
+            Write-Warning -Message "Get-MyTeam - Error (extended) on team $($Team.DisplayName) / $($Team.id): $($_.Exception.Message)"
+            continue
         }
 
         $TeamInformation = [ordered] @{
@@ -49,7 +55,7 @@
             OwnerMail                         = $Owner.value.mail
             OwnerUserPrincipalName            = $Owner.value.userPrincipalName
             OwnerId                           = $Owner.value.id
-            IsArchived                        = $Team.isArchived
+            #IsArchived                        = $Team.isArchived
 
             GuestAllowCreateUpdateChannels    = $TeamDetails.GuestSettings.AllowCreateUpdateChannels
             GuestAllowDeleteChannels          = $TeamDetails.GuestSettings.AllowDeleteChannels
@@ -60,7 +66,7 @@
             AllowCreateUpdateRemoveConnectors = $TeamDetails.MemberSettings.AllowCreateUpdateRemoveConnectors
             AllowCreateUpdateRemoveTabs       = $TeamDetails.MemberSettings.AllowCreateUpdateRemoveTabs
             AllowDeleteChannels               = $TeamDetails.MemberSettings.AllowDeleteChannels
-            IsMembershipLimitedToOwners       = $TeamDetails.MemberSettings.isMembershipLimitedToOwners
+            #IsMembershipLimitedToOwners       = $TeamDetails.MemberSettings.isMembershipLimitedToOwners
         }
         if ($PerOwner) {
             foreach ($O in $Owner.value) {
