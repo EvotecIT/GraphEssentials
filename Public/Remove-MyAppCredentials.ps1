@@ -26,13 +26,13 @@
     }
     $Applications = Get-MyAppCredentials @getMyAppCredentialsSplat
     foreach ($App in $Applications) {
-        Write-Verbose -Message "Processing application $($App.ApplicationName) for key removal $($App.ClientSecretName)/$($App.ClientSecretID) - Start: $($App.StartDateTime), End: $($App.EndDateTime), IsExpired: $($App.Expired)"
-        if ($PSCmdlet.ShouldProcess($App.ApplicationName, "Remove $($App.ClientSecretName)/$($App.ClientSecretID)")) {
+        Write-Verbose -Message "Processing application $($App.ApplicationName) for key removal $($App.KeyDisplayName)/$($App.KeyId) - Start: $($App.StartDateTime), End: $($App.EndDateTime), IsExpired: $($App.Expired)"
+        if ($PSCmdlet.ShouldProcess($App.ApplicationName, "Remove $($App.KeyDisplayName)/$($App.KeyId)")) {
             try {
                 # it has it's own whatif, but it looks ugly
-                Remove-MgApplicationPassword -ApplicationId $App.ObjectID -KeyId $App.ClientSecretID -ErrorAction Stop
+                Remove-MgApplicationPassword -ApplicationId $App.ObjectID -KeyId $App.KeyId -ErrorAction Stop
             } catch {
-                Write-Warning -Message "Failed to remove $($App.ClientSecretName)/$($App.ClientSecretID) from $($App.ApplicationName). Error: $($_.Exception.Message)"
+                Write-Warning -Message "Failed to remove $($App.KeyDisplayName)/$($App.KeyId) from $($App.ApplicationName). Error: $($_.Exception.Message)"
             }
         }
     }
