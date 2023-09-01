@@ -17,7 +17,7 @@
 
         # Lets find if description has email
         $DescriptionWithEmail = $false
-        foreach ($CredentialName in  $AppCredentials.ClientSecretName) {
+        foreach ($CredentialName in  $AppCredentials.KeyDisplayName) {
             if ($CredentialName -like '*@*') {
                 $DescriptionWithEmail = $true
                 break
@@ -45,7 +45,7 @@
             DaysToExpireNewest   = $DaysToExpireNewest
             KeysDateOldest       = if ($DatesSorted.Count -gt 0) { $DatesSorted[0] } else { }
             KeysDateNewest       = if ($DatesSorted.Count -gt 0) { $DatesSorted[-1] } else { }
-            KeysDescription      = $AppCredentials.ClientSecretName
+            KeysDescription      = $AppCredentials.KeyDisplayName
             DescriptionWithEmail = $DescriptionWithEmail
 
         }
