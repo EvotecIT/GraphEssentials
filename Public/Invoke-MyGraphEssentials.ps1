@@ -133,6 +133,10 @@
         Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report', " [Time to execute: $TimeLogEndHTML]" -Color Yellow, DarkGray, Yellow, DarkGray
     }
     Reset-GraphEssentials
+
+    if ($PassThru) {
+        $Script:Reporting
+    }
 }
 
 [scriptblock] $SourcesAutoCompleter = {
