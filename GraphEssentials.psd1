@@ -27,15 +27,15 @@
         }, @{
             Guid          = '467f54f2-44a8-4993-8e75-b96c3e443098'
             ModuleName    = 'Microsoft.Graph.Applications'
-            ModuleVersion = '2.3.0'
+            ModuleVersion = '2.4.0'
         }, @{
             Guid          = 'c767240d-585c-42cb-bb2f-6e76e6d639d4'
             ModuleName    = 'Microsoft.Graph.Identity.DirectoryManagement'
-            ModuleVersion = '2.3.0'
+            ModuleVersion = '2.4.0'
         }, @{
             Guid          = '530fc574-049c-42cc-810e-8835853204b7'
             ModuleName    = 'Microsoft.Graph.Identity.Governance'
-            ModuleVersion = '2.3.0'
+            ModuleVersion = '2.4.0'
         }, @{
             Guid          = 'a7bdf640-f5cb-4acf-9de0-365b322d245c'
             ModuleName    = 'PSWriteHTML'
@@ -43,23 +43,23 @@
         }, @{
             Guid          = 'cb05f22d-85cd-4b42-b99c-b713e0b9fbd3'
             ModuleName    = 'Microsoft.Graph.DeviceManagement.Enrollment'
-            ModuleVersion = '2.3.0'
+            ModuleVersion = '2.4.0'
         }, @{
             Guid          = '71150504-37a3-48c6-82c7-7a00a12168db'
             ModuleName    = 'Microsoft.Graph.Users'
-            ModuleVersion = '2.3.0'
+            ModuleVersion = '2.4.0'
         }, @{
             Guid          = '50bc9e18-e281-4208-8913-c9e1bef6083d'
             ModuleName    = 'Microsoft.Graph.Groups'
-            ModuleVersion = '2.3.0'
+            ModuleVersion = '2.4.0'
         }, @{
             Guid          = '4131557d-8635-4903-9cfd-d59ddef4a597'
             ModuleName    = 'Microsoft.Graph.DeviceManagement'
-            ModuleVersion = '2.3.0'
+            ModuleVersion = '2.4.0'
         }, @{
             Guid          = 'f8619bb2-8640-4d8d-baf5-0829db98fbe2'
             ModuleName    = 'Microsoft.Graph.Teams'
-            ModuleVersion = '2.3.0'
+            ModuleVersion = '2.4.0'
         }, @{
             Guid          = 'a8752d7b-17c8-41db-b3f9-b8f225de028d'
             ModuleName    = 'O365Essentials'
