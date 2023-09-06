@@ -5,19 +5,21 @@
         [switch] $IncludeCredentials
     )
     if ($ApplicationName) {
-        $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual
+        $Application = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual -Property Owners
     } else {
         $Application = Get-MgApplication -ConsistencyLevel eventual -All
     }
     $Applications = foreach ($App in $Application) {
-        [Array] $DatesSorted = $App.PasswordCredentials.StartDateTime | Sort-Object
-
         # Lets translate credentials to different format
         $AppCredentials = Get-MyAppCredentials -ApplicationList $App
 
+        $Owners = Get-MgApplicationOwner -ApplicationId $App.Id -ConsistencyLevel eventual
+
+        [Array] $DatesSorted = $AppCredentials.StartDateTime | Sort-Object
+
         # Lets find if description has email
         $DescriptionWithEmail = $false
-        foreach ($CredentialName in  $AppCredentials.KeyDisplayName) {
+        foreach ($CredentialName in $AppCredentials.KeyDisplayName) {
             if ($CredentialName -like '*@*') {
                 $DescriptionWithEmail = $true
                 break
@@ -38,8 +40,11 @@
             ObjectId             = $App.Id
             ClientID             = $App.AppId
             ApplicationName      = $App.DisplayName
+            OwnerUserPrincipal   = $Owners.AdditionalProperties.userPrincipalName
+            OwnerMail            = $Owners.AdditionalProperties.mail
             CreatedDate          = $App.CreatedDateTime
-            KeysCount            = $App.PasswordCredentials.Count
+            KeysCount            = $AppCredentials.Count
+            KeysTypes            = $AppCredentials.Type
             KeysExpired          = $Expired
             DaysToExpireOldest   = $DaysToExpireOldest
             DaysToExpireNewest   = $DaysToExpireNewest
@@ -47,7 +52,6 @@
             KeysDateNewest       = if ($DatesSorted.Count -gt 0) { $DatesSorted[-1] } else { }
             KeysDescription      = $AppCredentials.KeyDisplayName
             DescriptionWithEmail = $DescriptionWithEmail
-
         }
         if ($IncludeCredentials) {
             $AppInformation['Keys'] = $AppCredentials

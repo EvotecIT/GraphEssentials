@@ -25,6 +25,7 @@
             }
         }
     }
+    $DateTimeNow = [DateTime]::Now
     $ApplicationsWithCredentials = foreach ($App in $ApplicationList) {
         if ($App.PasswordCredentials) {
             foreach ($Credentials in $App.PasswordCredentials) {
@@ -55,12 +56,12 @@
                     Type            = 'Password'
                     ClientID        = $App.AppId
                     CreatedDate     = $App.CreatedDateTime
-                    KeyDisplayName     = $DisplayName
+                    KeyDisplayName  = $DisplayName
                     KeyId           = $Credentials.KeyId
                     #ClientSecret        = $Credentials.SecretTex
                     Hint            = $Credentials.Hint
                     Expired         = $IsExpired
-                    DaysToExpire    = ($Credentials.EndDateTime - [DateTime]::Now).Days
+                    DaysToExpire    = ($Credentials.EndDateTime - $DateTimeNow).Days
                     StartDateTime   = $Credentials.StartDateTime
                     EndDateTime     = $Credentials.EndDateTime
                     #CustomKeyIdentifier = $Credentials.CustomKeyIdentifier
@@ -116,7 +117,7 @@
                     Type            = 'Certificate'
                     ClientID        = $App.AppId
                     CreatedDate     = $App.CreatedDateTime
-                    KeyDisplayName     = $DisplayName
+                    KeyDisplayName  = $DisplayName
                     KeyId           = $Credentials.KeyId
                     #ClientSecret        = $Credentials.SecretTex
                     Hint            = $Credentials.Hint
