@@ -11,7 +11,7 @@
     }
     $Applications = foreach ($App in $Application) {
         # Lets translate credentials to different format
-        $AppCredentials = Get-MyAppCredentials -ApplicationList $App
+        [Array] $AppCredentials = Get-MyAppCredentials -ApplicationList $App
 
         $Owners = Get-MgApplicationOwner -ApplicationId $App.Id -ConsistencyLevel eventual
 
@@ -40,6 +40,7 @@
             ObjectId             = $App.Id
             ClientID             = $App.AppId
             ApplicationName      = $App.DisplayName
+            OwnerDisplayName     = $Owners.AdditionalProperties.displayName
             OwnerUserPrincipal   = $Owners.AdditionalProperties.userPrincipalName
             OwnerMail            = $Owners.AdditionalProperties.mail
             CreatedDate          = $App.CreatedDateTime
@@ -52,6 +53,7 @@
             KeysDateNewest       = if ($DatesSorted.Count -gt 0) { $DatesSorted[-1] } else { }
             KeysDescription      = $AppCredentials.KeyDisplayName
             DescriptionWithEmail = $DescriptionWithEmail
+            Notes                = $App.Notes
         }
         if ($IncludeCredentials) {
             $AppInformation['Keys'] = $AppCredentials
