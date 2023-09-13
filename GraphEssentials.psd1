@@ -67,7 +67,7 @@
         }, @{
             Guid          = '2b0ea9f1-3ff1-4300-b939-106d5da608fa'
             ModuleName    = 'Mailozaurr'
-            ModuleVersion = '1.0.3'
+            ModuleVersion = '1.1.0'
         }, 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security')
     RootModule           = 'GraphEssentials.psm1'
 }
