@@ -1,4 +1,7 @@
-﻿### 0.0.32 - 2023.07.25
+﻿### 0.0.33
+- Add `Get-MyTentantName`
+
+### 0.0.32 - 2023.07.25
 - Migrates to microsoft graph 2.1.0
 
 ### 0.0.30 - 2023.07.05
