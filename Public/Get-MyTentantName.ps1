@@ -1,4 +1,4 @@
-﻿function Get-MgTenantName {
+﻿function Get-MyTenantName {
     <#
     .SYNOPSIS
     Get Tenant Name from Tenant ID or Domain Name
@@ -13,10 +13,10 @@
     Provide the Domain Name of the Tenant
 
     .EXAMPLE
-    Get-MgTenantName -TenantID 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+    Get-MyTenantName -TenantID 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 
     .EXAMPLE
-    Get-MgTenantName -DomainName 'contoso.com'
+    Get-MyTenantName -DomainName 'contoso.com'
 
     .NOTES
     General notes
