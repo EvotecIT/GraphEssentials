@@ -1,4 +1,7 @@
-﻿### 0.0.33
+﻿### 0.0.34
+- Added `Get-MyDefenderHealthIssues`
+
+### 0.0.33
 - Add `Get-MyTentantName`
 
 ### 0.0.32 - 2023.07.25
