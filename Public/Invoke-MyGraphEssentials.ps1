@@ -118,7 +118,7 @@
                 $TimeLogHTML = Start-TimeLog
                 New-HTMLReportGraphEssentialsWithSplit -FilePath $FilePath -Online:$Online -HideHTML:$HideHTML -CurrentReport $T
                 $TimeLogEndHTML = Stop-TimeLog -Time $TimeLogHTML -Option OneLiner
-                Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report for', $T, " [Time to execute: $TimeLogEndHTML]" -Color Yellow, DarkGray, Yellow, DarkGray
+                Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report for ', $T, " [Time to execute: $TimeLogEndHTML]" -Color Yellow, DarkGray, Yellow, DarkGray
             }
         }
     }
