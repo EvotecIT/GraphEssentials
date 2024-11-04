@@ -43,6 +43,18 @@
         return
     }
 
+    if ($FilePath) {
+        $Directory = Split-Path -Path $FilePath -Parent
+        if (-not (Test-Path -Path $Directory)) {
+            Write-Color '[i]', "[GraphEssentials] ", 'Creating directory', ' [Informative] ', $Directory -Color Yellow, DarkGray, Yellow, DarkGray
+            New-Item -Path $Directory -ItemType Directory -Force
+        }
+        if ($FilePath -notlike '*.html') {
+            Write-Color '[i]', "[GraphEssentials] ", 'Invalid file path', ' [Error] ', "File path must end with .html" -Color Yellow, DarkGray, Yellow, DarkGray, Red
+            return
+        }
+    }
+
     # Lets make sure we only enable those types which are requestd by user
     if ($Type) {
         foreach ($T in $Script:GraphEssentialsConfiguration.Keys) {
@@ -122,7 +134,7 @@
             }
         }
     }
-    if ( -not $SplitReports) {
+    if (-not $SplitReports) {
         Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report' -Color Yellow, DarkGray, Yellow
         $TimeLogHTML = Start-TimeLog
         if (-not $FilePath) {
