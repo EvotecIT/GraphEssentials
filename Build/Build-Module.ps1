@@ -1,5 +1,4 @@
 ﻿Clear-Host
-Import-Module "C:\Support\GitHub\PSPublishModule\PSPublishModule.psd1" -Force
 
 Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
     # Usual defaults as per standard module
@@ -22,21 +21,23 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
     New-ConfigurationModule -Type RequiredModule -Name @(
         'PSSharedGoods'
         'PSWriteColor'
+        'PSWriteHTML'
+        'O365Essentials'
+        'Microsoft.Graph.Authentication'
         'Microsoft.Graph.Applications'
         'Microsoft.Graph.Identity.DirectoryManagement'
         'Microsoft.Graph.Identity.Governance'
-        'PSWriteHTML'
         'Microsoft.Graph.DeviceManagement.Enrollment'
         'Microsoft.Graph.Users'
         'Microsoft.Graph.Groups'
         'Microsoft.Graph.DeviceManagement'
         'Microsoft.Graph.Teams'
-        'O365Essentials'
-        'Mailozaurr'
+        'Microsoft.Graph.Beta.Security'
     ) -Guid Auto -Version Latest
 
+    New-ConfigurationModule -Type RequiredModule -Name Mailozaurr -Guid Auto -Version '1.0.0'
 
-    New-ConfigurationModule -Type ExternalModule -Name 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security'
+    New-ConfigurationModuleSkip -IgnoreModuleName 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security'
     New-ConfigurationModule -Type ApprovedModule -Name 'O365Essentials', 'PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword' #, 'PSPublishModule'
 
 
@@ -49,7 +50,7 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         PlaceOpenBraceIgnoreOneLineBlock            = $false
 
         PlaceCloseBraceEnable                       = $true
-        PlaceCloseBraceNewLineAfter                 = $true
+        PlaceCloseBraceNewLineAfter                 = $false
         PlaceCloseBraceIgnoreOneLineBlock           = $false
         PlaceCloseBraceNoEmptyLineBefore            = $true
 
