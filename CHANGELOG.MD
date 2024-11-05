@@ -1,5 +1,11 @@
-﻿### 0.0.35
+﻿### 0.0.37
 - Create Reports folder if path to reports does not exist
+
+### 0.0.36
+- Don't remember
+
+### 0.0.35
+- Don't remember
 
 ### 0.0.34
 - Added `Get-MyDefenderHealthIssues`
