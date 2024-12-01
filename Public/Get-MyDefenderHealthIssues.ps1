@@ -22,10 +22,12 @@
     A switch parameter. If specified, all health issues will be retrieved without applying any filters.
 
     .EXAMPLE
+    Connect-MgGraph -Scopes 'SecurityIdentitiesHealth.Read.All'
     Get-MyDefenderHealthIssues -Status 'open' -HealthIssueType 'global' -Severity 'high'
     Retrieves all open global health issues with high severity.
 
     .EXAMPLE
+    Connect-MgGraph -Scopes 'SecurityIdentitiesHealth.Read.All'
     Get-MyDefenderHealthIssues -SensorDNSName 'contoso.com' -All
     Retrieves all health issues for sensors whose DNS name ends with 'contoso.com', ignoring other filters.
 
@@ -46,36 +48,37 @@
         [ValidateSet('global', 'sensor')][string] $HealthIssueType,
         [ValidateSet('high', 'medium', 'low')][string] $Severity,
         [string] $SensorDNSName,
-        [switch] $All
+        [switch] $All,
+        [switch] $Summary
     )
 
     $QueryParameters = [ordered] @{
         All = $All.IsPresent
     }
     if ($Status -and $HealthIssueType -and $Severity) {
-        $QueryParameters.Add('$filter', "Status eq '$Status' and healthIssueType eq '$HealthIssueType' and severity eq '$Severity'")
+        $QueryParameters.Add('filter', "Status eq '$Status' and healthIssueType eq '$HealthIssueType' and severity eq '$Severity'")
     } elseif ($Status -and $HealthIssueType) {
-        $QueryParameters.Add('$filter', "Status eq '$Status' and healthIssueType eq '$HealthIssueType'")
+        $QueryParameters.Add('filter', "Status eq '$Status' and healthIssueType eq '$HealthIssueType'")
     } elseif ($Status -and $Severity) {
-        $QueryParameters.Add('$filter', "Status eq '$Status' and severity eq '$Severity'")
+        $QueryParameters.Add('filter', "Status eq '$Status' and severity eq '$Severity'")
     } elseif ($HealthIssueType -and $Severity) {
-        $QueryParameters.Add('$filter', "healthIssueType eq '$HealthIssueType' and severity eq '$Severity'")
+        $QueryParameters.Add('filter', "healthIssueType eq '$HealthIssueType' and severity eq '$Severity'")
     } elseif ($Status) {
-        $QueryParameters.Add('$filter', "Status eq '$Status'")
+        $QueryParameters.Add('filter', "Status eq '$Status'")
     } elseif ($HealthIssueType) {
-        $QueryParameters.Add('$filter', "healthIssueType eq '$HealthIssueType'")
+        $QueryParameters.Add('filter', "healthIssueType eq '$HealthIssueType'")
     } elseif ($Severity) {
-        $QueryParameters.Add('$filter', "severity eq '$Severity'")
+        $QueryParameters.Add('filter', "severity eq '$Severity'")
     }
     if ($SensorDNSName) {
         $newFilter = "sensorDNSNames/any(s:endswith(s,'$SensorDNSName'))"
-        if ($QueryParameters.Contains('$filter')) {
-            $QueryParameters['$filter'] += " and $newFilter"
+        if ($QueryParameters.Contains('filter')) {
+            $QueryParameters['filter'] += " and $newFilter"
         } else {
-            $QueryParameters.Add('$filter', $newFilter)
+            $QueryParameters.Add('filter', $newFilter)
         }
     }
-
+    Write-Verbose -Message "Get-MyDefenderHealthIssues - Querying Microsoft Defender Health Issues with filter: '$($QueryParameters.Filter)'"
     $Data = Get-MgBetaSecurityIdentityHealthIssue @QueryParameters
     $Data | ForEach-Object {
         [PSCustomObject] @{
@@ -83,16 +86,16 @@
             Status                    = $_.status                    # : open
             Severity                  = $_.severity                  # : high
             HealthIssueType           = $_.healthIssueType           # : sensor
+            DomainNames               = $_.domainNames | ForEach-Object { $_ }           # : {}
             CreatedDateTime           = $_.createdDateTime           # : 2024 - 03 - 31 19:05:55
             ModifiedDateTime          = $_.lastModifiedDateTime      # : 2024 - 05 - 03 10:55:20
-            SensorDNSNames            = $_.sensorDNSNames            # : { ADRODC.ad.evotec.pl }
+            SensorDNSNames            = $_.sensorDNSNames | ForEach-Object { $_ }            # : { ADRODC.ad.evotec.pl }
             Description               = $_.description               # : The Sensor service on ADRODC.ad.evotec.pl failed to start. It was last seen running on 05 / 03 / 2024 10:24.
-            Recommendations           = $_.recommendations           # : { Monitor Sensor logs to understand the root cause for Sensor service failure., Refer to the http: / / aka.ms / mdi / troubleshooting. }
-            RecommendedActionCommands = $_.recommendedActionCommands # : {}
+            Recommendations           = $_.recommendations -join ", "          # : { Monitor Sensor logs to understand the root cause for Sensor service failure., Refer to the http: / / aka.ms / mdi / troubleshooting. }
+            RecommendedActionCommands = $_.recommendedActionCommands -join ", " # : {}
             Id                        = $_.id                        # : cafa6f51-be42 - 418a-968b-7cb529fb18ef
-            DomainNames               = $_.domainNames               # : {}
-            IssueTypeId               = $_.issueTypeId               # :
-            AdditionalInformation     = $_.additionalInformation     # : {}
+            IssueTypeId               = $_.issueTypeId      # :
+            AdditionalInformation     = $_.additionalInformation | ForEach-Object { $_ }      # : {}
         }
     }
 }
