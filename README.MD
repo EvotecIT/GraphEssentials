@@ -55,3 +55,19 @@ Connect-MgGraph -AccessToken $AccessToken
 ```powershell
 Connect-MgGraph -Scopes Application.ReadWrite.All, AccessReview.Read.All, AdministrativeUnit.Read.All, 'User.Read.All', RoleManagement.Read.Directory, Directory.Read.All, EntitlementManagement.Read.All
 ```
+
+
+#### MDI
+
+Classing guide: https://learn.microsoft.com/en-us/previous-versions/defender-for-identity/classic-integrate-mde
+Updated starting point: https://learn.microsoft.com/en-us/defender-for-identity/quick-installation-guide
+Start here: https://learn.microsoft.com/en-us/defender-for-identity/prerequisites
+
+1. [Capacity planning](https://learn.microsoft.com/en-us/defender-for-identity/capacity-planning)
+2. [Download the Sizing tool](https://github.com/microsoft/ATA-AATP-Sizing-Tool/releases)
+3. [Service account recommendations](https://learn.microsoft.com/en-us/defender-for-identity/directory-service-accounts)
+4. [Download the Sensor](https://learn.microsoft.com/en-us/defender-for-identity/download-sensor)
+5. [Install the Sensor on DC's ](https://learn.microsoft.com/en-us/defender-for-identity/install-sensor)
+6. [Basic Settings that you should review](https://www.microsoft.com/videoplayer/embed/RWFVEX)
+7. [ADFS Configuration](https://learn.microsoft.com/en-us/defender-for-identity/active-directory-federation-services)
+8. [Configure Object Auditing](https://aka.ms/mdi/objectauditing) - this is a must
