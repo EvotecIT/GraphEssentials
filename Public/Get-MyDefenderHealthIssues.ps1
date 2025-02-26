@@ -79,7 +79,12 @@
         }
     }
     Write-Verbose -Message "Get-MyDefenderHealthIssues - Querying Microsoft Defender Health Issues with filter: '$($QueryParameters.Filter)'"
-    $Data = Get-MgBetaSecurityIdentityHealthIssue @QueryParameters
+    try {
+        $Data = Get-MgBetaSecurityIdentityHealthIssue @QueryParameters -ErrorAction Stop
+    } catch {
+        Write-Warning -Message "Get-MyDefenderHealthIssues - Unable to retrieve health issues. Error: $($_.Exception.Message)"
+        return $false
+    }
     $Data | ForEach-Object {
         [PSCustomObject] @{
             DisplayName               = $_.displayName               # : Sensor service failed to start
