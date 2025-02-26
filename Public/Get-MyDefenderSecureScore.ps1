@@ -5,15 +5,28 @@
         [switch] $All
     )
     if ($All) {
-        Write-Verbose -Message 'Get-MyDefenderSecureScore - Getting all Secure Scores'
-        $SecureScore = Get-MgBetaSecuritySecureScore -All
+        try {
+            Write-Verbose -Message 'Get-MyDefenderSecureScore - Getting all Secure Scores'
+            $SecureScore = Get-MgBetaSecuritySecureScore -All -ErrorAction Stop
+        } catch {
+            Write-Warning -Message "Get-MyDefenderSecureScore - Unable to retrieve Secure Score. Error: $($_.Exception.Message)"
+            return $false
+        }
     } else {
-        Write-Verbose -Message 'Get-MyDefenderSecureScore - Getting top 1 Secure Score'
-        $SecureScore = Get-MgBetaSecuritySecureScore -Top 1
+        try {
+            Write-Verbose -Message 'Get-MyDefenderSecureScore - Getting top 1 Secure Score'
+            $SecureScore = Get-MgBetaSecuritySecureScore -Top 1 -ErrorAction Stop
+        } catch {
+            Write-Warning -Message "Get-MyDefenderSecureScore - Unable to retrieve Secure Score. Error: $($_.Exception.Message)"
+            return $false
+        }
     }
-
-    $ScoreList = Get-MyDefenderSecureScoreProfile -AsHashtable
-
+    try {
+        $ScoreList = Get-MyDefenderSecureScoreProfile -AsHashtable -ErrorAction Stop
+    } catch {
+        Write-Warning -Message "Get-MyDefenderSecureScore - Unable to retrieve Secure Score Profile. Error: $($_.Exception.Message)"
+        $ScoreList = @{}
+    }
     $Properties = [ordered]@{
         'on'                   = $true
         'lastSynced'           = $true
