@@ -1,4 +1,26 @@
 ﻿function Get-MyDefenderSecureScoreProfile {
+    <#
+    .SYNOPSIS
+    Retrieves Microsoft Defender secure score control profiles.
+
+    .DESCRIPTION
+    Gets detailed information about Microsoft Defender secure score control profiles from the Microsoft Graph Security API.
+    This provides information about each security control that contributes to the overall secure score.
+
+    .PARAMETER AsHashtable
+    When specified, returns the results as a hashtable with control IDs as keys for easier lookup.
+
+    .EXAMPLE
+    Get-MyDefenderSecureScoreProfile
+    Returns the Microsoft Defender secure score control profiles as an array of objects.
+
+    .EXAMPLE
+    Get-MyDefenderSecureScoreProfile -AsHashtable
+    Returns the Microsoft Defender secure score control profiles as a hashtable keyed by control ID.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Beta.Security module and appropriate permissions.
+    #>
     [cmdletbinding()]
     param(
         [switch] $AsHashtable
