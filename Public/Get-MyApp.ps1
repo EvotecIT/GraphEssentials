@@ -1,4 +1,35 @@
 ﻿function Get-MyApp {
+    <#
+    .SYNOPSIS
+    Retrieves Azure AD application information from Microsoft Graph API.
+
+    .DESCRIPTION
+    Gets detailed information about Azure AD/Entra applications including display names, owners,
+    client IDs, and credential details. Can optionally include credential information directly
+    in the output objects.
+
+    .PARAMETER ApplicationName
+    Optional. The display name of a specific application to retrieve. If not specified, all applications are returned.
+
+    .PARAMETER IncludeCredentials
+    Switch parameter. When specified, includes detailed credential information in the output objects.
+
+    .EXAMPLE
+    Get-MyApp
+    Returns all Azure AD applications with basic information.
+
+    .EXAMPLE
+    Get-MyApp -ApplicationName "MyAPI"
+    Returns information for a specific application named "MyAPI".
+
+    .EXAMPLE
+    Get-MyApp -IncludeCredentials
+    Returns all applications with detailed credential information included.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Applications module and appropriate permissions.
+    Typically requires Application.Read.All permissions.
+    #>
     [cmdletBinding()]
     param(
         [string] $ApplicationName,
