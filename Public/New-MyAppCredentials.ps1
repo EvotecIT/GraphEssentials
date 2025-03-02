@@ -1,4 +1,33 @@
 ﻿function New-MyAppCredentials {
+    <#
+    .SYNOPSIS
+    Creates new credentials for an existing Azure AD application.
+
+    .DESCRIPTION
+    Adds new client secret credentials to an existing Azure AD/Entra application with specified validity period.
+    This is useful for rotating credentials or adding additional secrets to applications.
+
+    .PARAMETER ObjectID
+    The object ID of the application to add credentials to.
+
+    .PARAMETER DisplayName
+    The display name or description for the credentials being added.
+
+    .PARAMETER MonthsValid
+    Number of months the credentials should be valid for. Defaults to 12 months.
+
+    .EXAMPLE
+    New-MyAppCredentials -ObjectID "11111111-1111-1111-1111-111111111111" -DisplayName "API Access"
+    Creates new credentials for the application with the specified object ID, valid for 12 months.
+
+    .EXAMPLE
+    New-MyAppCredentials -ObjectID "11111111-1111-1111-1111-111111111111" -DisplayName "Temporary Access" -MonthsValid 3
+    Creates new credentials valid for 3 months with the display name "Temporary Access".
+
+    .NOTES
+    This function requires the Microsoft.Graph.Applications module and appropriate permissions.
+    Requires Application.ReadWrite.All permissions to manage application credentials.
+    #>
     [cmdletbinding(DefaultParameterSetName = 'AppName')]
     param(
         [parameter(Mandatory, ParameterSetName = 'AppId')][string] $ObjectID,
