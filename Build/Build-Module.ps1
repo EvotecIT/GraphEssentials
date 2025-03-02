@@ -27,6 +27,7 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         'Microsoft.Graph.Applications'
         'Microsoft.Graph.Identity.DirectoryManagement'
         'Microsoft.Graph.Identity.Governance'
+        'Microsoft.Graph.Identity.SignIns'
         'Microsoft.Graph.DeviceManagement.Enrollment'
         'Microsoft.Graph.Users'
         'Microsoft.Graph.Groups'
