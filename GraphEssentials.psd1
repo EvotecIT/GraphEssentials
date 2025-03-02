@@ -6,7 +6,7 @@
     CompatiblePSEditions = @('Desktop', 'Core')
     Copyright            = '(c) 2011 - 2025 Przemyslaw Klys @ Evotec. All rights reserved.'
     Description          = 'GraphEssentials is a PowerShell module that helps with Office 365 / Azure AD using mostly Graph'
-    FunctionsToExport    = @('Get-MgToken', 'Get-MyApp', 'Get-MyAppCredentials', 'Get-MyConditionalAccess', 'Get-MyDefenderDeploymentKey', 'Get-MyDefenderHealthIssues', 'Get-MyDefenderSecureScore', 'Get-MyDefenderSecureScoreProfile', 'Get-MyDefenderSensor', 'Get-MyDefenderSummary', 'Get-MyDevice', 'Get-MyDeviceIntune', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleUsers', 'Get-MyTeam', 'Get-MyTenantName', 'Get-MyUsageReports', 'Get-MyUser', 'Invoke-MyGraphEssentials', 'Invoke-MyGraphUsageReports', 'New-MyApp', 'New-MyAppCredentials', 'Remove-MyAppCredentials', 'Send-MyApp', 'Show-MyApp', 'Show-MyDefender')
+    FunctionsToExport    = @('Get-MgToken', 'Get-MyApp', 'Get-MyAppCredentials', 'Get-MyConditionalAccess', 'Get-MyDefenderDeploymentKey', 'Get-MyDefenderHealthIssues', 'Get-MyDefenderSecureScore', 'Get-MyDefenderSecureScoreProfile', 'Get-MyDefenderSensor', 'Get-MyDefenderSummary', 'Get-MyDevice', 'Get-MyDeviceIntune', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleUsers', 'Get-MyTeam', 'Get-MyTenantName', 'Get-MyUsageReports', 'Get-MyUser', 'Invoke-MyGraphEssentials', 'Invoke-MyGraphUsageReports', 'New-MyApp', 'New-MyAppCredentials', 'Remove-MyAppCredentials', 'Send-MyApp', 'Show-MyApp', 'Show-MyConditionalAccess', 'Show-MyDefender')
     GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
     ModuleVersion        = '0.0.38'
     PowerShellVersion    = '5.1'
@@ -42,6 +42,10 @@
         }, @{
             Guid          = '530fc574-049c-42cc-810e-8835853204b7'
             ModuleName    = 'Microsoft.Graph.Identity.Governance'
+            ModuleVersion = '2.25.0'
+        }, @{
+            Guid          = '60f889fa-f873-43ad-b7d3-b7fc1273a44f'
+            ModuleName    = 'Microsoft.Graph.Identity.SignIns'
             ModuleVersion = '2.25.0'
         }, @{
             Guid          = 'cb05f22d-85cd-4b42-b99c-b713e0b9fbd3'
