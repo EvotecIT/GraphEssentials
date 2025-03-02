@@ -10,6 +10,9 @@
     $Script:Reporting['Version'] = Get-GitHubVersion -Cmdlet 'Invoke-MyGraphEssentials' -RepositoryOwner 'evotecit' -RepositoryName 'GraphEssentials'
 
     $DefenderHealthIssues = Get-MyDefenderHealthIssues -Status 'open'
+    if ($DefenderHealthIssues -eq $false) {
+        return
+    }
     $SecureScore = Get-MyDefenderSecureScore
     #$SecureProfile = Get-MyDefenderSecureScoreProfile
     $DefenderDeploymentKey = Get-MyDefenderDeploymentKey
