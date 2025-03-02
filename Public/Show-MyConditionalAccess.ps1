@@ -45,7 +45,14 @@
     }
 
     # Properties to exclude from HTML tables for cleaner display
-    $ExcludedProperties = @('IncludedRolesGuid', 'ExcludedRolesGuid')
+    $ExcludedProperties = @(
+        'IncludedRolesGuid',
+        'ExcludedRolesGuid',
+        'IncludedUsersGuid',
+        'ExcludedUsersGuid',
+        'IncludedGroupsGuid',
+        'ExcludedGroupsGuid'
+    )
 
     Write-Verbose -Message "Show-MyConditionalAccess - Preparing HTML report"
     New-HTML {
@@ -92,16 +99,17 @@
                 New-HTMLPanel {
                     New-HTMLContainer {
                         New-HTMLChart {
-                            New-ChartPieOptions
                             New-ChartLegend -Name 'Enabled', 'Report-only', 'Disabled' -Color ForestGreen, Orange, Gray
-                            New-ChartPie -Name 'Policy Status' -Value $CAData.Statistics.EnabledCount, $CAData.Statistics.ReportOnlyCount, $CAData.Statistics.DisabledCount
+                            New-ChartPie -Name 'Enabled' -Value $CAData.Statistics.EnabledCount
+                            New-ChartPie -Name 'Report Only' -Value $CAData.Statistics.ReportOnlyCount
+                            New-ChartPie -Name 'Disabled' -Value $CAData.Statistics.DisabledCount
                         } -Title 'Conditional Access Policies by Status' -TitleAlignment center
 
                         if ($CAData.Statistics.MicrosoftManagedCount -gt 0) {
                             New-HTMLChart {
-                                New-ChartPieOptions
                                 New-ChartLegend -Name 'Microsoft-managed', 'Customer-managed' -Color RoyalBlue, MediumPurple
-                                New-ChartPie -Name 'Management Type' -Value $CAData.Statistics.MicrosoftManagedCount, ($CAData.Statistics.TotalCount - $CAData.Statistics.MicrosoftManagedCount)
+                                New-ChartPie -Name 'Microsoft managed' -Value $CAData.Statistics.MicrosoftManagedCount
+                                New-ChartPie -Name 'Customer managed' -Value ($CAData.Statistics.TotalCount - $CAData.Statistics.MicrosoftManagedCount)
                             } -Title 'Policy Management Type' -TitleAlignment center
                         }
                     }
@@ -157,7 +165,7 @@
                                 "Microsoft recommends that at least 14 critical administrative roles should be protected with MFA policies. "
                                 "This table shows which of your admin MFA policies cover these critical roles and how many additional roles they include."
                             }
-                            
+
                             if ($CAData.Policies.DefaultRoles) {
                                 New-HTMLText -FontSize 11pt -Text "Critical admin roles that should be protected:" -FontWeight bold
                                 New-HTMLList {
