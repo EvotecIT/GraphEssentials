@@ -1,4 +1,43 @@
 ﻿function Send-MyApp {
+    <#
+    .SYNOPSIS
+    Creates application credentials and emails them to specified recipients.
+
+    .DESCRIPTION
+    Creates new Azure AD/Entra applications or adds credentials to existing applications,
+    then sends the credentials securely via email to specified recipients. Optionally can
+    remove old credentials during the process.
+
+    .PARAMETER ApplicationName
+    An array of application names to create or update. Can be strings or hashtables with configuration details.
+
+    .PARAMETER EmailFrom
+    The email address to send notifications from.
+
+    .PARAMETER EmailTo
+    One or more email addresses to send the credentials to.
+
+    .PARAMETER EmailSubject
+    The subject line for the email. Defaults to 'Service Principal for Applications'.
+
+    .PARAMETER Domain
+    The domain name of the tenant where applications are registered.
+
+    .PARAMETER RemoveOldCredentials
+    If specified, removes any existing credentials before adding new ones.
+
+    .EXAMPLE
+    Send-MyApp -ApplicationName "MyAPI" -EmailFrom "admin@contoso.com" -EmailTo "developer@contoso.com" -Domain "contoso.com"
+    Creates or updates an application named "MyAPI" and emails the credentials to developer@contoso.com.
+
+    .EXAMPLE
+    Send-MyApp -ApplicationName @("API1", "API2") -EmailFrom "admin@contoso.com" -EmailTo "team@contoso.com" -Domain "contoso.com" -RemoveOldCredentials
+    Creates or updates two applications, removes any existing credentials, and emails the new credentials to team@contoso.com.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Applications module and appropriate permissions.
+    Requires Application.ReadWrite.All permissions to create applications and credentials.
+    #>
     [cmdletBinding()]
     param(
         [parameter(Mandatory)][Array] $ApplicationName,
