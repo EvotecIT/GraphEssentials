@@ -1,4 +1,35 @@
 ﻿function Get-MyUser {
+    <#
+    .SYNOPSIS
+    Retrieves detailed information about users from Microsoft Graph API.
+
+    .DESCRIPTION
+    Gets comprehensive user information from Microsoft Graph API with options to organize
+    by license or service plan. Provides detailed user properties including account status,
+    authentication methods, licenses, and on-premises synchronization details.
+
+    .PARAMETER PerLicense
+    When specified, organizes user information by license instead of by user.
+
+    .PARAMETER PerServicePlan
+    When specified, organizes user information by service plan instead of by user.
+
+    .EXAMPLE
+    Get-MyUser
+    Returns detailed information about all users in the tenant.
+
+    .EXAMPLE
+    Get-MyUser -PerLicense
+    Returns user information organized by license assignments.
+
+    .EXAMPLE
+    Get-MyUser -PerServicePlan
+    Returns user information organized by service plan assignments.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Users and Microsoft.Graph.Identity modules
+    with appropriate permissions. Typically requires User.Read.All permissions.
+    #>
     [CmdletBinding(DefaultParameterSetName = 'Default')]
     param(
         [Parameter(ParameterSetName = 'PerLicense')][switch] $PerLicense,
