@@ -22,7 +22,7 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         'PSSharedGoods'
         'PSWriteColor'
         'PSWriteHTML'
-        'O365Essentials'
+        #'O365Essentials'
         'Microsoft.Graph.Authentication'
         'Microsoft.Graph.Applications'
         'Microsoft.Graph.Identity.DirectoryManagement'
@@ -38,7 +38,7 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
     New-ConfigurationModule -Type RequiredModule -Name Mailozaurr -Guid Auto -Version '1.0.0'
 
     New-ConfigurationModuleSkip -IgnoreModuleName 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security'
-    New-ConfigurationModule -Type ApprovedModule -Name 'O365Essentials', 'PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword' #, 'PSPublishModule'
+    New-ConfigurationModule -Type ApprovedModule -Name 'PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword' #, 'PSPublishModule'
 
 
     $ConfigurationFormat = [ordered] @{
