@@ -1,4 +1,42 @@
 ﻿function New-MyApp {
+    <#
+    .SYNOPSIS
+    Creates or updates an Azure AD application and adds credentials.
+
+    .DESCRIPTION
+    Creates a new Azure AD/Entra application if it doesn't exist, or updates an existing one.
+    Adds new credentials (client secrets) to the application with specified validity period.
+
+    .PARAMETER ApplicationName
+    The display name of the application to create or update.
+
+    .PARAMETER DisplayNameCredentials
+    The display name or description for the credentials being added.
+
+    .PARAMETER Description
+    Optional description for the application.
+
+    .PARAMETER MonthsValid
+    Number of months the credentials should be valid for. Defaults to 12 months.
+
+    .PARAMETER RemoveOldCredentials
+    If specified, removes any existing credentials before adding new ones.
+
+    .PARAMETER ServicePrincipal
+    If specified, creates a service principal for the application.
+
+    .EXAMPLE
+    New-MyApp -ApplicationName "MyAPI" -DisplayNameCredentials "API Access"
+    Creates or updates an application named "MyAPI" with credentials described as "API Access" valid for 12 months.
+
+    .EXAMPLE
+    New-MyApp -ApplicationName "MyAPI" -DisplayNameCredentials "API Access" -MonthsValid 6 -RemoveOldCredentials
+    Creates or updates an application, removes any existing credentials, and adds new credentials valid for 6 months.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Applications module and appropriate permissions.
+    Requires Application.ReadWrite.All permissions to create applications and credentials.
+    #>
     [cmdletBinding()]
     param(
         [parameter(Mandatory)][alias('AppName', 'DisplayName')][string] $ApplicationName,
