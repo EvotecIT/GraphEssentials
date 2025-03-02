@@ -44,6 +44,9 @@
         return
     }
 
+    # Properties to exclude from HTML tables for cleaner display
+    $ExcludedProperties = @('IncludedRolesGuid', 'ExcludedRolesGuid')
+
     Write-Verbose -Message "Show-MyConditionalAccess - Preparing HTML report"
     New-HTML {
         New-HTMLTabStyle -BorderRadius 0px -TextTransform capitalize -BackgroundColorActive SlateGrey
@@ -119,7 +122,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableCAPoliciesAll" -PagingLength 10 -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableCAPoliciesAll" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -141,7 +144,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableMFAAdmins" -PagingLength 10 -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableMFAAdmins" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -153,6 +156,15 @@
                             New-HTMLText -FontSize 11pt -TextBlock {
                                 "Microsoft recommends that at least 14 critical administrative roles should be protected with MFA policies. "
                                 "This table shows which of your admin MFA policies cover these critical roles and how many additional roles they include."
+                            }
+                            
+                            if ($CAData.Policies.DefaultRoles) {
+                                New-HTMLText -FontSize 11pt -Text "Critical admin roles that should be protected:" -FontWeight bold
+                                New-HTMLList {
+                                    foreach ($roleName in $CAData.Policies.DefaultRoles) {
+                                        New-HTMLListItem -Text $roleName
+                                    }
+                                } -FontSize 10pt
                             }
                         }
 
@@ -182,7 +194,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableMFAUsers" -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableMFAUsers" -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -204,7 +216,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableBlockLegacy" -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableBlockLegacy" -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -226,7 +238,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableDeviceCompliance" -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableDeviceCompliance" -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -248,7 +260,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableRisk" -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableRisk" -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -269,7 +281,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableAppProtection" -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableAppProtection" -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -288,7 +300,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableLocations" -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableLocations" -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -308,7 +320,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableAdminPortal" -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableAdminPortal" -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -327,7 +339,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableDeviceJoin" -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableDeviceJoin" -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
@@ -349,7 +361,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                        } -DataStore JavaScript -DataTableID "TableUncategorized" -ScrollX
+                        } -DataStore JavaScript -DataTableID "TableUncategorized" -ScrollX -ExcludeProperty $ExcludedProperties
                     }
                 }
             }
