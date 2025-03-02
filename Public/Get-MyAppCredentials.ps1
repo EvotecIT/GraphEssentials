@@ -1,4 +1,51 @@
 ﻿function Get-MyAppCredentials {
+    <#
+    .SYNOPSIS
+    Retrieves Azure AD application credentials information.
+
+    .DESCRIPTION
+    Gets detailed information about Azure AD/Entra application credentials (secrets and certificates),
+    including expiration dates, types, and associated metadata. Allows filtering based on
+    various criteria such as expiration date, display name, and application name.
+
+    .PARAMETER ApplicationName
+    Optional. The display name of a specific application to retrieve credentials for.
+
+    .PARAMETER LessThanDaysToExpire
+    Optional. Filters credentials to return only those that expire in less than the specified number of days.
+
+    .PARAMETER GreaterThanDaysToExpire
+    Optional. Filters credentials to return only those that expire in more than the specified number of days.
+
+    .PARAMETER Expired
+    Switch parameter. When specified, returns only expired credentials.
+
+    .PARAMETER DisplayNameCredentials
+    Optional. Filters credentials to those with a display name matching the specified pattern.
+
+    .PARAMETER ApplicationList
+    Optional. An array of application objects to retrieve credentials from. Primarily used for internal chaining.
+
+    .EXAMPLE
+    Get-MyAppCredentials
+    Returns credentials for all Azure AD applications.
+
+    .EXAMPLE
+    Get-MyAppCredentials -ApplicationName "MyAPI"
+    Returns credentials for a specific application named "MyAPI".
+
+    .EXAMPLE
+    Get-MyAppCredentials -LessThanDaysToExpire 30
+    Returns only credentials that expire within the next 30 days.
+
+    .EXAMPLE
+    Get-MyAppCredentials -Expired
+    Returns only expired credentials across all applications.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Applications module and appropriate permissions.
+    Typically requires Application.Read.All permissions.
+    #>
     [cmdletBinding()]
     param(
         [string] $ApplicationName,
