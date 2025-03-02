@@ -1,4 +1,52 @@
 ﻿function Invoke-MyGraphEssentials {
+    <#
+    .SYNOPSIS
+    Generates comprehensive reports for various Microsoft Graph resources.
+
+    .DESCRIPTION
+    Creates HTML reports for Microsoft Graph resources such as apps, devices, roles, and users.
+    Reports can be customized and filtered based on the specified types and can be output as a single
+    report or split into multiple reports.
+
+    .PARAMETER FilePath
+    The path where the HTML report will be saved. If not provided, a temporary file path will be used.
+
+    .PARAMETER Type
+    Array of report types to generate. Valid values include DevicesIntune, Roles, RolesUsers, Apps, etc.
+
+    .PARAMETER PassThru
+    When specified, returns the reporting data object after generating reports.
+
+    .PARAMETER HideHTML
+    When specified, doesn't display the HTML report in the default browser.
+
+    .PARAMETER HideSteps
+    When specified, hides the step-by-step details in the console output.
+
+    .PARAMETER ShowError
+    When specified, shows error details in the console output.
+
+    .PARAMETER ShowWarning
+    When specified, shows warning messages in the console output.
+
+    .PARAMETER Online
+    When specified, opens the generated report in the default web browser.
+
+    .PARAMETER SplitReports
+    When specified, generates separate HTML files for each report type instead of a combined report.
+
+    .EXAMPLE
+    Invoke-MyGraphEssentials -Type DevicesIntune, Roles, RolesUsers -FilePath "C:\Reports\GraphReport.html" -Online
+    Generates a combined report for devices, roles, and role users, and opens it in the default web browser.
+
+    .EXAMPLE
+    Invoke-MyGraphEssentials -Type Apps, AppsCredentials -FilePath "C:\Reports\Apps.html" -SplitReports
+    Generates separate reports for Apps and AppsCredentials in individual HTML files.
+
+    .NOTES
+    This function requires appropriate Microsoft Graph module and permissions to access the requested resources.
+    Different report types may require different permission scopes in Microsoft Graph.
+    #>
     [cmdletBinding()]
     param(
         [string] $FilePath,
