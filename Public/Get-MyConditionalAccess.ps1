@@ -36,6 +36,19 @@
         return
     }
 
+    # Get Azure AD roles to map GUIDs to names
+    $RolesHashTable = @{}
+    Write-Verbose -Message "Get-MyConditionalAccess - Getting Azure AD directory roles"
+    try {
+        $Roles = Get-MgRoleManagementDirectoryRoleDefinition -All -ErrorAction Stop
+        foreach ($Role in $Roles) {
+            $RolesHashTable[$Role.Id] = $Role.DisplayName
+        }
+        Write-Verbose -Message "Get-MyConditionalAccess - Retrieved $($Roles.Count) directory roles"
+    } catch {
+        Write-Warning -Message "Get-MyConditionalAccess - Failed to get directory roles. Roles will be displayed as GUIDs. Error: $($_.Exception.Message)"
+    }
+
     # Stage arrays for each category
     $CategorizedPolicies = [ordered] @{
         All                = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -77,29 +90,55 @@
         $PolicyCategorized = $false
         $PolicyType = [System.Collections.Generic.List[string]]::new()
 
+        # Convert role IDs to readable names
+        $IncludedRoleNames = [System.Collections.Generic.List[string]]::new()
+        $ExcludedRoleNames = [System.Collections.Generic.List[string]]::new()
+
+        if ($CAPolicy.Conditions.Users.IncludeRoles) {
+            foreach ($RoleId in $CAPolicy.Conditions.Users.IncludeRoles) {
+                if ($RolesHashTable.ContainsKey($RoleId)) {
+                    $IncludedRoleNames.Add($RolesHashTable[$RoleId])
+                } else {
+                    $IncludedRoleNames.Add("Unknown role ($RoleId)")
+                }
+            }
+        }
+
+        if ($CAPolicy.Conditions.Users.ExcludeRoles) {
+            foreach ($RoleId in $CAPolicy.Conditions.Users.ExcludeRoles) {
+                if ($RolesHashTable.ContainsKey($RoleId)) {
+                    $ExcludedRoleNames.Add($RolesHashTable[$RoleId])
+                } else {
+                    $ExcludedRoleNames.Add("Unknown role ($RoleId)")
+                }
+            }
+        }
+
         # Convert to PSCustomObject for consistent output
         $PolicyObj = [PSCustomObject]@{
-            DisplayName      = $CAPolicy.DisplayName
-            Id               = $CAPolicy.Id
-            State            = $CAPolicy.State
-            CreatedDateTime  = $CAPolicy.CreatedDateTime
-            ModifiedDateTime = $CAPolicy.ModifiedDateTime
-            Type             = $null # Will be populated below
-            IncludedUsers    = $CAPolicy.Conditions.Users.IncludeUsers
-            ExcludedUsers    = $CAPolicy.Conditions.Users.ExcludeUsers
-            IncludedGroups   = $CAPolicy.Conditions.Users.IncludeGroups
-            ExcludedGroups   = $CAPolicy.Conditions.Users.ExcludeGroups
-            IncludedRoles    = $CAPolicy.Conditions.Users.IncludeRoles
-            ExcludedRoles    = $CAPolicy.Conditions.Users.ExcludeRoles
-            ClientAppTypes   = $CAPolicy.Conditions.ClientAppTypes
-            Applications     = $CAPolicy.Conditions.Applications.IncludeApplications
-            UserActions      = $CAPolicy.Conditions.Applications.IncludeUserActions
-            Platforms        = $CAPolicy.Conditions.Platforms.IncludePlatforms
-            Locations        = $CAPolicy.Conditions.Locations.IncludeLocations
-            SignInRiskLevels = $CAPolicy.Conditions.SignInRiskLevels
-            UserRiskLevels   = $CAPolicy.Conditions.UserRiskLevels
-            GrantControls    = $CAPolicy.GrantControls.BuiltInControls
-            AuthStrength     = $CAPolicy.GrantControls.AuthenticationStrength.Id
+            DisplayName         = $CAPolicy.DisplayName
+            Id                  = $CAPolicy.Id
+            State               = $CAPolicy.State
+            CreatedDateTime     = $CAPolicy.CreatedDateTime
+            ModifiedDateTime    = $CAPolicy.ModifiedDateTime
+            Type                = $null # Will be populated below
+            IncludedUsers       = $CAPolicy.Conditions.Users.IncludeUsers
+            ExcludedUsers       = $CAPolicy.Conditions.Users.ExcludeUsers
+            IncludedGroups      = $CAPolicy.Conditions.Users.IncludeGroups
+            ExcludedGroups      = $CAPolicy.Conditions.Users.ExcludeGroups
+            IncludedRolesGuid   = $CAPolicy.Conditions.Users.IncludeRoles
+            ExcludedRolesGuid   = $CAPolicy.Conditions.Users.ExcludeRoles
+            IncludedRoles       = $IncludedRoleNames
+            ExcludedRoles       = $ExcludedRoleNames
+            ClientAppTypes      = $CAPolicy.Conditions.ClientAppTypes
+            Applications        = $CAPolicy.Conditions.Applications.IncludeApplications
+            UserActions         = $CAPolicy.Conditions.Applications.IncludeUserActions
+            Platforms           = $CAPolicy.Conditions.Platforms.IncludePlatforms
+            Locations           = $CAPolicy.Conditions.Locations.IncludeLocations
+            SignInRiskLevels    = $CAPolicy.Conditions.SignInRiskLevels
+            UserRiskLevels      = $CAPolicy.Conditions.UserRiskLevels
+            GrantControls       = $CAPolicy.GrantControls.BuiltInControls
+            AuthStrength        = $CAPolicy.GrantControls.AuthenticationStrength.Id
         }
 
         # Add to All collection
@@ -204,33 +243,51 @@
             'e8611ab8-c189-46e8-94e1-60213ab1f814'  # Cloud Application Administrator
         )
 
+        $default14RoleNames = @()
+        foreach ($roleId in $default14Roles) {
+            if ($RolesHashTable.ContainsKey($roleId)) {
+                $default14RoleNames += $RolesHashTable[$roleId]
+            }
+        }
+
         $AdminRoleAnalysis = foreach ($adminCAP in $CategorizedPolicies.MFAforAdmins) {
             $defaultCount = 0
             $nonDefaultCount = 0
             $includeCount = 0
+            $coveredDefaultRoles = [System.Collections.Generic.List[string]]::new()
+            $additionalRoles = [System.Collections.Generic.List[string]]::new()
 
-            if ($adminCAP.IncludedRoles) {
-                $includeCount = $adminCAP.IncludedRoles.Count
-
-                foreach ($role in $adminCAP.IncludedRoles) {
+            if ($adminCAP.IncludedRolesGuid) {
+                $includeCount = $adminCAP.IncludedRolesGuid.Count
+                
+                foreach ($role in $adminCAP.IncludedRolesGuid) {
                     if ($default14Roles -contains $role) {
                         $defaultCount++
+                        if ($RolesHashTable.ContainsKey($role)) {
+                            $coveredDefaultRoles.Add($RolesHashTable[$role])
+                        }
                     } else {
                         $nonDefaultCount++
+                        if ($RolesHashTable.ContainsKey($role)) {
+                            $additionalRoles.Add($RolesHashTable[$role])
+                        }
                     }
                 }
-
+                
                 [PSCustomObject]@{
-                    PolicyName      = $adminCAP.DisplayName
-                    TotalRoles      = $includeCount
-                    DefaultRoles    = "$defaultCount/14"
-                    AdditionalRoles = $nonDefaultCount
+                    PolicyName       = $adminCAP.DisplayName
+                    TotalRoles       = $includeCount
+                    DefaultRoles     = "$defaultCount/14"
+                    AdditionalRoles  = $nonDefaultCount
+                    CoveredDefaults  = $coveredDefaultRoles
+                    OtherRoles       = $additionalRoles
                 }
             }
         }
 
         # Add the admin role analysis to categorized policies
         $CategorizedPolicies['AdminRoleAnalysis'] = $AdminRoleAnalysis
+        $CategorizedPolicies['DefaultRoles'] = $default14RoleNames
     }
 
     if ($IncludeStatistics) {
