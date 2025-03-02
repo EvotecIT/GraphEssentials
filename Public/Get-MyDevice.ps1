@@ -1,4 +1,33 @@
 ﻿function Get-MyDevice {
+    <#
+    .SYNOPSIS
+    Gets device information from Microsoft Graph API.
+
+    .DESCRIPTION
+    Retrieves device information from Microsoft Graph API and formats it for easy consumption.
+    Allows filtering by device type (Hybrid, AzureAD joined, etc.) and synchronization status.
+
+    .PARAMETER Type
+    Filter devices by type. Valid values are 'Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', and 'Not available'.
+
+    .PARAMETER Synchronized
+    When specified, returns only synchronized devices (devices with OnPremisesSyncEnabled set to true).
+
+    .EXAMPLE
+    Get-MyDevice
+    Returns all devices from the Microsoft Graph API.
+
+    .EXAMPLE
+    Get-MyDevice -Type 'AzureAD joined'
+    Returns only AzureAD joined devices.
+
+    .EXAMPLE
+    Get-MyDevice -Synchronized
+    Returns only synchronized devices.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Authentication module and appropriate permissions.
+    #>
     [cmdletBinding()]
     param(
         [ValidateSet('Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', 'Not available')][string[]] $Type,
