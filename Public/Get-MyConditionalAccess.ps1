@@ -49,19 +49,129 @@
         Write-Warning -Message "Get-MyConditionalAccess - Failed to get directory roles. Roles will be displayed as GUIDs. Error: $($_.Exception.Message)"
     }
 
+    # Create hashtable for users and groups with default entries
+    $UsersAndGroupsHashTable = @{
+        'All'                   = 'All users'
+        'GuestsOrExternalUsers' = 'All guests'
+        'None'                  = 'No users'
+    }
+
+    # Extract all user, group IDs from policies for targeted lookup
+    $userIdsToLookup = [System.Collections.Generic.HashSet[string]]::new()
+    $groupIdsToLookup = [System.Collections.Generic.HashSet[string]]::new()
+
+    foreach ($CAPolicy in $ConditionalAccessPolicyArray) {
+        # Collect user IDs
+        if ($CAPolicy.Conditions.Users.IncludeUsers) {
+            foreach ($userId in $CAPolicy.Conditions.Users.IncludeUsers) {
+                if ($userId -notin @('All', 'GuestsOrExternalUsers', 'None')) {
+                    [void]$userIdsToLookup.Add($userId)
+                }
+            }
+        }
+
+        if ($CAPolicy.Conditions.Users.ExcludeUsers) {
+            foreach ($userId in $CAPolicy.Conditions.Users.ExcludeUsers) {
+                if ($userId -notin @('All', 'GuestsOrExternalUsers', 'None')) {
+                    [void]$userIdsToLookup.Add($userId)
+                }
+            }
+        }
+
+        # Collect group IDs
+        if ($CAPolicy.Conditions.Users.IncludeGroups) {
+            foreach ($groupId in $CAPolicy.Conditions.Users.IncludeGroups) {
+                [void]$groupIdsToLookup.Add($groupId)
+            }
+        }
+
+        if ($CAPolicy.Conditions.Users.ExcludeGroups) {
+            foreach ($groupId in $CAPolicy.Conditions.Users.ExcludeGroups) {
+                [void]$groupIdsToLookup.Add($groupId)
+            }
+        }
+    }
+
+    Write-Verbose -Message "Get-MyConditionalAccess - Found $($userIdsToLookup.Count) unique user IDs and $($groupIdsToLookup.Count) unique group IDs to resolve"
+
+    # Lookup users by ID in batches
+    if ($userIdsToLookup.Count -gt 0) {
+        $batchSize = 15 # Microsoft Graph has limits on URL length
+        $userIdBatches = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
+        $currentBatch = [System.Collections.Generic.List[string]]::new()
+
+        foreach ($userId in $userIdsToLookup) {
+            if ($currentBatch.Count -eq $batchSize) {
+                $userIdBatches.Add($currentBatch)
+                $currentBatch = [System.Collections.Generic.List[string]]::new()
+            }
+            $currentBatch.Add($userId)
+        }
+
+        if ($currentBatch.Count -gt 0) {
+            $userIdBatches.Add($currentBatch)
+        }
+
+        foreach ($batch in $userIdBatches) {
+            try {
+                $filter = "id in ('" + ($batch -join "','") + "')"
+                Write-Verbose -Message "Get-MyConditionalAccess - Looking up users with filter: $filter"
+                $batchUsers = Get-MgUser -Filter $filter -Property Id, DisplayName, UserPrincipalName -ErrorAction Stop
+                foreach ($user in $batchUsers) {
+                    $UsersAndGroupsHashTable[$user.Id] = "$($user.DisplayName) ($($user.UserPrincipalName))"
+                }
+            } catch {
+                Write-Warning -Message "Get-MyConditionalAccess - Failed to resolve some user IDs. Error: $($_.Exception.Message)"
+            }
+        }
+    }
+
+    # Lookup groups by ID in batches
+    if ($groupIdsToLookup.Count -gt 0) {
+        $batchSize = 15
+        $groupIdBatches = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
+        $currentBatch = [System.Collections.Generic.List[string]]::new()
+
+        foreach ($groupId in $groupIdsToLookup) {
+            if ($currentBatch.Count -eq $batchSize) {
+                $groupIdBatches.Add($currentBatch)
+                $currentBatch = [System.Collections.Generic.List[string]]::new()
+            }
+            $currentBatch.Add($groupId)
+        }
+
+        if ($currentBatch.Count -gt 0) {
+            $groupIdBatches.Add($currentBatch)
+        }
+
+        foreach ($batch in $groupIdBatches) {
+            try {
+                $filter = "id in ('" + ($batch -join "','") + "')"
+                Write-Verbose -Message "Get-MyConditionalAccess - Looking up groups with filter: $filter"
+                $batchGroups = Get-MgGroup -Filter $filter -Property Id, DisplayName, Mail -ErrorAction Stop
+                foreach ($group in $batchGroups) {
+                    $GroupMail = if ($group.Mail) { " ($($group.Mail))" } else { "" }
+                    $UsersAndGroupsHashTable[$group.Id] = "Group: $($group.DisplayName)$GroupMail"
+                }
+            } catch {
+                Write-Warning -Message "Get-MyConditionalAccess - Failed to resolve some group IDs. Error: $($_.Exception.Message)"
+            }
+        }
+    }
+
     # Stage arrays for each category
     $CategorizedPolicies = [ordered] @{
-        All                = [System.Collections.Generic.List[PSCustomObject]]::new()
-        BlockLegacyAccess  = [System.Collections.Generic.List[PSCustomObject]]::new()
-        MFAforAdmins       = [System.Collections.Generic.List[PSCustomObject]]::new()
-        MFAforUsers        = [System.Collections.Generic.List[PSCustomObject]]::new()
-        Risk               = [System.Collections.Generic.List[PSCustomObject]]::new()
-        AppProtection      = [System.Collections.Generic.List[PSCustomObject]]::new()
-        DeviceCompliance   = [System.Collections.Generic.List[PSCustomObject]]::new()
-        UsingLocations     = [System.Collections.Generic.List[PSCustomObject]]::new()
+        All                 = [System.Collections.Generic.List[PSCustomObject]]::new()
+        BlockLegacyAccess   = [System.Collections.Generic.List[PSCustomObject]]::new()
+        MFAforAdmins        = [System.Collections.Generic.List[PSCustomObject]]::new()
+        MFAforUsers         = [System.Collections.Generic.List[PSCustomObject]]::new()
+        Risk                = [System.Collections.Generic.List[PSCustomObject]]::new()
+        AppProtection       = [System.Collections.Generic.List[PSCustomObject]]::new()
+        DeviceCompliance    = [System.Collections.Generic.List[PSCustomObject]]::new()
+        UsingLocations      = [System.Collections.Generic.List[PSCustomObject]]::new()
         RestrictAdminPortal = [System.Collections.Generic.List[PSCustomObject]]::new()
-        MFAforDeviceJoin   = [System.Collections.Generic.List[PSCustomObject]]::new()
-        Uncategorized      = [System.Collections.Generic.List[PSCustomObject]]::new()
+        MFAforDeviceJoin    = [System.Collections.Generic.List[PSCustomObject]]::new()
+        Uncategorized       = [System.Collections.Generic.List[PSCustomObject]]::new()
     }
 
     # Statistics
@@ -114,31 +224,83 @@
             }
         }
 
+        # Convert user IDs to readable names
+        $IncludedUserNames = [System.Collections.Generic.List[string]]::new()
+        $ExcludedUserNames = [System.Collections.Generic.List[string]]::new()
+
+        if ($CAPolicy.Conditions.Users.IncludeUsers) {
+            foreach ($UserId in $CAPolicy.Conditions.Users.IncludeUsers) {
+                if ($UsersAndGroupsHashTable.ContainsKey($UserId)) {
+                    $IncludedUserNames.Add($UsersAndGroupsHashTable[$UserId])
+                } else {
+                    $IncludedUserNames.Add($UserId)
+                }
+            }
+        }
+
+        if ($CAPolicy.Conditions.Users.ExcludeUsers) {
+            foreach ($UserId in $CAPolicy.Conditions.Users.ExcludeUsers) {
+                if ($UsersAndGroupsHashTable.ContainsKey($UserId)) {
+                    $ExcludedUserNames.Add($UsersAndGroupsHashTable[$UserId])
+                } else {
+                    $ExcludedUserNames.Add($UserId)
+                }
+            }
+        }
+
+        # Convert group IDs to readable names
+        $IncludedGroupNames = [System.Collections.Generic.List[string]]::new()
+        $ExcludedGroupNames = [System.Collections.Generic.List[string]]::new()
+
+        if ($CAPolicy.Conditions.Users.IncludeGroups) {
+            foreach ($GroupId in $CAPolicy.Conditions.Users.IncludeGroups) {
+                if ($UsersAndGroupsHashTable.ContainsKey($GroupId)) {
+                    $IncludedGroupNames.Add($UsersAndGroupsHashTable[$GroupId])
+                } else {
+                    $IncludedGroupNames.Add("Unknown group ($GroupId)")
+                }
+            }
+        }
+
+        if ($CAPolicy.Conditions.Users.ExcludeGroups) {
+            foreach ($GroupId in $CAPolicy.Conditions.Users.ExcludeGroups) {
+                if ($UsersAndGroupsHashTable.ContainsKey($GroupId)) {
+                    $ExcludedGroupNames.Add($UsersAndGroupsHashTable[$GroupId])
+                } else {
+                    $ExcludedGroupNames.Add("Unknown group ($GroupId)")
+                }
+            }
+        }
+
         # Convert to PSCustomObject for consistent output
         $PolicyObj = [PSCustomObject]@{
-            DisplayName         = $CAPolicy.DisplayName
-            Id                  = $CAPolicy.Id
-            State               = $CAPolicy.State
-            CreatedDateTime     = $CAPolicy.CreatedDateTime
-            ModifiedDateTime    = $CAPolicy.ModifiedDateTime
-            Type                = $null # Will be populated below
-            IncludedUsers       = $CAPolicy.Conditions.Users.IncludeUsers
-            ExcludedUsers       = $CAPolicy.Conditions.Users.ExcludeUsers
-            IncludedGroups      = $CAPolicy.Conditions.Users.IncludeGroups
-            ExcludedGroups      = $CAPolicy.Conditions.Users.ExcludeGroups
-            IncludedRolesGuid   = $CAPolicy.Conditions.Users.IncludeRoles
-            ExcludedRolesGuid   = $CAPolicy.Conditions.Users.ExcludeRoles
-            IncludedRoles       = $IncludedRoleNames
-            ExcludedRoles       = $ExcludedRoleNames
-            ClientAppTypes      = $CAPolicy.Conditions.ClientAppTypes
-            Applications        = $CAPolicy.Conditions.Applications.IncludeApplications
-            UserActions         = $CAPolicy.Conditions.Applications.IncludeUserActions
-            Platforms           = $CAPolicy.Conditions.Platforms.IncludePlatforms
-            Locations           = $CAPolicy.Conditions.Locations.IncludeLocations
-            SignInRiskLevels    = $CAPolicy.Conditions.SignInRiskLevels
-            UserRiskLevels      = $CAPolicy.Conditions.UserRiskLevels
-            GrantControls       = $CAPolicy.GrantControls.BuiltInControls
-            AuthStrength        = $CAPolicy.GrantControls.AuthenticationStrength.Id
+            DisplayName        = $CAPolicy.DisplayName
+            Id                 = $CAPolicy.Id
+            State              = $CAPolicy.State
+            CreatedDateTime    = $CAPolicy.CreatedDateTime
+            ModifiedDateTime   = $CAPolicy.ModifiedDateTime
+            Type               = $null # Will be populated below
+            IncludedUsersGuid  = $CAPolicy.Conditions.Users.IncludeUsers
+            ExcludedUsersGuid  = $CAPolicy.Conditions.Users.ExcludeUsers
+            IncludedGroupsGuid = $CAPolicy.Conditions.Users.IncludeGroups
+            ExcludedGroupsGuid = $CAPolicy.Conditions.Users.ExcludeGroups
+            IncludedRolesGuid  = $CAPolicy.Conditions.Users.IncludeRoles
+            ExcludedRolesGuid  = $CAPolicy.Conditions.Users.ExcludeRoles
+            IncludedUsers      = $IncludedUserNames
+            ExcludedUsers      = $ExcludedUserNames
+            IncludedGroups     = $IncludedGroupNames
+            ExcludedGroups     = $ExcludedGroupNames
+            IncludedRoles      = $IncludedRoleNames
+            ExcludedRoles      = $ExcludedRoleNames
+            ClientAppTypes     = $CAPolicy.Conditions.ClientAppTypes
+            Applications       = $CAPolicy.Conditions.Applications.IncludeApplications
+            UserActions        = $CAPolicy.Conditions.Applications.IncludeUserActions
+            Platforms          = $CAPolicy.Conditions.Platforms.IncludePlatforms
+            Locations          = $CAPolicy.Conditions.Locations.IncludeLocations
+            SignInRiskLevels   = $CAPolicy.Conditions.SignInRiskLevels
+            UserRiskLevels     = $CAPolicy.Conditions.UserRiskLevels
+            GrantControls      = $CAPolicy.GrantControls.BuiltInControls
+            AuthStrength       = $CAPolicy.GrantControls.AuthenticationStrength.Id
         }
 
         # Add to All collection
@@ -259,7 +421,7 @@
 
             if ($adminCAP.IncludedRolesGuid) {
                 $includeCount = $adminCAP.IncludedRolesGuid.Count
-                
+
                 foreach ($role in $adminCAP.IncludedRolesGuid) {
                     if ($default14Roles -contains $role) {
                         $defaultCount++
@@ -273,14 +435,14 @@
                         }
                     }
                 }
-                
+
                 [PSCustomObject]@{
-                    PolicyName       = $adminCAP.DisplayName
-                    TotalRoles       = $includeCount
-                    DefaultRoles     = "$defaultCount/14"
-                    AdditionalRoles  = $nonDefaultCount
-                    CoveredDefaults  = $coveredDefaultRoles
-                    OtherRoles       = $additionalRoles
+                    PolicyName      = $adminCAP.DisplayName
+                    TotalRoles      = $includeCount
+                    DefaultRoles    = "$defaultCount/14"
+                    AdditionalRoles = $nonDefaultCount
+                    CoveredDefaults = $coveredDefaultRoles
+                    OtherRoles      = $additionalRoles
                 }
             }
         }
