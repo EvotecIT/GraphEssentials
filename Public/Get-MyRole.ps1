@@ -1,4 +1,28 @@
 ﻿function Get-MyRole {
+    <#
+    .SYNOPSIS
+    Retrieves Azure AD directory roles and their assignments.
+
+    .DESCRIPTION
+    Gets detailed information about Azure AD/Entra ID directory roles, including role assignments
+    for users, groups, and service principals. Categorizes assignments as direct or eligible
+    and provides statistics about the number of members in each role.
+
+    .PARAMETER OnlyWithMembers
+    When specified, returns only roles that have at least one member (direct or eligible).
+
+    .EXAMPLE
+    Get-MyRole
+    Returns all Azure AD directory roles along with member information.
+
+    .EXAMPLE
+    Get-MyRole -OnlyWithMembers
+    Returns only Azure AD directory roles that have at least one member assigned.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Identity.Governance module and appropriate permissions.
+    Typically requires RoleManagement.Read.Directory or Directory.Read.All permissions.
+    #>
     [CmdletBinding()]
     param(
         [switch] $OnlyWithMembers
