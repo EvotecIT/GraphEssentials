@@ -1,4 +1,36 @@
 ﻿function Get-MyRoleUsers {
+    <#
+    .SYNOPSIS
+    Retrieves detailed information about users assigned to Azure AD roles.
+
+    .DESCRIPTION
+    Gets comprehensive information about Azure AD/Entra ID role assignments and eligible assignments,
+    including direct assignments and assignments through groups. The data can be presented in different formats
+    to facilitate analysis of role assignments across your tenant.
+
+    .PARAMETER OnlyWithRoles
+    When specified, returns only users who have at least one role assignment.
+
+    .PARAMETER RolePerColumn
+    When specified, changes the output format to have each role as a column instead of as rows.
+    This creates a matrix view with users on rows and roles on columns.
+
+    .EXAMPLE
+    Get-MyRoleUsers
+    Returns all users with their role assignments in the default format.
+
+    .EXAMPLE
+    Get-MyRoleUsers -OnlyWithRoles
+    Returns only users who have at least one role assignment.
+
+    .EXAMPLE
+    Get-MyRoleUsers -RolePerColumn
+    Returns users with their role assignments in a matrix format with roles as columns.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Identity.Governance module and appropriate permissions.
+    Typically requires RoleManagement.Read.Directory or Directory.Read.All permissions.
+    #>
     [CmdletBinding()]
     param(
         [switch] $OnlyWithRoles,
