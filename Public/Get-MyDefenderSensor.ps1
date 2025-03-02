@@ -1,4 +1,20 @@
 ﻿function Get-MyDefenderSensor {
+    <#
+    .SYNOPSIS
+    Retrieves Microsoft Defender for Identity sensors information.
+
+    .DESCRIPTION
+    Gets detailed information about Microsoft Defender for Identity sensors from the Microsoft Graph Security API.
+    Returns sensor properties including display name, domain name, deployment status, health status, and version.
+
+    .EXAMPLE
+    Get-MyDefenderSensor
+    Returns all Microsoft Defender for Identity sensors.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Beta.Security module and appropriate permissions.
+    Requires SecurityIdentitiesSensors.Read.All permission.
+    #>
     [cmdletbinding()]
     param(
 
