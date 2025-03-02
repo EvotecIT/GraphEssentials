@@ -1,4 +1,19 @@
 ﻿function Get-MyDeviceIntune {
+    <#
+    .SYNOPSIS
+    Retrieves Intune device information from Microsoft Graph API.
+
+    .DESCRIPTION
+    Gets detailed information about devices managed by Intune from the Microsoft Graph API.
+    Provides data about device compliance, management state, and other device-specific properties.
+
+    .EXAMPLE
+    Get-MyDeviceIntune
+    Returns all Intune managed devices with their properties.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Authentication module and appropriate permissions to access Intune data.
+    #>
     [cmdletBinding()]
     param(
 
