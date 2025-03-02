@@ -1,4 +1,33 @@
 ﻿function Get-MyTeam {
+    <#
+    .SYNOPSIS
+    Retrieves Teams information from Microsoft Graph API.
+
+    .DESCRIPTION
+    Gets detailed information about Microsoft Teams including team membership, owner information,
+    and team settings. Can organize information by team owner and optionally return as a hashtable.
+
+    .PARAMETER PerOwner
+    When specified, organizes the output by team owner instead of by team.
+
+    .PARAMETER AsHashtable
+    When specified, returns data as a hashtable instead of objects.
+
+    .EXAMPLE
+    Get-MyTeam
+    Returns a list of all Teams with their properties.
+
+    .EXAMPLE
+    Get-MyTeam -PerOwner
+    Returns Teams organized by owner.
+
+    .EXAMPLE
+    Get-MyTeam -AsHashtable
+    Returns Teams information as a hashtable for easier programmatic access.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Teams module and appropriate permissions.
+    #>
     [cmdletbinding()]
     param(
         [switch] $PerOwner,
@@ -21,21 +50,17 @@
     #     Write-Warning -Message "Get-MyTeam - Couldn't get list of teams. Error: $($_.Exception.Message)"
     #     return
     # }
+
     try {
-        $Teams = Get-MgTeam -All -ErrorAction Stop #-Property 'id','displayName','visibility','description','isArchived','summary'
+        $Teams = Get-MgTeam -All -ErrorAction Stop
     } catch {
         Write-Warning -Message "Get-MyTeam - Couldn't get list of teams. Error: $($_.Exception.Message)"
         return
     }
     foreach ($Team in $Teams) {
         try {
-            $Owner = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/groups/$($Team.id)/owners" -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
-        } catch {
-            Write-Warning -Message "Get-MyTeam - Error list of owners on team $($Team.DisplayName) / $($Team.id): $($_.Exception.Message)"
-            continue
-        }
-        try {
-            $TeamDetails = Get-MgTeam -TeamId $Team.id -ErrorAction Stop
+            $TeamDetails = Get-MgTeam -TeamId $Team.Id -Property DisplayName, Description, CreatedDateTime, GuestSettings, MemberSettings -ExpandProperty "Summary" -ErrorAction Stop
+            $Owner = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/teams/$($Team.Id)/owners" -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
         } catch {
             Write-Warning -Message "Get-MyTeam - Error (extended) on team $($Team.DisplayName) / $($Team.id): $($_.Exception.Message)"
             continue
