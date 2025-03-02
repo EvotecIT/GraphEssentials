@@ -1,4 +1,34 @@
 ﻿function Show-MyDefender {
+    <#
+    .SYNOPSIS
+    Generates an HTML report for Microsoft Defender for Identity components.
+
+    .DESCRIPTION
+    Creates a comprehensive HTML report containing Microsoft Defender for Identity information including
+    sensors, deployment keys, health issues, and secure scores. The report is organized in tabs for
+    easy navigation and analysis.
+
+    .PARAMETER FilePath
+    The path where the HTML report will be saved.
+
+    .PARAMETER Online
+    If specified, opens the HTML report in the default browser after generation.
+
+    .PARAMETER ShowHTML
+    If specified, displays the HTML content in the PowerShell console after generation.
+
+    .EXAMPLE
+    Show-MyDefender -FilePath "C:\Reports\DefenderReport.html"
+    Generates a Microsoft Defender for Identity report and saves it to the specified path.
+
+    .EXAMPLE
+    Show-MyDefender -FilePath "C:\Reports\DefenderReport.html" -Online
+    Generates a report, saves it to the specified path, and opens it in the default browser.
+
+    .NOTES
+    This function depends on several Get-MyDefender* functions to retrieve the data for the report.
+    Requires appropriate Microsoft Graph permissions to access Microsoft Defender for Identity data.
+    #>
     [cmdletbinding()]
     param(
         [Parameter(Mandatory)][string] $FilePath,
