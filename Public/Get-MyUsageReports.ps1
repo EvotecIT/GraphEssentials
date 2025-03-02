@@ -1,4 +1,35 @@
 ﻿function Get-MyUsageReports {
+    <#
+    .SYNOPSIS
+    Retrieves usage report data from Microsoft Graph API.
+
+    .DESCRIPTION
+    Gets detailed usage reports for various Microsoft 365 services via the Microsoft Graph API.
+    Supports retrieving data for specific time periods or dates and allows filtering by report type.
+
+    .PARAMETER Period
+    Specifies the reporting period in days. Valid values are '7', '30', '90', '180'.
+    Must be used when not using DateTime parameter.
+
+    .PARAMETER DateTime
+    Specifies a specific date to retrieve usage data for. Format should be a valid DateTime.
+    Must be used when not using Period parameter.
+
+    .PARAMETER Report
+    Specifies which usage report to retrieve. See ValidateSet for all available report options.
+
+    .EXAMPLE
+    Get-MyUsageReports -Period 30 -Report 'TeamsUserActivityUserDetail'
+    Returns Teams user activity details for the last 30 days.
+
+    .EXAMPLE
+    Get-MyUsageReports -DateTime "2023-01-01" -Report 'Office365ActivationsUserDetail'
+    Returns Office 365 activation details for the specified date.
+
+    .NOTES
+    This function requires Microsoft Graph API permissions, typically Reports.Read.All.
+    The data returned varies based on the report type requested.
+    #>
     [cmdletBinding(DefaultParameterSetName = "Period")]
     param(
         [parameter(ParameterSetName = 'Period', Mandatory)][ValidateSet('7', '30', '90', '180')][string] $Period,
