@@ -1,4 +1,5 @@
 ﻿Clear-Host
+
 Import-Module .\GraphEssentials.psd1 -Force
 
 Connect-MgGraph -Scopes 'User.Read.All', 'Directory.Read.All', 'SecurityIdentitiesHealth.Read.All', 'SecurityIdentitiesSensors.Read.All', 'SecurityEvents.Read.All', 'SecurityActions.Read.All' -NoWelcome
