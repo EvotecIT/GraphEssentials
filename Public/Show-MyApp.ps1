@@ -1,4 +1,33 @@
 ﻿function Show-MyApp {
+    <#
+    .SYNOPSIS
+    Generates an HTML report for Azure AD applications and their credentials.
+
+    .DESCRIPTION
+    Creates a comprehensive HTML report displaying information about Azure AD/Entra applications
+    and their associated credentials. The report includes details about application owners,
+    credential expiry dates, and other important application properties.
+
+    .PARAMETER FilePath
+    The path where the HTML report will be saved.
+
+    .PARAMETER Online
+    If specified, opens the HTML report in the default browser after generation.
+
+    .PARAMETER ShowHTML
+    If specified, displays the HTML content in the PowerShell console after generation.
+
+    .EXAMPLE
+    Show-MyApp -FilePath "C:\Reports\Applications.html"
+    Generates an applications report and saves it to the specified path.
+
+    .EXAMPLE
+    Show-MyApp -FilePath "C:\Reports\Applications.html" -Online
+    Generates an applications report, saves it to the specified path, and opens it in the default browser.
+
+    .NOTES
+    This function requires the PSWriteHTML module and appropriate Microsoft Graph permissions.
+    #>
     [cmdletBinding()]
     param(
         [Parameter(Mandatory)][string] $FilePath,
