@@ -1,4 +1,49 @@
 ﻿function Invoke-MyGraphUsageReports {
+    <#
+    .SYNOPSIS
+    Generates comprehensive reports for Microsoft 365 service usage.
+
+    .DESCRIPTION
+    Creates HTML reports for various Microsoft 365 services usage data retrieved from Microsoft Graph.
+    Allows filtering by date range and can generate reports for specific services or all available services.
+
+    .PARAMETER Period
+    Specifies the reporting period in days. Valid values are '7', '30', '90', '180'.
+    Must be used when not using DateTime parameter.
+
+    .PARAMETER DateTime
+    Specifies a specific date to retrieve usage data for. Reports will cover data for the
+    specified date (based on data availability from Microsoft Graph).
+    Must be used when not using Period parameter.
+
+    .PARAMETER Report
+    Specifies which usage reports to generate. Can be a list of specific report names or 'All' to
+    generate all available reports. See ValidateSet for all available report options.
+
+    .PARAMETER Online
+    When specified, opens the generated report in the default web browser.
+
+    .PARAMETER HideHTML
+    When specified, suppresses automatic opening of the HTML report in the default browser.
+
+    .PARAMETER FilePath
+    The path where the HTML report will be saved. If not provided, a temporary file path will be used.
+
+    .PARAMETER DontSuppress
+    When specified, returns the reporting data object after generating reports.
+
+    .EXAMPLE
+    Invoke-MyGraphUsageReports -Period 30 -Report 'All' -FilePath "C:\Reports\UsageReport.html" -Online
+    Generates reports for all available usage data for the last 30 days and opens the report in the default browser.
+
+    .EXAMPLE
+    Invoke-MyGraphUsageReports -DateTime "2023-01-01" -Report 'TeamsUserActivityUserDetail','TeamsDeviceUsageUserDetail' -FilePath "C:\Reports\TeamsUsage.html"
+    Generates specific Teams usage reports for the specified date and saves the report to the specified path.
+
+    .NOTES
+    This function requires appropriate Microsoft Graph permissions, typically Reports.Read.All.
+    Some report types may only have data available for certain time periods.
+    #>
     [CmdletBinding()]
     param(
         [parameter(ParameterSetName = 'Period', Mandatory)][ValidateSet('7', '30', '90', '180')][string] $Period,
