@@ -1,4 +1,12 @@
-﻿### 0.0.37
+﻿### 0.0.38
+- Added `Get-MyDefenderHealthIssues`
+- Added `Get-MyDefenderSecureScore`
+- Added `Get-MyDefenderSecureScoreProfile`
+- Added `Get-MyConditionalAccess`
+- Added `Show-MyConditionalAccess`
+- Added `Show-MyDefender`
+
+### 0.0.37
 - Create Reports folder if path to reports does not exist
 
 ### 0.0.36
