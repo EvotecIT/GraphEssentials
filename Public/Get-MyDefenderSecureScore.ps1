@@ -1,4 +1,33 @@
 ﻿function Get-MyDefenderSecureScore {
+    <#
+    .SYNOPSIS
+    Retrieves Microsoft Defender secure score information.
+
+    .DESCRIPTION
+    Gets detailed information about Microsoft Defender secure scores from the Microsoft Graph Security API.
+    Returns secure score metrics including current score, max score, and individual control scores.
+
+    .PARAMETER IncludeScoreSummary
+    When specified, includes a summary of the secure score metrics in the output.
+
+    .PARAMETER All
+    When specified, retrieves all historical secure scores instead of just the most recent one.
+
+    .EXAMPLE
+    Get-MyDefenderSecureScore
+    Returns the most recent Microsoft Defender secure score details.
+
+    .EXAMPLE
+    Get-MyDefenderSecureScore -IncludeScoreSummary
+    Returns the most recent Microsoft Defender secure score with a summary of metrics.
+
+    .EXAMPLE
+    Get-MyDefenderSecureScore -All
+    Returns all historical Microsoft Defender secure scores.
+
+    .NOTES
+    This function requires the Microsoft.Graph.Beta.Security module and appropriate permissions.
+    #>
     [cmdletbinding()]
     param(
         [switch] $IncludeScoreSummary,
