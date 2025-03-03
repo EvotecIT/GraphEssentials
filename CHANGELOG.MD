@@ -1,4 +1,8 @@
-﻿### 0.0.38
+﻿### 0.0.39
+- Improved `Get-MyConditionalAccess`
+- Improved `Show-MyConditionalAccess`
+
+### 0.0.38
 - Added `Get-MyDefenderHealthIssues`
 - Added `Get-MyDefenderSecureScore`
 - Added `Get-MyDefenderSecureScoreProfile`
