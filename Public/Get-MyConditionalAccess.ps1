@@ -70,13 +70,18 @@
         '00000006-0000-0ff1-ce00-000000000000' = 'Microsoft SharePoint Online'
         '09abbdfd-ed23-44ee-a2d9-a627aa1c90f3' = 'Microsoft Azure Management'
         '797f4846-ba00-4fd7-ba43-dac1f8f63013' = 'Office 365 Management'
-        # '00000003-0000-0000-c000-000000000000' = 'Azure AD Graph API'
     }
 
-    # Authentication strength mappings
+    # Authentication strength mappings - predefined common values
     $AuthStrengthTable = @{
-        'FedMFA'                 = 'Federated MFA'
-        'Phishing-resistant MFA' = 'Phishing-resistant MFA'
+        'FedMFA'                                = 'Federated MFA'
+        'Phishing-resistant MFA'                = 'Phishing-resistant MFA'
+        'WindowsHelloForBusiness'               = 'Windows Hello for Business'
+        'SuperiorSecurityFIDO2'                 = 'FIDO2 Security Key'
+        'SuperiorSecurityPasswordless'          = 'Passwordless'
+        'MultiFactorAuthentication'             = 'Multifactor Authentication'
+        'PasswordlessWithSecurityKey'           = 'Passwordless with Security Key'
+        'SecurePasswordAndPhishingResistantMFA' = 'Password + Phishing-resistant MFA'
     }
 
     # Try to get additional application information from Microsoft Graph
@@ -93,16 +98,16 @@
         Write-Warning -Message "Get-MyConditionalAccess - Failed to get application information. Some application IDs may not be resolved. Error: $($_.Exception.Message)"
     }
 
-    # Try to get authentication strength information
+    # Get authentication strength policies
     Write-Verbose -Message "Get-MyConditionalAccess - Getting authentication strength information"
     try {
-        $AuthStrengths = Get-MgIdentityConditionalAccessAuthenticationStrengthPolicy -ErrorAction Stop
+        $AuthStrengths = Get-MgPolicyAuthenticationStrengthPolicy -ErrorAction Stop
         foreach ($Strength in $AuthStrengths) {
             $AuthStrengthTable[$Strength.Id] = $Strength.DisplayName
         }
         Write-Verbose -Message "Get-MyConditionalAccess - Retrieved $($AuthStrengths.Count) authentication strength policies"
     } catch {
-        Write-Warning -Message "Get-MyConditionalAccess - Failed to get authentication strength information. Some strength IDs may not be resolved. Error: $($_.Exception.Message)"
+        Write-Warning -Message "Get-MyConditionalAccess - Failed to get authentication strength information. Using predefined values only. Error: $($_.Exception.Message)"
     }
 
     # Extract all user, group IDs from policies for targeted lookup
