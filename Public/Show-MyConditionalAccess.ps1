@@ -5,6 +5,7 @@
 
     .DESCRIPTION
     This function retrieves conditional access policies and displays them in an HTML report using PSWriteHTML.
+    The report includes information about policy categorization, authentication strength policies, and usage statistics.
 
     .PARAMETER FilePath
     The path where the HTML report will be saved.
@@ -44,6 +45,13 @@
         return
     }
 
+    Write-Verbose -Message "Show-MyConditionalAccess - Getting authentication strength policies"
+    $AuthStrengths = Get-MyAuthenticationStrength
+
+    if (-not $AuthStrengths) {
+        Write-Warning -Message "Show-MyConditionalAccess - Failed to retrieve authentication strength policies"
+    }
+
     # Properties to exclude from HTML tables for cleaner display
     $ExcludedProperties = @(
         'IncludedRolesGuid',
@@ -54,6 +62,11 @@
         'ExcludedGroupsGuid',
         'ApplicationsGuid',
         'AuthStrengthGuid'
+    )
+
+    # Properties to exclude from Authentication Strength tables
+    $ExcludedAuthProperties = @(
+        'RawAllowedCombinations'
     )
 
     Write-Verbose -Message "Show-MyConditionalAccess - Preparing HTML report"
@@ -75,66 +88,129 @@
         }
 
         New-HTMLTab -Name "All Policies ($($CAData.Policies.All.Count))" {
-            New-HTMLSection -Invisible {
-                New-HTMLPanel {
-                    New-HTMLContainer {
-                        New-HTMLText -FontSize 12pt -TextBlock {
-                            "Conditional Access is an Azure AD feature that allows administrators to define policies that control access to resources. "
-                            "These policies can be based on identity, device, location, and risk signals to determine when to require additional verification or block access."
+            New-HTMLTabPanel {
+                New-HTMLTab -Name 'Policies' {
+                    New-HTMLSection -Invisible {
+                        New-HTMLPanel {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 12pt -TextBlock {
+                                    "Conditional Access is an Azure AD feature that allows administrators to define policies that control access to resources. "
+                                    "These policies can be based on identity, device, location, and risk signals to determine when to require additional verification or block access."
+                                }
+
+                                New-HTMLText -FontSize 12pt -TextBlock {
+                                    "This report provides a comprehensive view of all conditional access policies in your environment, categorized by their purpose. "
+                                    "Each tab focuses on a specific category of policies, making it easier to audit and manage your security posture."
+                                } -LineBreak
+
+                                New-HTMLText -Text "Policy Statistics Overview" -FontSize 14pt -FontWeight bold
+                                New-HTMLList {
+                                    New-HTMLListItem -Text "Total Policies: ", "$($CAData.Statistics.TotalCount)" -FontWeight normal, bold
+                                    New-HTMLListItem -Text "Enabled: ", "$($CAData.Statistics.EnabledCount)" -FontWeight normal, bold -Color Black, ForestGreen
+                                    New-HTMLListItem -Text "Report-only: ", "$($CAData.Statistics.ReportOnlyCount)" -FontWeight normal, bold -Color Black, Orange
+                                    New-HTMLListItem -Text "Disabled: ", "$($CAData.Statistics.DisabledCount)" -FontWeight normal, bold -Color Black, Gray
+                                    New-HTMLListItem -Text "Microsoft-managed: ", "$($CAData.Statistics.MicrosoftManagedCount)" -FontWeight normal, bold -Color Black, RoyalBlue
+                                } -FontSize 12pt
+                            }
                         }
+                        New-HTMLPanel {
+                            New-HTMLContainer {
+                                New-HTMLChart {
+                                    New-ChartLegend -Name 'Enabled', 'Report-only', 'Disabled' -Color ForestGreen, Orange, Gray
+                                    New-ChartPie -Name 'Enabled' -Value $CAData.Statistics.EnabledCount
+                                    New-ChartPie -Name 'Report Only' -Value $CAData.Statistics.ReportOnlyCount
+                                    New-ChartPie -Name 'Disabled' -Value $CAData.Statistics.DisabledCount
+                                } -Title 'Conditional Access Policies by Status' -TitleAlignment center
 
-                        New-HTMLText -FontSize 12pt -TextBlock {
-                            "This report provides a comprehensive view of all conditional access policies in your environment, categorized by their purpose. "
-                            "Each tab focuses on a specific category of policies, making it easier to audit and manage your security posture."
-                        } -LineBreak
-
-                        New-HTMLText -Text "Policy Statistics Overview" -FontSize 14pt -FontWeight bold
-                        New-HTMLList {
-                            New-HTMLListItem -Text "Total Policies: ", "$($CAData.Statistics.TotalCount)" -FontWeight normal, bold
-                            New-HTMLListItem -Text "Enabled: ", "$($CAData.Statistics.EnabledCount)" -FontWeight normal, bold -Color Black, ForestGreen
-                            New-HTMLListItem -Text "Report-only: ", "$($CAData.Statistics.ReportOnlyCount)" -FontWeight normal, bold -Color Black, Orange
-                            New-HTMLListItem -Text "Disabled: ", "$($CAData.Statistics.DisabledCount)" -FontWeight normal, bold -Color Black, Gray
-                            New-HTMLListItem -Text "Microsoft-managed: ", "$($CAData.Statistics.MicrosoftManagedCount)" -FontWeight normal, bold -Color Black, RoyalBlue
-                        } -FontSize 12pt
+                                if ($CAData.Statistics.MicrosoftManagedCount -gt 0) {
+                                    New-HTMLChart {
+                                        New-ChartLegend -Name 'Microsoft-managed', 'Customer-managed' -Color RoyalBlue, MediumPurple
+                                        New-ChartPie -Name 'Microsoft managed' -Value $CAData.Statistics.MicrosoftManagedCount
+                                        New-ChartPie -Name 'Customer managed' -Value ($CAData.Statistics.TotalCount - $CAData.Statistics.MicrosoftManagedCount)
+                                    } -Title 'Policy Management Type' -TitleAlignment center
+                                }
+                            }
+                        }
                     }
+
+                    New-HTMLSection -HeaderText "All Conditional Access Policies" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "The table below lists all conditional access policies in your environment. Each policy is categorized by its primary purpose, indicated in the 'Type' column. "
+                                    "You can use the filtering options to focus on specific policies or states. Days since creation and modification are shown to help identify stale or recent changes."
+                                }
+                            }
+
+                            New-HTMLContainer {
+                                New-HTMLTable -DataTable $CAData.Policies.All -Filtering {
+                                    New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
+                                    New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
+                                    New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                                    New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                                    New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                                } -DataStore JavaScript -DataTableID "TableCAPoliciesAll" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                            }
+                        }
+                    }
+
                 }
-                New-HTMLPanel {
-                    New-HTMLContainer {
-                        New-HTMLChart {
-                            New-ChartLegend -Name 'Enabled', 'Report-only', 'Disabled' -Color ForestGreen, Orange, Gray
-                            New-ChartPie -Name 'Enabled' -Value $CAData.Statistics.EnabledCount
-                            New-ChartPie -Name 'Report Only' -Value $CAData.Statistics.ReportOnlyCount
-                            New-ChartPie -Name 'Disabled' -Value $CAData.Statistics.DisabledCount
-                        } -Title 'Conditional Access Policies by Status' -TitleAlignment center
 
-                        if ($CAData.Statistics.MicrosoftManagedCount -gt 0) {
-                            New-HTMLChart {
-                                New-ChartLegend -Name 'Microsoft-managed', 'Customer-managed' -Color RoyalBlue, MediumPurple
-                                New-ChartPie -Name 'Microsoft managed' -Value $CAData.Statistics.MicrosoftManagedCount
-                                New-ChartPie -Name 'Customer managed' -Value ($CAData.Statistics.TotalCount - $CAData.Statistics.MicrosoftManagedCount)
-                            } -Title 'Policy Management Type' -TitleAlignment center
+
+                if ($AuthStrengths) {
+                    New-HTMLTab -Name "Auth Strength Policies ($($AuthStrengths.Count))" {
+                        New-HTMLSection -HeaderText "Authentication Strength Policies" {
+                            New-HTMLPanel -Invisible {
+                                New-HTMLContainer {
+                                    New-HTMLText -FontSize 11pt -TextBlock {
+                                        "Authentication strength policies define which authentication methods are allowed for accessing resources. "
+                                        "These policies can be referenced by conditional access rules to enforce specific authentication requirements based on risk level, application sensitivity, or other criteria."
+                                    }
+
+                                    New-HTMLText -FontSize 11pt -TextBlock {
+                                        "Built-in policies are predefined by Microsoft while custom policies can be created to meet specific organizational requirements. "
+                                        "Each policy contains combinations of authentication methods that are permitted when that policy is applied."
+                                    }
+                                }
+
+                                New-HTMLContainer {
+                                    New-HTMLTable -DataTable $AuthStrengths -Filtering {
+                                        New-HTMLTableCondition -Name 'PolicyType' -Value 'Built-in' -BackgroundColor LightBlue -ComparisonType string
+                                        New-HTMLTableCondition -Name 'PolicyType' -Value 'Custom' -BackgroundColor LightGreen -ComparisonType string
+                                    } -DataStore JavaScript -DataTableID "TableAuthStrengths" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedAuthProperties -WarningAction SilentlyContinue
+                                }
+                            }
                         }
-                    }
-                }
-            }
 
-            New-HTMLSection -HeaderText "All Conditional Access Policies" {
-                New-HTMLPanel -Invisible {
-                    New-HTMLContainer {
-                        New-HTMLText -FontSize 11pt -TextBlock {
-                            "The table below lists all conditional access policies in your environment. Each policy is categorized by its primary purpose, indicated in the 'Type' column. "
-                            "You can use the filtering options to focus on specific policies or states. Days since creation and modification are shown to help identify stale or recent changes."
+                        New-HTMLSection -HeaderText "Authentication Methods Usage" {
+                            New-HTMLPanel -Invisible {
+                                New-HTMLContainer {
+                                    New-HTMLText -FontSize 11pt -TextBlock {
+                                        "This table shows detailed information about each authentication strength policy including the specific authentication methods combinations they allow. "
+                                        "These combinations determine what authentication methods users can use when accessing resources protected by conditional access policies that reference these strength policies."
+                                    }
+                                }
+
+                                # Create a summary table of methods by policy
+                                $AuthMethodsTable = foreach ($Strength in $AuthStrengths) {
+                                    foreach ($Combination in $Strength.RawAllowedCombinations) {
+                                        [PSCustomObject]@{
+                                            PolicyName   = $Strength.DisplayName
+                                            PolicyType   = $Strength.PolicyType
+                                            AuthMethod   = $Combination
+                                            FriendlyName = ($Strength.AllowedCombinations | Where-Object { $Strength.RawAllowedCombinations.IndexOf($Combination) -eq $Strength.AllowedCombinations.IndexOf($_) })
+                                        }
+                                    }
+                                }
+
+                                New-HTMLContainer {
+                                    New-HTMLTable -DataTable $AuthMethodsTable -Filtering {
+                                        New-HTMLTableCondition -Name 'PolicyType' -Value 'Built-in' -BackgroundColor LightBlue -ComparisonType string
+                                        New-HTMLTableCondition -Name 'PolicyType' -Value 'Custom' -BackgroundColor LightGreen -ComparisonType string
+                                    } -DataStore JavaScript -DataTableID "TableAuthMethods" -PagingLength 10 -ScrollX -WarningAction SilentlyContinue
+                                }
+                            }
                         }
-                    }
-
-                    New-HTMLContainer {
-                        New-HTMLTable -DataTable $CAData.Policies.All -Filtering {
-                            New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
-                            New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
-                            New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
-                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableCAPoliciesAll" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
