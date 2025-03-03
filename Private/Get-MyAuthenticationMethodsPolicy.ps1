@@ -24,70 +24,70 @@
         Write-Verbose -Message "Get-MyAuthenticationMethodsPolicy - Getting method configurations"
 
         $Methods = @{
-            Authenticator = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'MicrosoftAuthenticator' -ErrorAction Stop
-            FIDO2 = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Fido2' -ErrorAction Stop
-            SMS = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Sms' -ErrorAction Stop
+            Authenticator   = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'MicrosoftAuthenticator' -ErrorAction Stop
+            FIDO2           = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Fido2' -ErrorAction Stop
+            SMS             = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Sms' -ErrorAction Stop
             TemporaryAccess = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'TemporaryAccessPass' -ErrorAction Stop
-            Email = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Email' -ErrorAction Stop
-            Voice = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Voice' -ErrorAction Stop
-            Software = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'SoftwareOath' -ErrorAction Stop
-            Password = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Password' -ErrorAction Stop
-            WindowsHello = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'WindowsHelloForBusiness' -ErrorAction Stop
-            X509 = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'X509Certificate' -ErrorAction Stop
+            Email           = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Email' -ErrorAction Stop
+            Voice           = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Voice' -ErrorAction Stop
+            Software        = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'SoftwareOath' -ErrorAction Stop
+            Password        = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Password' -ErrorAction Stop
+            WindowsHello    = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'WindowsHelloForBusiness' -ErrorAction Stop
+            X509            = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'X509Certificate' -ErrorAction Stop
         }
 
         [PSCustomObject]@{
-            Id = $Policy.Id
-            Description = $Policy.Description
+            Id                   = $Policy.Id
+            Description          = $Policy.Description
             LastModifiedDateTime = $Policy.LastModifiedDateTime
-            Methods = @{
-                Authenticator = @{
-                    State = $Methods.Authenticator.State
-                    ExcludeTargets = $Methods.Authenticator.ExcludeTargets
-                    RequireNumberMatching = $Methods.Authenticator.AdditionalProperties.featureSettings.displayAppInformationRequiredState
+            Methods              = @{
+                Authenticator   = @{
+                    State                   = $Methods.Authenticator.State
+                    ExcludeTargets          = $Methods.Authenticator.ExcludeTargets
+                    RequireNumberMatching   = $Methods.Authenticator.AdditionalProperties.featureSettings.displayAppInformationRequiredState
                     AllowWithoutNumberMatch = $Methods.Authenticator.AdditionalProperties.featureSettings.displayAppInformationRequiredState -eq 'enabled'
                 }
-                FIDO2 = @{
-                    State = $Methods.FIDO2.State
-                    ExcludeTargets = $Methods.FIDO2.ExcludeTargets
+                FIDO2           = @{
+                    State                 = $Methods.FIDO2.State
+                    ExcludeTargets        = $Methods.FIDO2.ExcludeTargets
                     IsAttestationEnforced = $Methods.FIDO2.AdditionalProperties.isAttestationEnforced
-                    KeyRestrictions = $Methods.FIDO2.AdditionalProperties.keyRestrictions
+                    KeyRestrictions       = $Methods.FIDO2.AdditionalProperties.keyRestrictions
                 }
-                SMS = @{
-                    State = $Methods.SMS.State
+                SMS             = @{
+                    State          = $Methods.SMS.State
                     ExcludeTargets = $Methods.SMS.ExcludeTargets
                 }
                 TemporaryAccess = @{
-                    State = $Methods.TemporaryAccess.State
-                    ExcludeTargets = $Methods.TemporaryAccess.ExcludeTargets
-                    DefaultLength = $Methods.TemporaryAccess.AdditionalProperties.defaultLength
+                    State                    = $Methods.TemporaryAccess.State
+                    ExcludeTargets           = $Methods.TemporaryAccess.ExcludeTargets
+                    DefaultLength            = $Methods.TemporaryAccess.AdditionalProperties.defaultLength
                     DefaultLifetimeInMinutes = $Methods.TemporaryAccess.AdditionalProperties.defaultLifetimeInMinutes
                     MaximumLifetimeInMinutes = $Methods.TemporaryAccess.AdditionalProperties.maximumLifetimeInMinutes
                 }
-                Email = @{
-                    State = $Methods.Email.State
-                    ExcludeTargets = $Methods.Email.ExcludeTargets
+                Email           = @{
+                    State                        = $Methods.Email.State
+                    ExcludeTargets               = $Methods.Email.ExcludeTargets
                     AllowExternalIdToUseEmailOtp = $Methods.Email.AdditionalProperties.allowExternalIdToUseEmailOtp
                 }
-                Voice = @{
-                    State = $Methods.Voice.State
+                Voice           = @{
+                    State          = $Methods.Voice.State
                     ExcludeTargets = $Methods.Voice.ExcludeTargets
                 }
-                Software = @{
-                    State = $Methods.Software.State
+                Software        = @{
+                    State          = $Methods.Software.State
                     ExcludeTargets = $Methods.Software.ExcludeTargets
                 }
-                Password = @{
+                Password        = @{
                     State = $Methods.Password.State
                 }
-                WindowsHello = @{
-                    State = $Methods.WindowsHello.State
+                WindowsHello    = @{
+                    State          = $Methods.WindowsHello.State
                     ExcludeTargets = $Methods.WindowsHello.ExcludeTargets
-                    SecurityKeys = $Methods.WindowsHello.AdditionalProperties.securityKeyForWindows10OrFewer
+                    SecurityKeys   = $Methods.WindowsHello.AdditionalProperties.securityKeyForWindows10OrFewer
                 }
-                X509 = @{
-                    State = $Methods.X509.State
-                    ExcludeTargets = $Methods.X509.ExcludeTargets
+                X509            = @{
+                    State                   = $Methods.X509.State
+                    ExcludeTargets          = $Methods.X509.ExcludeTargets
                     CertificateUserBindings = $Methods.X509.AdditionalProperties.certificateUserBindings
                 }
             }

@@ -30,13 +30,13 @@
 
         foreach ($Context in $AuthContexts) {
             [PSCustomObject]@{
-                DisplayName = $Context.DisplayName
-                Id = $Context.Id
-                Description = $Context.Description
-                IsAvailable = $Context.IsAvailable
+                DisplayName                     = $Context.DisplayName
+                Id                              = $Context.Id
+                Description                     = $Context.Description
+                IsAvailable                     = $Context.IsAvailable
                 RequireExternalTenantsMfaStatus = $Context.RequireExternalTenantsMfaStatus
-                CreatedDateTime = $Context.CreatedDateTime
-                ModifiedDateTime = $Context.ModifiedDateTime
+                CreatedDateTime                 = $Context.CreatedDateTime
+                ModifiedDateTime                = $Context.ModifiedDateTime
             }
         }
     } catch {

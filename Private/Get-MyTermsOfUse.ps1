@@ -34,21 +34,21 @@
 
     foreach ($Agreement in $Agreements) {
         [PSCustomObject]@{
-            DisplayName           = $Agreement.DisplayName
-            Id                    = $Agreement.Id
+            DisplayName                       = $Agreement.DisplayName
+            Id                                = $Agreement.Id
             IsViewingBeforeAcceptanceRequired = $Agreement.IsViewingBeforeAcceptanceRequired
-            IsAcceptanceRequired  = $Agreement.IsAcceptanceRequired
-            TermsExpiration      = $Agreement.TermsExpiration
-            UserReacceptRequiredFrequency = $Agreement.UserReacceptRequiredFrequency
-            CreatedDateTime      = $Agreement.CreatedDateTime
-            ModifiedDateTime     = $Agreement.ModifiedDateTime
-            Files                = $Agreement.Files.DisplayName
-            FileLanguages        = $Agreement.Files.Language
-            Version              = $Agreement.Version
-            AcceptanceRequiredBy = @{
-                AllUsers          = $Agreement.File.AcceptanceRequiredByValues.ContainsKey('All')
-                ExternalUsers     = $Agreement.File.AcceptanceRequiredByValues.ContainsKey('Guest')
-                InternalUsers     = $Agreement.File.AcceptanceRequiredByValues.ContainsKey('Member')
+            IsAcceptanceRequired              = $Agreement.IsAcceptanceRequired
+            TermsExpiration                   = $Agreement.TermsExpiration
+            UserReacceptRequiredFrequency     = $Agreement.UserReacceptRequiredFrequency
+            CreatedDateTime                   = $Agreement.CreatedDateTime
+            ModifiedDateTime                  = $Agreement.ModifiedDateTime
+            Files                             = $Agreement.Files.DisplayName
+            FileLanguages                     = $Agreement.Files.Language
+            Version                           = $Agreement.Version
+            AcceptanceRequiredBy              = @{
+                AllUsers      = $Agreement.File.AcceptanceRequiredByValues.ContainsKey('All')
+                ExternalUsers = $Agreement.File.AcceptanceRequiredByValues.ContainsKey('Guest')
+                InternalUsers = $Agreement.File.AcceptanceRequiredByValues.ContainsKey('Member')
             }
         }
     }

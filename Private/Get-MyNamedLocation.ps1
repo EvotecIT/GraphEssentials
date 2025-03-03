@@ -47,56 +47,56 @@
         if ($Location.AdditionalProperties.oDataType -eq '#microsoft.graph.ipNamedLocation') {
             # Process IP-based named location
             [PSCustomObject]@{
-                Id                = $Location.Id
-                DisplayName       = $Location.DisplayName
-                CreatedDateTime   = $Location.CreatedDateTime
-                ModifiedDateTime  = $Location.ModifiedDateTime
-                Type              = 'IP'
-                IsTrusted         = $Location.AdditionalProperties.isTrusted
-                IpRanges          = $Location.AdditionalProperties.ipRanges.cidrAddress -join ', '
-                RawIpRanges       = $Location.AdditionalProperties.ipRanges.cidrAddress
-                RangeCount        = $Location.AdditionalProperties.ipRanges.Count
+                Id                                = $Location.Id
+                DisplayName                       = $Location.DisplayName
+                CreatedDateTime                   = $Location.CreatedDateTime
+                ModifiedDateTime                  = $Location.ModifiedDateTime
+                Type                              = 'IP'
+                IsTrusted                         = $Location.AdditionalProperties.isTrusted
+                IpRanges                          = $Location.AdditionalProperties.ipRanges.cidrAddress -join ', '
+                RawIpRanges                       = $Location.AdditionalProperties.ipRanges.cidrAddress
+                RangeCount                        = $Location.AdditionalProperties.ipRanges.Count
                 IncludeUnknownCountriesAndRegions = $null
-                CountriesAndRegions = $null
-                RawCountriesAndRegions = $null
-                CountryCount      = $null
+                CountriesAndRegions               = $null
+                RawCountriesAndRegions            = $null
+                CountryCount                      = $null
             }
         } elseif ($Location.AdditionalProperties.oDataType -eq '#microsoft.graph.countryNamedLocation') {
             # Process country/region-based named location
             [PSCustomObject]@{
-                Id                = $Location.Id
-                DisplayName       = $Location.DisplayName
-                CreatedDateTime   = $Location.CreatedDateTime
-                ModifiedDateTime  = $Location.ModifiedDateTime
-                Type              = 'CountryRegion'
-                IsTrusted         = $null
-                IpRanges          = $null
-                RawIpRanges       = $null
-                RangeCount        = $null
+                Id                                = $Location.Id
+                DisplayName                       = $Location.DisplayName
+                CreatedDateTime                   = $Location.CreatedDateTime
+                ModifiedDateTime                  = $Location.ModifiedDateTime
+                Type                              = 'CountryRegion'
+                IsTrusted                         = $null
+                IpRanges                          = $null
+                RawIpRanges                       = $null
+                RangeCount                        = $null
                 IncludeUnknownCountriesAndRegions = $Location.AdditionalProperties.includeUnknownCountriesAndRegions
-                CountriesAndRegions = $Location.AdditionalProperties.countriesAndRegions -join ', '
-                RawCountriesAndRegions = $Location.AdditionalProperties.countriesAndRegions
-                CountryCount      = $Location.AdditionalProperties.countriesAndRegions.Count
+                CountriesAndRegions               = $Location.AdditionalProperties.countriesAndRegions -join ', '
+                RawCountriesAndRegions            = $Location.AdditionalProperties.countriesAndRegions
+                CountryCount                      = $Location.AdditionalProperties.countriesAndRegions.Count
             }
         } else {
             # Handle any other type of named location that might be introduced in the future
             Write-Warning -Message "Get-MyNamedLocation - Unknown location type: $($Location.AdditionalProperties.oDataType) for location $($Location.DisplayName)"
 
             [PSCustomObject]@{
-                Id                = $Location.Id
-                DisplayName       = $Location.DisplayName
-                CreatedDateTime   = $Location.CreatedDateTime
-                ModifiedDateTime  = $Location.ModifiedDateTime
-                Type              = $Location.AdditionalProperties.oDataType.Replace('#microsoft.graph.', '')
-                IsTrusted         = $null
-                IpRanges          = $null
-                RawIpRanges       = $null
-                RangeCount        = $null
+                Id                                = $Location.Id
+                DisplayName                       = $Location.DisplayName
+                CreatedDateTime                   = $Location.CreatedDateTime
+                ModifiedDateTime                  = $Location.ModifiedDateTime
+                Type                              = $Location.AdditionalProperties.oDataType.Replace('#microsoft.graph.', '')
+                IsTrusted                         = $null
+                IpRanges                          = $null
+                RawIpRanges                       = $null
+                RangeCount                        = $null
                 IncludeUnknownCountriesAndRegions = $null
-                CountriesAndRegions = $null
-                RawCountriesAndRegions = $null
-                CountryCount      = $null
-                AdditionalProperties = $Location.AdditionalProperties
+                CountriesAndRegions               = $null
+                RawCountriesAndRegions            = $null
+                CountryCount                      = $null
+                AdditionalProperties              = $Location.AdditionalProperties
             }
         }
     }
