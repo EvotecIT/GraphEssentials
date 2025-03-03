@@ -156,7 +156,6 @@
 
                 }
 
-
                 if ($AuthStrengths) {
                     New-HTMLTab -Name "Auth Strength Policies ($($AuthStrengths.Count))" {
                         New-HTMLSection -HeaderText "Authentication Strength Policies" {
@@ -208,6 +207,159 @@
                                         New-HTMLTableCondition -Name 'PolicyType' -Value 'Built-in' -BackgroundColor LightBlue -ComparisonType string
                                         New-HTMLTableCondition -Name 'PolicyType' -Value 'Custom' -BackgroundColor LightGreen -ComparisonType string
                                     } -DataStore JavaScript -DataTableID "TableAuthMethods" -PagingLength 10 -ScrollX -WarningAction SilentlyContinue
+                                }
+                            }
+                        }
+                    }
+                }
+
+                New-HTMLTab -Name "Named Locations" {
+                    New-HTMLSection -HeaderText "Named Locations" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "Named locations define trusted IP ranges or countries/regions used in conditional access policies. "
+                                    "These locations can be used to require additional verification when accessing from untrusted locations "
+                                    "or to allow access without additional checks from trusted locations."
+                                }
+                            }
+
+                            $NamedLocations = Get-MyNamedLocation
+                            if ($NamedLocations) {
+                                New-HTMLContainer {
+                                    New-HTMLTable -DataTable $NamedLocations -Filtering {
+                                        New-HTMLTableCondition -Name 'Type' -Value 'IP' -BackgroundColor LightBlue -ComparisonType string
+                                        New-HTMLTableCondition -Name 'Type' -Value 'CountryRegion' -BackgroundColor LightGreen -ComparisonType string
+                                    } -DataStore JavaScript -DataTableID "TableNamedLocations" -ScrollX -WarningAction SilentlyContinue
+                                }
+                            } else {
+                                New-HTMLContainer {
+                                    New-HTMLText -Text "No named locations found in the tenant." -Color Orange
+                                }
+                            }
+                        }
+                    }
+                }
+
+                New-HTMLTab -Name "Terms of Use" {
+                    New-HTMLSection -HeaderText "Terms of Use Agreements" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "Terms of Use agreements require users to accept terms before accessing resources. "
+                                    "These agreements can be enforced through conditional access policies and can require periodic re-acceptance."
+                                }
+                            }
+
+                            $TermsOfUse = Get-MyTermsOfUse
+                            if ($TermsOfUse) {
+                                New-HTMLContainer {
+                                    New-HTMLTable -DataTable $TermsOfUse -Filtering {
+                                        New-HTMLTableCondition -Name 'IsAcceptanceRequired' -Value $true -BackgroundColor LightBlue -ComparisonType boolean
+                                    } -DataStore JavaScript -DataTableID "TableTermsOfUse" -ScrollX -WarningAction SilentlyContinue
+                                }
+                            } else {
+                                New-HTMLContainer {
+                                    New-HTMLText -Text "No Terms of Use agreements found in the tenant." -Color Orange
+                                }
+                            }
+                        }
+                    }
+                }
+
+                New-HTMLTab -Name "Cross-tenant Access" {
+                    New-HTMLSection -HeaderText "Cross-tenant Access Policies" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "Cross-tenant access policies control how your organization collaborates with other Azure AD organizations. "
+                                    "These policies define trust settings for inbound and outbound access, including B2B collaboration and B2B direct connect."
+                                }
+                            }
+
+                            $CrossTenantAccess = Get-MyCrossTenantAccess
+                            if ($CrossTenantAccess) {
+                                New-HTMLSection -HeaderText "Default Configuration" {
+                                    New-HTMLTable -DataTable $CrossTenantAccess.DefaultPolicy -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefault" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                if ($CrossTenantAccess.TenantPolicies) {
+                                    New-HTMLSection -HeaderText "Tenant-Specific Policies" {
+                                        New-HTMLTable -DataTable $CrossTenantAccess.TenantPolicies -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicies" -ScrollX -WarningAction SilentlyContinue
+                                    }
+                                }
+                            } else {
+                                New-HTMLContainer {
+                                    New-HTMLText -Text "Unable to retrieve cross-tenant access policies." -Color Orange
+                                }
+                            }
+                        }
+                    }
+                }
+
+                New-HTMLTab -Name "Authentication Context" {
+                    New-HTMLSection -HeaderText "Authentication Contexts" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "Authentication contexts define specific authentication requirements that can be applied to sensitive applications. "
+                                    "These contexts can be referenced in conditional access policies to require stronger authentication for specific resources."
+                                }
+                            }
+
+                            $AuthContexts = Get-MyAuthenticationContext
+                            if ($AuthContexts) {
+                                New-HTMLContainer {
+                                    New-HTMLTable -DataTable $AuthContexts -Filtering {
+                                        New-HTMLTableCondition -Name 'IsAvailable' -Value $true -BackgroundColor LightGreen -ComparisonType boolean
+                                    } -DataStore JavaScript -DataTableID "TableAuthContexts" -ScrollX -WarningAction SilentlyContinue
+                                }
+                            } else {
+                                New-HTMLContainer {
+                                    New-HTMLText -Text "No authentication contexts found in the tenant." -Color Orange
+                                }
+                            }
+                        }
+                    }
+                }
+
+                New-HTMLTab -Name "Auth Methods" {
+                    New-HTMLSection -HeaderText "Authentication Methods Policy" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "The authentication methods policy defines which authentication methods are enabled in your tenant "
+                                    "and how they are configured. This includes settings for MFA methods, passwordless options, and "
+                                    "temporary access credentials."
+                                }
+                            }
+
+                            $AuthMethods = Get-MyAuthenticationMethodsPolicy
+                            if ($AuthMethods) {
+                                New-HTMLSection -HeaderText "General Settings" {
+                                    New-HTMLTable -DataTable ([PSCustomObject]@{
+                                        LastModified = $AuthMethods.LastModifiedDateTime
+                                        Description = $AuthMethods.Description
+                                    }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsGeneral" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                New-HTMLSection -HeaderText "Method Configurations" {
+                                    New-HTMLTable -DataTable $(
+                                        foreach ($Method in $AuthMethods.Methods.Keys) {
+                                            [PSCustomObject]@{
+                                                Method = $Method
+                                                State = $AuthMethods.Methods.$Method.State
+                                                ExcludedGroups = ($AuthMethods.Methods.$Method.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                            }
+                                        }
+                                    ) -Filtering {
+                                        New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor LightGreen -ComparisonType string
+                                        New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGray -ComparisonType string
+                                    } -DataStore JavaScript -DataTableID "TableAuthMethodsConfig" -ScrollX -WarningAction SilentlyContinue
+                                }
+                            } else {
+                                New-HTMLContainer {
+                                    New-HTMLText -Text "Unable to retrieve authentication methods policy." -Color Orange
                                 }
                             }
                         }
