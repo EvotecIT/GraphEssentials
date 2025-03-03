@@ -213,6 +213,252 @@
                     }
                 }
 
+                New-HTMLTab -Name "Auth Methods & Context" {
+                    New-HTMLSection -HeaderText "Authentication Methods & Context Configuration" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLText -FontSize 11pt -TextBlock {
+                                "Authentication methods and contexts define how users can authenticate and what requirements are needed for different resources. "
+                                "This section shows both the available authentication methods and special authentication contexts."
+                            }
+
+                            # Authentication Methods Policy
+                            $AuthMethods = Get-MyAuthenticationMethodsPolicy
+                            if ($AuthMethods) {
+                                New-HTMLSection -HeaderText "General Settings" {
+                                    New-HTMLTable -DataTable ([PSCustomObject]@{
+                                            LastModified = $AuthMethods.LastModifiedDateTime
+                                            Description  = $AuthMethods.Description
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsGeneral" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                # Authentication Methods Summary Table
+                                New-HTMLSection -HeaderText "Authentication Methods Overview" {
+                                    New-HTMLTable -DataTable $(
+                                        @(
+                                            foreach ($Method in $AuthMethods.Methods.Keys) {
+                                                [PSCustomObject]@{
+                                                    Method               = $Method
+                                                    State                = $AuthMethods.Methods.$Method.State
+                                                    ExcludedGroups       = ($AuthMethods.Methods.$Method.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                                    ConfigurationDetails = switch ($Method) {
+                                                        'Authenticator' { "Number Matching: $($AuthMethods.Methods.$Method.RequireNumberMatching)" }
+                                                        'FIDO2' { "Attestation Enforced: $($AuthMethods.Methods.$Method.IsAttestationEnforced)" }
+                                                        'TemporaryAccess' { "Default Length: $($AuthMethods.Methods.$Method.DefaultLength), Lifetime: $($AuthMethods.Methods.$Method.DefaultLifetimeInMinutes)m" }
+                                                        'Email' { "External ID OTP: $($AuthMethods.Methods.$Method.AllowExternalIdToUseEmailOtp)" }
+                                                        'WindowsHello' { "Security Keys: $($AuthMethods.Methods.$Method.SecurityKeys)" }
+                                                        default { "Standard configuration" }
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    ) -Filtering {
+                                        New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor LightGreen -ComparisonType string
+                                        New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGray -ComparisonType string
+                                    } -DataStore JavaScript -DataTableID "TableAuthMethodsSummary" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                # Detailed Method Settings Sections
+                                New-HTMLSection -HeaderText "Detailed Method Settings" -Collapsable {
+                                    foreach ($Method in $AuthMethods.Methods.Keys) {
+                                        $MethodConfig = $AuthMethods.Methods.$Method
+                                        New-HTMLSection -HeaderText $Method -CanCollapse {
+                                            New-HTMLTable -DataTable $(
+                                                $Properties = $MethodConfig.PSObject.Properties |
+                                                Where-Object { $_.Name -notin @('AdditionalProperties', 'Id') }
+                                                $Properties | ForEach-Object {
+                                                    [PSCustomObject]@{
+                                                        Setting = $_.Name
+                                                        Value   = $_.Value
+                                                    }
+                                                }
+                                            ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$Method" -ScrollX -WarningAction SilentlyContinue
+                                        }
+                                    }
+                                }
+                            } else {
+                                New-HTMLContainer {
+                                    New-HTMLText -Text "Unable to retrieve authentication methods policy." -Color Orange
+                                }
+                            }
+
+                            # Authentication Contexts Section
+                            New-HTMLSection -HeaderText "Authentication Contexts" {
+                                $AuthContexts = Get-MyAuthenticationContext
+                                if ($AuthContexts) {
+                                    New-HTMLTable -DataTable $AuthContexts -Filtering {
+                                        New-HTMLTableCondition -Name 'IsAvailable' -Value $true -BackgroundColor LightGreen -ComparisonType boolean
+                                    } -DataStore JavaScript -DataTableID "TableAuthContexts" -ScrollX -WarningAction SilentlyContinue
+                                } else {
+                                    New-HTMLContainer {
+                                        New-HTMLText -Text "No authentication contexts found." -Color Orange
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                New-HTMLTab -Name "Access Controls" {
+                    New-HTMLSection -HeaderText "Cross-tenant & Terms of Use Configuration" {
+                        New-HTMLTabPanel {
+                            New-HTMLTab -Name "Terms of Use" {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "Terms of Use agreements require users to accept terms before accessing resources. "
+                                    "These agreements can be enforced through conditional access policies and can require periodic re-acceptance."
+                                }
+
+                                $TermsOfUse = Get-MyTermsOfUse
+                                if ($TermsOfUse) {
+                                    New-HTMLSection -HeaderText "Terms of Use Summary" {
+                                        New-HTMLTable -DataTable $(
+                                            foreach ($Agreement in $TermsOfUse) {
+                                                [PSCustomObject]@{
+                                                    DisplayName        = $Agreement.DisplayName
+                                                    Version            = $Agreement.Version
+                                                    AcceptanceRequired = $Agreement.IsAcceptanceRequired
+                                                    ViewingRequired    = $Agreement.IsViewingBeforeAcceptanceRequired
+                                                    Reacceptance       = $Agreement.UserReacceptRequiredFrequency
+                                                    Languages          = ($Agreement.FileLanguages -join ', ')
+                                                    UserScope          = $(
+                                                        @(
+                                                            if ($Agreement.AcceptanceRequiredBy.AllUsers) { 'All Users' }
+                                                            if ($Agreement.AcceptanceRequiredBy.ExternalUsers) { 'External' }
+                                                            if ($Agreement.AcceptanceRequiredBy.InternalUsers) { 'Internal' }
+                                                        ) -join ', '
+                                                    )
+                                                    Modified           = $Agreement.ModifiedDateTime
+                                                }
+                                            }
+                                        ) -Filtering -DataStore JavaScript -DataTableID "TableToUSummary" -ScrollX -WarningAction SilentlyContinue
+                                    }
+
+                                    # Detailed Agreement Information
+                                    New-HTMLSection -HeaderText "Detailed Agreement Information" -Collapsable {
+                                        foreach ($Agreement in $TermsOfUse) {
+                                            New-HTMLSection -HeaderText $Agreement.DisplayName -CanCollapse {
+                                                New-HTMLSection -HeaderText "Settings" {
+                                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                            Id                    = $Agreement.Id
+                                                            Version               = $Agreement.Version
+                                                            Created               = $Agreement.CreatedDateTime
+                                                            Modified              = $Agreement.ModifiedDateTime
+                                                            ViewingRequired       = $Agreement.IsViewingBeforeAcceptanceRequired
+                                                            AcceptanceRequired    = $Agreement.IsAcceptanceRequired
+                                                            ReacceptanceFrequency = $Agreement.UserReacceptRequiredFrequency
+                                                            Expiration            = $Agreement.TermsExpiration
+                                                        }) -DataStore JavaScript -DataTableID "TableToUDetails$($Agreement.Id)" -ScrollX -WarningAction SilentlyContinue
+                                                }
+
+                                                if ($Agreement.Files -or $Agreement.FileLanguages) {
+                                                    New-HTMLSection -HeaderText "Files & Languages" {
+                                                        New-HTMLTable -DataTable $(
+                                                            $Languages = $Agreement.FileLanguages
+                                                            $Files = $Agreement.Files
+                                                            0..([Math]::Max($Languages.Count, $Files.Count) - 1) | ForEach-Object {
+                                                                [PSCustomObject]@{
+                                                                    FileName = if ($_ -lt $Files.Count) { $Files[$_] } else { 'N/A' }
+                                                                    Language = if ($_ -lt $Languages.Count) { $Languages[$_] } else { 'N/A' }
+                                                                }
+                                                            }
+                                                        ) -DataStore JavaScript -DataTableID "TableToUFiles$($Agreement.Id)" -ScrollX -WarningAction SilentlyContinue
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    New-HTMLText -Text "No Terms of Use agreements found." -Color Orange
+                                }
+                            }
+
+                            New-HTMLTab -Name "Cross-tenant Access" {
+                                New-HTMLSection -HeaderText "Cross-tenant Access Policies" {
+                                    New-HTMLPanel -Invisible {
+                                        New-HTMLContainer {
+                                            New-HTMLText -FontSize 11pt -TextBlock {
+                                                "Cross-tenant access policies control how your organization collaborates with other Azure AD organizations. "
+                                                "These policies define trust settings for inbound and outbound access, including B2B collaboration and B2B direct connect."
+                                            }
+                                        }
+
+                                        $CrossTenantAccess = Get-MyCrossTenantAccess
+                                        if ($CrossTenantAccess) {
+                                            New-HTMLSection -HeaderText "Default Configuration - Inbound Trust Settings" {
+                                                New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                        'MFA Accepted'                           = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsMfaAccepted
+                                                        'Compliant Device Accepted'              = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsCompliantDeviceAccepted
+                                                        'Hybrid Azure AD Joined Device Accepted' = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsHybridAzureADJoinedDeviceAccepted
+                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultInboundTrust" -ScrollX -WarningAction SilentlyContinue
+                                            }
+
+                                            New-HTMLSection -HeaderText "Default Configuration - Inbound/Outbound Access" {
+                                                New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                        'Inbound Access Allowed'  = $CrossTenantAccess.DefaultPolicy.InboundAllowed
+                                                        'Outbound Access Allowed' = $CrossTenantAccess.DefaultPolicy.OutboundAllowed
+                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultAccess" -ScrollX -WarningAction SilentlyContinue
+                                            }
+
+                                            New-HTMLSection -HeaderText "Default Configuration - B2B Direct Connect Settings" {
+                                                New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                        'Applications Enabled' = $CrossTenantAccess.DefaultPolicy.B2BDirectConnect.ApplicationsEnabled
+                                                        'Users Enabled'        = $CrossTenantAccess.DefaultPolicy.B2BDirectConnect.UsersEnabled
+                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BDirect" -ScrollX -WarningAction SilentlyContinue
+                                            }
+
+                                            New-HTMLSection -HeaderText "Default Configuration - B2B Collaboration Settings" {
+                                                New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                        'Applications Enabled' = $CrossTenantAccess.DefaultPolicy.B2BCollaboration.ApplicationsEnabled
+                                                        'Users Enabled'        = $CrossTenantAccess.DefaultPolicy.B2BCollaboration.UsersEnabled
+                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BCollab" -ScrollX -WarningAction SilentlyContinue
+                                            }
+
+                                            if ($CrossTenantAccess.TenantPolicies) {
+                                                New-HTMLSection -HeaderText "Tenant-Specific Policies" {
+                                                    foreach ($TenantPolicy in $CrossTenantAccess.TenantPolicies) {
+                                                        New-HTMLSection -HeaderText "Policy for $($TenantPolicy.DisplayName) ($($TenantPolicy.TenantId))" {
+                                                            New-HTMLPanel {
+                                                                New-HTMLSection -HeaderText "Inbound Trust Settings" {
+                                                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                                            'MFA Accepted'                           = $TenantPolicy.InboundTrust.IsMfaAccepted
+                                                                            'Compliant Device Accepted'              = $TenantPolicy.InboundTrust.IsCompliantDeviceAccepted
+                                                                            'Hybrid Azure AD Joined Device Accepted' = $TenantPolicy.InboundTrust.IsHybridAzureADJoinedDeviceAccepted
+                                                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Trust" -ScrollX -WarningAction SilentlyContinue
+                                                                }
+
+                                                                New-HTMLSection -HeaderText "Access Settings" {
+                                                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                                            'Inbound Access Allowed'  = $TenantPolicy.InboundAllowed
+                                                                            'Outbound Access Allowed' = $TenantPolicy.OutboundAllowed
+                                                                            'Created'                 = $TenantPolicy.CreatedDateTime
+                                                                            'Modified'                = $TenantPolicy.ModifiedDateTime
+                                                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Access" -ScrollX -WarningAction SilentlyContinue
+                                                                }
+
+                                                                New-HTMLSection -HeaderText "B2B Settings" {
+                                                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                                            'Direct Connect - Applications' = $TenantPolicy.B2BDirectConnect.ApplicationsEnabled
+                                                                            'Direct Connect - Users'        = $TenantPolicy.B2BDirectConnect.UsersEnabled
+                                                                            'Collaboration - Applications'  = $TenantPolicy.B2BCollaboration.ApplicationsEnabled
+                                                                            'Collaboration - Users'         = $TenantPolicy.B2BCollaboration.UsersEnabled
+                                                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)B2B" -ScrollX -WarningAction SilentlyContinue
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            New-HTMLContainer {
+                                                New-HTMLText -Text "Unable to retrieve cross-tenant access policies." -Color Orange -FontSize 11pt
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 New-HTMLTab -Name "Named Locations" {
                     New-HTMLSection -HeaderText "Named Locations" {
                         New-HTMLPanel -Invisible {
@@ -235,311 +481,6 @@
                             } else {
                                 New-HTMLContainer {
                                     New-HTMLText -Text "No named locations found in the tenant." -Color Orange -FontSize 11pt
-                                }
-                            }
-                        }
-                    }
-                }
-
-                New-HTMLTab -Name "Terms of Use" {
-                    New-HTMLSection -HeaderText "Terms of Use Agreements" {
-                        New-HTMLPanel -Invisible {
-                            New-HTMLContainer {
-                                New-HTMLText -FontSize 11pt -TextBlock {
-                                    "Terms of Use agreements require users to accept terms before accessing resources. "
-                                    "These agreements can be enforced through conditional access policies and can require periodic re-acceptance."
-                                }
-                            }
-
-                            $TermsOfUse = Get-MyTermsOfUse
-                            if ($TermsOfUse) {
-                                foreach ($Agreement in $TermsOfUse) {
-                                    New-HTMLSection -HeaderText "Agreement: $($Agreement.DisplayName)" {
-                                        # Basic Agreement Settings
-                                        New-HTMLSection -HeaderText "Agreement Settings" {
-                                            New-HTMLTable -DataTable $([PSCustomObject]@{
-                                                    'Agreement ID'                   = $Agreement.Id
-                                                    'Version'                        = $Agreement.Version
-                                                    'Viewing Required Before Accept' = $Agreement.IsViewingBeforeAcceptanceRequired
-                                                    'Acceptance Required'            = $Agreement.IsAcceptanceRequired
-                                                    'Created'                        = $Agreement.CreatedDateTime
-                                                    'Modified'                       = $Agreement.ModifiedDateTime
-                                                }) -Filtering -DataStore JavaScript -DataTableID "TableToU$($Agreement.Id)Settings" -ScrollX -WarningAction SilentlyContinue
-                                        }
-
-                                        # Expiration and Reacceptance Settings
-                                        New-HTMLSection -HeaderText "Expiration Settings" {
-                                            New-HTMLTable -DataTable $([PSCustomObject]@{
-                                                    'Terms Expiration'                = $Agreement.TermsExpiration
-                                                    'Reacceptance Required Frequency' = $Agreement.UserReacceptRequiredFrequency
-                                                }) -Filtering -DataStore JavaScript -DataTableID "TableToU$($Agreement.Id)Expiration" -ScrollX -WarningAction SilentlyContinue
-                                        }
-
-                                        # File and Language Information
-                                        New-HTMLSection -HeaderText "Agreement Files" {
-                                            New-HTMLTable -DataTable $(
-                                                if ($Agreement.Files -and $Agreement.FileLanguages) {
-                                                    $Languages = $Agreement.FileLanguages
-                                                    $Files = $Agreement.Files
-                                                    0..([Math]::Max($Languages.Count, $Files.Count) - 1) | ForEach-Object {
-                                                        [PSCustomObject]@{
-                                                            'File Name' = if ($_ -lt $Files.Count) { $Files[$_] } else { 'N/A' }
-                                                            'Language'  = if ($_ -lt $Languages.Count) { $Languages[$_] } else { 'N/A' }
-                                                        }
-                                                    }
-                                                } else {
-                                                    [PSCustomObject]@{
-                                                        'File Name' = 'No files'
-                                                        'Language'  = 'No languages'
-                                                    }
-                                                }
-                                            ) -Filtering -DataStore JavaScript -DataTableID "TableToU$($Agreement.Id)Files" -ScrollX -WarningAction SilentlyContinue
-                                        }
-
-                                        # User Scope Settings
-                                        New-HTMLSection -HeaderText "User Scope" {
-                                            New-HTMLTable -DataTable $([PSCustomObject]@{
-                                                    'All Users'      = $Agreement.AcceptanceRequiredBy.AllUsers
-                                                    'External Users' = $Agreement.AcceptanceRequiredBy.ExternalUsers
-                                                    'Internal Users' = $Agreement.AcceptanceRequiredBy.InternalUsers
-                                                }) -Filtering {
-                                                New-HTMLTableCondition -Name 'All Users' -Value $true -BackgroundColor LightBlue -ComparisonType boolean
-                                                New-HTMLTableCondition -Name 'External Users' -Value $true -BackgroundColor LightGreen -ComparisonType boolean
-                                                New-HTMLTableCondition -Name 'Internal Users' -Value $true -BackgroundColor LightYellow -ComparisonType boolean
-                                            } -DataStore JavaScript -DataTableID "TableToU$($Agreement.Id)Scope" -ScrollX -WarningAction SilentlyContinue
-                                        }
-                                    }
-                                }
-                            } else {
-                                New-HTMLContainer {
-                                    New-HTMLText -Text "No Terms of Use agreements found in the tenant." -Color Orange -FontSize 11pt
-                                }
-                            }
-                        }
-                    }
-                }
-
-                New-HTMLTab -Name "Cross-tenant Access" {
-                    New-HTMLSection -HeaderText "Cross-tenant Access Policies" {
-                        New-HTMLPanel -Invisible {
-                            New-HTMLContainer {
-                                New-HTMLText -FontSize 11pt -TextBlock {
-                                    "Cross-tenant access policies control how your organization collaborates with other Azure AD organizations. "
-                                    "These policies define trust settings for inbound and outbound access, including B2B collaboration and B2B direct connect."
-                                }
-                            }
-
-                            $CrossTenantAccess = Get-MyCrossTenantAccess
-                            if ($CrossTenantAccess) {
-                                New-HTMLSection -HeaderText "Default Configuration - Inbound Trust Settings" {
-                                    New-HTMLTable -DataTable $([PSCustomObject]@{
-                                            'MFA Accepted'                           = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsMfaAccepted
-                                            'Compliant Device Accepted'              = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsCompliantDeviceAccepted
-                                            'Hybrid Azure AD Joined Device Accepted' = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsHybridAzureADJoinedDeviceAccepted
-                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultInboundTrust" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                New-HTMLSection -HeaderText "Default Configuration - Inbound/Outbound Access" {
-                                    New-HTMLTable -DataTable $([PSCustomObject]@{
-                                            'Inbound Access Allowed'  = $CrossTenantAccess.DefaultPolicy.InboundAllowed
-                                            'Outbound Access Allowed' = $CrossTenantAccess.DefaultPolicy.OutboundAllowed
-                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultAccess" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                New-HTMLSection -HeaderText "Default Configuration - B2B Direct Connect Settings" {
-                                    New-HTMLTable -DataTable $([PSCustomObject]@{
-                                            'Applications Enabled' = $CrossTenantAccess.DefaultPolicy.B2BDirectConnect.ApplicationsEnabled
-                                            'Users Enabled'        = $CrossTenantAccess.DefaultPolicy.B2BDirectConnect.UsersEnabled
-                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BDirect" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                New-HTMLSection -HeaderText "Default Configuration - B2B Collaboration Settings" {
-                                    New-HTMLTable -DataTable $([PSCustomObject]@{
-                                            'Applications Enabled' = $CrossTenantAccess.DefaultPolicy.B2BCollaboration.ApplicationsEnabled
-                                            'Users Enabled'        = $CrossTenantAccess.DefaultPolicy.B2BCollaboration.UsersEnabled
-                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BCollab" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                if ($CrossTenantAccess.TenantPolicies) {
-                                    New-HTMLSection -HeaderText "Tenant-Specific Policies" {
-                                        foreach ($TenantPolicy in $CrossTenantAccess.TenantPolicies) {
-                                            New-HTMLSection -HeaderText "Policy for $($TenantPolicy.DisplayName) ($($TenantPolicy.TenantId))" {
-                                                New-HTMLPanel {
-                                                    New-HTMLSection -HeaderText "Inbound Trust Settings" {
-                                                        New-HTMLTable -DataTable $([PSCustomObject]@{
-                                                                'MFA Accepted'                           = $TenantPolicy.InboundTrust.IsMfaAccepted
-                                                                'Compliant Device Accepted'              = $TenantPolicy.InboundTrust.IsCompliantDeviceAccepted
-                                                                'Hybrid Azure AD Joined Device Accepted' = $TenantPolicy.InboundTrust.IsHybridAzureADJoinedDeviceAccepted
-                                                            }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Trust" -ScrollX -WarningAction SilentlyContinue
-                                                    }
-
-                                                    New-HTMLSection -HeaderText "Access Settings" {
-                                                        New-HTMLTable -DataTable $([PSCustomObject]@{
-                                                                'Inbound Access Allowed'  = $TenantPolicy.InboundAllowed
-                                                                'Outbound Access Allowed' = $TenantPolicy.OutboundAllowed
-                                                                'Created'                 = $TenantPolicy.CreatedDateTime
-                                                                'Modified'                = $TenantPolicy.ModifiedDateTime
-                                                            }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Access" -ScrollX -WarningAction SilentlyContinue
-                                                    }
-
-                                                    New-HTMLSection -HeaderText "B2B Settings" {
-                                                        New-HTMLTable -DataTable $([PSCustomObject]@{
-                                                                'Direct Connect - Applications' = $TenantPolicy.B2BDirectConnect.ApplicationsEnabled
-                                                                'Direct Connect - Users'        = $TenantPolicy.B2BDirectConnect.UsersEnabled
-                                                                'Collaboration - Applications'  = $TenantPolicy.B2BCollaboration.ApplicationsEnabled
-                                                                'Collaboration - Users'         = $TenantPolicy.B2BCollaboration.UsersEnabled
-                                                            }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)B2B" -ScrollX -WarningAction SilentlyContinue
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                New-HTMLContainer {
-                                    New-HTMLText -Text "Unable to retrieve cross-tenant access policies." -Color Orange -FontSize 11pt
-                                }
-                            }
-                        }
-                    }
-                }
-
-                New-HTMLTab -Name "Authentication Context" {
-                    New-HTMLSection -HeaderText "Authentication Contexts" {
-                        New-HTMLPanel -Invisible {
-                            New-HTMLContainer {
-                                New-HTMLText -FontSize 11pt -TextBlock {
-                                    "Authentication contexts define specific authentication requirements that can be applied to sensitive applications. "
-                                    "These contexts can be referenced in conditional access policies to require stronger authentication for specific resources."
-                                }
-                            }
-
-                            $AuthContexts = Get-MyAuthenticationContext
-                            if ($AuthContexts) {
-                                New-HTMLContainer {
-                                    New-HTMLTable -DataTable $AuthContexts -Filtering {
-                                        New-HTMLTableCondition -Name 'IsAvailable' -Value $true -BackgroundColor LightGreen -ComparisonType boolean
-                                    } -DataStore JavaScript -DataTableID "TableAuthContexts" -ScrollX -WarningAction SilentlyContinue
-                                }
-                            } else {
-                                New-HTMLContainer {
-                                    New-HTMLText -Text "No authentication contexts found in the tenant." -Color Orange -FontSize 11pt
-                                }
-                            }
-                        }
-                    }
-                }
-
-                New-HTMLTab -Name "Auth Methods" {
-                    New-HTMLSection -HeaderText "Authentication Methods Policy" {
-                        New-HTMLPanel -Invisible {
-                            New-HTMLContainer {
-                                New-HTMLText -FontSize 11pt -TextBlock {
-                                    "The authentication methods policy defines which authentication methods are enabled in your tenant "
-                                    "and how they are configured. This includes settings for MFA methods, passwordless options, and "
-                                    "temporary access credentials."
-                                }
-                            }
-
-                            $AuthMethods = Get-MyAuthenticationMethodsPolicy
-                            if ($AuthMethods) {
-                                New-HTMLSection -HeaderText "General Settings" {
-                                    New-HTMLTable -DataTable ([PSCustomObject]@{
-                                            LastModified = $AuthMethods.LastModifiedDateTime
-                                            Description  = $AuthMethods.Description
-                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsGeneral" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                # Microsoft Authenticator Settings
-                                New-HTMLSection -HeaderText "Microsoft Authenticator" {
-                                    New-HTMLTable -DataTable $([PSCustomObject]@{
-                                            'State'                      = $AuthMethods.Methods.Authenticator.State
-                                            'Require Number Matching'    = $AuthMethods.Methods.Authenticator.RequireNumberMatching
-                                            'Allow Without Number Match' = $AuthMethods.Methods.Authenticator.AllowWithoutNumberMatch
-                                            'Excluded Groups'            = ($AuthMethods.Methods.Authenticator.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
-                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsAuthenticator" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                # FIDO2 Security Key Settings
-                                New-HTMLSection -HeaderText "FIDO2 Security Keys" {
-                                    New-HTMLTable -DataTable $([PSCustomObject]@{
-                                            'State'                = $AuthMethods.Methods.FIDO2.State
-                                            'Attestation Enforced' = $AuthMethods.Methods.FIDO2.IsAttestationEnforced
-                                            'Excluded Groups'      = ($AuthMethods.Methods.FIDO2.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
-                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsFIDO2" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                # Temporary Access Pass Settings
-                                New-HTMLSection -HeaderText "Temporary Access Pass" {
-                                    New-HTMLTable -DataTable $([PSCustomObject]@{
-                                            'State'                      = $AuthMethods.Methods.TemporaryAccess.State
-                                            'Default Length'             = $AuthMethods.Methods.TemporaryAccess.DefaultLength
-                                            'Default Lifetime (Minutes)' = $AuthMethods.Methods.TemporaryAccess.DefaultLifetimeInMinutes
-                                            'Maximum Lifetime (Minutes)' = $AuthMethods.Methods.TemporaryAccess.MaximumLifetimeInMinutes
-                                            'Excluded Groups'            = ($AuthMethods.Methods.TemporaryAccess.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
-                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsTAP" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                # Email and SMS Settings
-                                New-HTMLSection -HeaderText "Email and SMS Authentication" {
-                                    New-HTMLTable -DataTable $(
-                                        @(
-                                            [PSCustomObject]@{
-                                                'Method'                             = 'Email'
-                                                'State'                              = $AuthMethods.Methods.Email.State
-                                                'Allow External ID to Use Email OTP' = $AuthMethods.Methods.Email.AllowExternalIdToUseEmailOtp
-                                                'Excluded Groups'                    = ($AuthMethods.Methods.Email.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
-                                            }
-                                            [PSCustomObject]@{
-                                                'Method'                             = 'SMS'
-                                                'State'                              = $AuthMethods.Methods.SMS.State
-                                                'Allow External ID to Use Email OTP' = 'N/A'
-                                                'Excluded Groups'                    = ($AuthMethods.Methods.SMS.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
-                                            }
-                                        )
-                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsEmailSMS" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                # Voice and Software Token Settings
-                                New-HTMLSection -HeaderText "Voice and Software Token Authentication" {
-                                    New-HTMLTable -DataTable $(
-                                        @(
-                                            [PSCustomObject]@{
-                                                'Method'          = 'Voice'
-                                                'State'           = $AuthMethods.Methods.Voice.State
-                                                'Excluded Groups' = ($AuthMethods.Methods.Voice.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
-                                            }
-                                            [PSCustomObject]@{
-                                                'Method'          = 'Software Token'
-                                                'State'           = $AuthMethods.Methods.Software.State
-                                                'Excluded Groups' = ($AuthMethods.Methods.Software.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
-                                            }
-                                        )
-                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsVoiceSoftware" -ScrollX -WarningAction SilentlyContinue
-                                }
-
-                                # Windows Hello and X.509 Certificate Settings
-                                New-HTMLSection -HeaderText "Windows Hello and Certificate Authentication" {
-                                    New-HTMLTable -DataTable $(
-                                        @(
-                                            [PSCustomObject]@{
-                                                'Method'                = 'Windows Hello for Business'
-                                                'State'                 = $AuthMethods.Methods.WindowsHello.State
-                                                'Security Keys Enabled' = $AuthMethods.Methods.WindowsHello.SecurityKeys
-                                                'Excluded Groups'       = ($AuthMethods.Methods.WindowsHello.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
-                                            }
-                                            [PSCustomObject]@{
-                                                'Method'                    = 'X.509 Certificate'
-                                                'State'                     = $AuthMethods.Methods.X509.State
-                                                'Certificate User Bindings' = ($AuthMethods.Methods.X509.CertificateUserBindings | ConvertTo-Json)
-                                                'Excluded Groups'           = ($AuthMethods.Methods.X509.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
-                                            }
-                                        )
-                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsHelloX509" -ScrollX -WarningAction SilentlyContinue
-                                }
-                            } else {
-                                New-HTMLContainer {
-                                    New-HTMLText -Text "Unable to retrieve authentication methods policy." -Color Orange -FontSize 11pt
                                 }
                             }
                         }
