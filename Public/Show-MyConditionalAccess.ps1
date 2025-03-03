@@ -234,7 +234,7 @@
                                 }
                             } else {
                                 New-HTMLContainer {
-                                    New-HTMLText -Text "No named locations found in the tenant." -Color Orange
+                                    New-HTMLText -Text "No named locations found in the tenant." -Color Orange -FontSize 11pt
                                 }
                             }
                         }
@@ -260,7 +260,7 @@
                                 }
                             } else {
                                 New-HTMLContainer {
-                                    New-HTMLText -Text "No Terms of Use agreements found in the tenant." -Color Orange
+                                    New-HTMLText -Text "No Terms of Use agreements found in the tenant." -Color Orange -FontSize 11pt
                                 }
                             }
                         }
@@ -279,18 +279,73 @@
 
                             $CrossTenantAccess = Get-MyCrossTenantAccess
                             if ($CrossTenantAccess) {
-                                New-HTMLSection -HeaderText "Default Configuration" {
-                                    New-HTMLTable -DataTable $CrossTenantAccess.DefaultPolicy -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefault" -ScrollX -WarningAction SilentlyContinue
+                                New-HTMLSection -HeaderText "Default Configuration - Inbound Trust Settings" {
+                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                            'MFA Accepted'                           = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsMfaAccepted
+                                            'Compliant Device Accepted'              = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsCompliantDeviceAccepted
+                                            'Hybrid Azure AD Joined Device Accepted' = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsHybridAzureADJoinedDeviceAccepted
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultInboundTrust" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                New-HTMLSection -HeaderText "Default Configuration - Inbound/Outbound Access" {
+                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                            'Inbound Access Allowed'  = $CrossTenantAccess.DefaultPolicy.InboundAllowed
+                                            'Outbound Access Allowed' = $CrossTenantAccess.DefaultPolicy.OutboundAllowed
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultAccess" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                New-HTMLSection -HeaderText "Default Configuration - B2B Direct Connect Settings" {
+                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                            'Applications Enabled' = $CrossTenantAccess.DefaultPolicy.B2BDirectConnect.ApplicationsEnabled
+                                            'Users Enabled'        = $CrossTenantAccess.DefaultPolicy.B2BDirectConnect.UsersEnabled
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BDirect" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                New-HTMLSection -HeaderText "Default Configuration - B2B Collaboration Settings" {
+                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                            'Applications Enabled' = $CrossTenantAccess.DefaultPolicy.B2BCollaboration.ApplicationsEnabled
+                                            'Users Enabled'        = $CrossTenantAccess.DefaultPolicy.B2BCollaboration.UsersEnabled
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BCollab" -ScrollX -WarningAction SilentlyContinue
                                 }
 
                                 if ($CrossTenantAccess.TenantPolicies) {
                                     New-HTMLSection -HeaderText "Tenant-Specific Policies" {
-                                        New-HTMLTable -DataTable $CrossTenantAccess.TenantPolicies -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicies" -ScrollX -WarningAction SilentlyContinue
+                                        foreach ($TenantPolicy in $CrossTenantAccess.TenantPolicies) {
+                                            New-HTMLSection -HeaderText "Policy for $($TenantPolicy.DisplayName) ($($TenantPolicy.TenantId))" {
+                                                New-HTMLPanel {
+                                                    New-HTMLSection -HeaderText "Inbound Trust Settings" {
+                                                        New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                                'MFA Accepted'                           = $TenantPolicy.InboundTrust.IsMfaAccepted
+                                                                'Compliant Device Accepted'              = $TenantPolicy.InboundTrust.IsCompliantDeviceAccepted
+                                                                'Hybrid Azure AD Joined Device Accepted' = $TenantPolicy.InboundTrust.IsHybridAzureADJoinedDeviceAccepted
+                                                            }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Trust" -ScrollX -WarningAction SilentlyContinue
+                                                    }
+
+                                                    New-HTMLSection -HeaderText "Access Settings" {
+                                                        New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                                'Inbound Access Allowed'  = $TenantPolicy.InboundAllowed
+                                                                'Outbound Access Allowed' = $TenantPolicy.OutboundAllowed
+                                                                'Created'                 = $TenantPolicy.CreatedDateTime
+                                                                'Modified'                = $TenantPolicy.ModifiedDateTime
+                                                            }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Access" -ScrollX -WarningAction SilentlyContinue
+                                                    }
+
+                                                    New-HTMLSection -HeaderText "B2B Settings" {
+                                                        New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                                'Direct Connect - Applications' = $TenantPolicy.B2BDirectConnect.ApplicationsEnabled
+                                                                'Direct Connect - Users'        = $TenantPolicy.B2BDirectConnect.UsersEnabled
+                                                                'Collaboration - Applications'  = $TenantPolicy.B2BCollaboration.ApplicationsEnabled
+                                                                'Collaboration - Users'         = $TenantPolicy.B2BCollaboration.UsersEnabled
+                                                            }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)B2B" -ScrollX -WarningAction SilentlyContinue
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             } else {
                                 New-HTMLContainer {
-                                    New-HTMLText -Text "Unable to retrieve cross-tenant access policies." -Color Orange
+                                    New-HTMLText -Text "Unable to retrieve cross-tenant access policies." -Color Orange -FontSize 11pt
                                 }
                             }
                         }
@@ -316,7 +371,7 @@
                                 }
                             } else {
                                 New-HTMLContainer {
-                                    New-HTMLText -Text "No authentication contexts found in the tenant." -Color Orange
+                                    New-HTMLText -Text "No authentication contexts found in the tenant." -Color Orange -FontSize 11pt
                                 }
                             }
                         }
@@ -338,17 +393,17 @@
                             if ($AuthMethods) {
                                 New-HTMLSection -HeaderText "General Settings" {
                                     New-HTMLTable -DataTable ([PSCustomObject]@{
-                                        LastModified = $AuthMethods.LastModifiedDateTime
-                                        Description = $AuthMethods.Description
-                                    }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsGeneral" -ScrollX -WarningAction SilentlyContinue
+                                            LastModified = $AuthMethods.LastModifiedDateTime
+                                            Description  = $AuthMethods.Description
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsGeneral" -ScrollX -WarningAction SilentlyContinue
                                 }
 
                                 New-HTMLSection -HeaderText "Method Configurations" {
                                     New-HTMLTable -DataTable $(
                                         foreach ($Method in $AuthMethods.Methods.Keys) {
                                             [PSCustomObject]@{
-                                                Method = $Method
-                                                State = $AuthMethods.Methods.$Method.State
+                                                Method         = $Method
+                                                State          = $AuthMethods.Methods.$Method.State
                                                 ExcludedGroups = ($AuthMethods.Methods.$Method.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
                                             }
                                         }
@@ -359,7 +414,7 @@
                                 }
                             } else {
                                 New-HTMLContainer {
-                                    New-HTMLText -Text "Unable to retrieve authentication methods policy." -Color Orange
+                                    New-HTMLText -Text "Unable to retrieve authentication methods policy." -Color Orange -FontSize 11pt
                                 }
                             }
                         }
