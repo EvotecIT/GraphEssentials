@@ -56,6 +56,55 @@
         'None'                  = 'No users'
     }
 
+    # Known application mapping for common application IDs
+    $ApplicationsHashTable = @{
+        'All'                                  = 'All applications'
+        'Office365'                            = 'Office 365'
+        'MicrosoftAdminPortals'                = 'Microsoft Admin Portals'
+        '00000003-0000-0ff1-ce00-000000000000' = 'Microsoft Graph'
+        '00000002-0000-0ff1-ce00-000000000000' = 'Exchange Online'
+        '00000004-0000-0ff1-ce00-000000000000' = 'Microsoft 365 Exchange Online'
+        '00000003-0000-0000-c000-000000000000' = 'Azure AD Graph API'
+        '00000002-0000-0000-c000-000000000000' = 'Azure AD'
+        '00000007-0000-0ff1-ce00-000000000000' = 'Microsoft Teams'
+        '00000006-0000-0ff1-ce00-000000000000' = 'Microsoft SharePoint Online'
+        '09abbdfd-ed23-44ee-a2d9-a627aa1c90f3' = 'Microsoft Azure Management'
+        '797f4846-ba00-4fd7-ba43-dac1f8f63013' = 'Office 365 Management'
+        # '00000003-0000-0000-c000-000000000000' = 'Azure AD Graph API'
+    }
+
+    # Authentication strength mappings
+    $AuthStrengthTable = @{
+        'FedMFA'                 = 'Federated MFA'
+        'Phishing-resistant MFA' = 'Phishing-resistant MFA'
+    }
+
+    # Try to get additional application information from Microsoft Graph
+    Write-Verbose -Message "Get-MyConditionalAccess - Getting application information for ID resolution"
+    try {
+        $GraphApplications = Get-MgApplication -All -Property AppId, DisplayName -ErrorAction Stop
+        foreach ($App in $GraphApplications) {
+            if ($App.AppId -and $App.DisplayName) {
+                $ApplicationsHashTable[$App.AppId] = $App.DisplayName
+            }
+        }
+        Write-Verbose -Message "Get-MyConditionalAccess - Retrieved $($GraphApplications.Count) applications for ID resolution"
+    } catch {
+        Write-Warning -Message "Get-MyConditionalAccess - Failed to get application information. Some application IDs may not be resolved. Error: $($_.Exception.Message)"
+    }
+
+    # Try to get authentication strength information
+    Write-Verbose -Message "Get-MyConditionalAccess - Getting authentication strength information"
+    try {
+        $AuthStrengths = Get-MgIdentityConditionalAccessAuthenticationStrengthPolicy -ErrorAction Stop
+        foreach ($Strength in $AuthStrengths) {
+            $AuthStrengthTable[$Strength.Id] = $Strength.DisplayName
+        }
+        Write-Verbose -Message "Get-MyConditionalAccess - Retrieved $($AuthStrengths.Count) authentication strength policies"
+    } catch {
+        Write-Warning -Message "Get-MyConditionalAccess - Failed to get authentication strength information. Some strength IDs may not be resolved. Error: $($_.Exception.Message)"
+    }
+
     # Extract all user, group IDs from policies for targeted lookup
     $userIdsToLookup = [System.Collections.Generic.HashSet[string]]::new()
     $groupIdsToLookup = [System.Collections.Generic.HashSet[string]]::new()
@@ -185,6 +234,8 @@
 
     Write-Verbose -Message "Get-MyConditionalAccess - Categorizing $($ConditionalAccessPolicyArray.Count) conditional access policies"
 
+    $Today = Get-Date
+
     foreach ($CAPolicy in $ConditionalAccessPolicyArray) {
         # Update statistics during the loop for better performance
         if ($CAPolicy.DisplayName -like 'Microsoft-managed:*') {
@@ -272,6 +323,40 @@
             }
         }
 
+        # Convert application IDs to readable names
+        $ApplicationNames = [System.Collections.Generic.List[string]]::new()
+        if ($CAPolicy.Conditions.Applications.IncludeApplications) {
+            foreach ($AppId in $CAPolicy.Conditions.Applications.IncludeApplications) {
+                if ($ApplicationsHashTable.ContainsKey($AppId)) {
+                    $ApplicationNames.Add($ApplicationsHashTable[$AppId])
+                } else {
+                    $ApplicationNames.Add($AppId)
+                }
+            }
+        }
+
+        # Calculate creation and modification days
+        $CreatedDays = $null
+        $ModifiedDays = $null
+
+        if ($CAPolicy.CreatedDateTime) {
+            $CreatedDays = ($Today - $CAPolicy.CreatedDateTime).Days
+        }
+
+        if ($CAPolicy.ModifiedDateTime) {
+            $ModifiedDays = ($Today - $CAPolicy.ModifiedDateTime).Days
+        }
+
+        # Resolve Authentication Strength
+        $AuthStrengthName = $null
+        if ($CAPolicy.GrantControls.AuthenticationStrength.Id) {
+            if ($AuthStrengthTable.ContainsKey($CAPolicy.GrantControls.AuthenticationStrength.Id)) {
+                $AuthStrengthName = $AuthStrengthTable[$CAPolicy.GrantControls.AuthenticationStrength.Id]
+            } else {
+                $AuthStrengthName = "Unknown strength ($($CAPolicy.GrantControls.AuthenticationStrength.Id))"
+            }
+        }
+
         # Convert to PSCustomObject for consistent output
         $PolicyObj = [PSCustomObject]@{
             DisplayName        = $CAPolicy.DisplayName
@@ -279,6 +364,8 @@
             State              = $CAPolicy.State
             CreatedDateTime    = $CAPolicy.CreatedDateTime
             ModifiedDateTime   = $CAPolicy.ModifiedDateTime
+            CreatedDays        = $CreatedDays
+            ModifiedDays       = $ModifiedDays
             Type               = $null # Will be populated below
             IncludedUsersGuid  = $CAPolicy.Conditions.Users.IncludeUsers
             ExcludedUsersGuid  = $CAPolicy.Conditions.Users.ExcludeUsers
@@ -293,14 +380,16 @@
             IncludedRoles      = $IncludedRoleNames
             ExcludedRoles      = $ExcludedRoleNames
             ClientAppTypes     = $CAPolicy.Conditions.ClientAppTypes
-            Applications       = $CAPolicy.Conditions.Applications.IncludeApplications
+            ApplicationsGuid   = $CAPolicy.Conditions.Applications.IncludeApplications
+            Applications       = $ApplicationNames
             UserActions        = $CAPolicy.Conditions.Applications.IncludeUserActions
             Platforms          = $CAPolicy.Conditions.Platforms.IncludePlatforms
             Locations          = $CAPolicy.Conditions.Locations.IncludeLocations
             SignInRiskLevels   = $CAPolicy.Conditions.SignInRiskLevels
             UserRiskLevels     = $CAPolicy.Conditions.UserRiskLevels
             GrantControls      = $CAPolicy.GrantControls.BuiltInControls
-            AuthStrength       = $CAPolicy.GrantControls.AuthenticationStrength.Id
+            AuthStrengthGuid   = $CAPolicy.GrantControls.AuthenticationStrength.Id
+            AuthStrength       = $AuthStrengthName
         }
 
         # Add to All collection

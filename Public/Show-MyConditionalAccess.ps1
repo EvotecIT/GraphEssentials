@@ -51,7 +51,9 @@
         'IncludedUsersGuid',
         'ExcludedUsersGuid',
         'IncludedGroupsGuid',
-        'ExcludedGroupsGuid'
+        'ExcludedGroupsGuid',
+        'ApplicationsGuid',
+        'AuthStrengthGuid'
     )
 
     Write-Verbose -Message "Show-MyConditionalAccess - Preparing HTML report"
@@ -72,7 +74,7 @@
             }
         }
 
-        New-HTMLTab -Name "All Policies" {
+        New-HTMLTab -Name "All Policies ($($CAData.Policies.All.Count))" {
             New-HTMLSection -Invisible {
                 New-HTMLPanel {
                     New-HTMLContainer {
@@ -121,7 +123,7 @@
                     New-HTMLContainer {
                         New-HTMLText -FontSize 11pt -TextBlock {
                             "The table below lists all conditional access policies in your environment. Each policy is categorized by its primary purpose, indicated in the 'Type' column. "
-                            "You can use the filtering options to focus on specific policies or states."
+                            "You can use the filtering options to focus on specific policies or states. Days since creation and modification are shown to help identify stale or recent changes."
                         }
                     }
 
@@ -130,13 +132,15 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableCAPoliciesAll" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
         }
 
-        New-HTMLTab -Name "MFA For Admins" {
+        New-HTMLTab -Name "MFA For Admins ($($CAData.Policies.MFAforAdmins.Count))" {
             New-HTMLSection -HeaderText "MFA For Admin Roles" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -152,6 +156,8 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableMFAAdmins" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
@@ -186,7 +192,7 @@
             }
         }
 
-        New-HTMLTab -Name "MFA For Users" {
+        New-HTMLTab -Name "MFA For Users ($($CAData.Policies.MFAforUsers.Count))" {
             New-HTMLSection -HeaderText "MFA For Users" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -202,13 +208,15 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableMFAUsers" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
         }
 
-        New-HTMLTab -Name "Block Legacy Access" {
+        New-HTMLTab -Name "Block Legacy Access ($($CAData.Policies.BlockLegacyAccess.Count))" {
             New-HTMLSection -HeaderText "Block Legacy Authentication" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -224,13 +232,15 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableBlockLegacy" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
         }
 
-        New-HTMLTab -Name "Device Compliance" {
+        New-HTMLTab -Name "Device Compliance ($($CAData.Policies.DeviceCompliance.Count))" {
             New-HTMLSection -HeaderText "Device Compliance Policies" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -246,13 +256,15 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableDeviceCompliance" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
         }
 
-        New-HTMLTab -Name "Risk-Based" {
+        New-HTMLTab -Name "Risk-Based ($($CAData.Policies.Risk.Count))" {
             New-HTMLSection -HeaderText "Risk-Based Policies" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -268,13 +280,15 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableRisk" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
         }
 
-        New-HTMLTab -Name "Other Categories" {
+        New-HTMLTab -Name "App Protection ($($CAData.Policies.AppProtection.Count))" {
             New-HTMLSection -HeaderText "App Protection Policies" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -289,11 +303,15 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableAppProtection" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
+        }
 
+        New-HTMLTab -Name "Location-Based ($($CAData.Policies.UsingLocations.Count))" {
             New-HTMLSection -HeaderText "Location-Based Policies" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -308,11 +326,15 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableLocations" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
+        }
 
+        New-HTMLTab -Name "Admin Portal ($($CAData.Policies.RestrictAdminPortal.Count))" {
             New-HTMLSection -HeaderText "Admin Portal Restrictions" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -328,11 +350,15 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableAdminPortal" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
+        }
 
+        New-HTMLTab -Name "Device Join MFA ($($CAData.Policies.MFAforDeviceJoin.Count))" {
             New-HTMLSection -HeaderText "MFA for Device Join" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -347,13 +373,15 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableDeviceJoin" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
             }
         }
 
-        New-HTMLTab -Name "Uncategorized" {
+        New-HTMLTab -Name "Uncategorized ($($CAData.Policies.Uncategorized.Count))" {
             New-HTMLSection -HeaderText "Uncategorized Policies" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -369,6 +397,8 @@
                             New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor Conifer -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'enabledForReportingButNotEnforced' -BackgroundColor Orange -ComparisonType string
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
+                            New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
+                            New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                         } -DataStore JavaScript -DataTableID "TableUncategorized" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
                     }
                 }
