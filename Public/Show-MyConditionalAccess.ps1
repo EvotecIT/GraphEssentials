@@ -253,10 +253,62 @@
 
                             $TermsOfUse = Get-MyTermsOfUse
                             if ($TermsOfUse) {
-                                New-HTMLContainer {
-                                    New-HTMLTable -DataTable $TermsOfUse -Filtering {
-                                        New-HTMLTableCondition -Name 'IsAcceptanceRequired' -Value $true -BackgroundColor LightBlue -ComparisonType boolean
-                                    } -DataStore JavaScript -DataTableID "TableTermsOfUse" -ScrollX -WarningAction SilentlyContinue
+                                foreach ($Agreement in $TermsOfUse) {
+                                    New-HTMLSection -HeaderText "Agreement: $($Agreement.DisplayName)" {
+                                        # Basic Agreement Settings
+                                        New-HTMLSection -HeaderText "Agreement Settings" {
+                                            New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                    'Agreement ID'                   = $Agreement.Id
+                                                    'Version'                        = $Agreement.Version
+                                                    'Viewing Required Before Accept' = $Agreement.IsViewingBeforeAcceptanceRequired
+                                                    'Acceptance Required'            = $Agreement.IsAcceptanceRequired
+                                                    'Created'                        = $Agreement.CreatedDateTime
+                                                    'Modified'                       = $Agreement.ModifiedDateTime
+                                                }) -Filtering -DataStore JavaScript -DataTableID "TableToU$($Agreement.Id)Settings" -ScrollX -WarningAction SilentlyContinue
+                                        }
+
+                                        # Expiration and Reacceptance Settings
+                                        New-HTMLSection -HeaderText "Expiration Settings" {
+                                            New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                    'Terms Expiration'                = $Agreement.TermsExpiration
+                                                    'Reacceptance Required Frequency' = $Agreement.UserReacceptRequiredFrequency
+                                                }) -Filtering -DataStore JavaScript -DataTableID "TableToU$($Agreement.Id)Expiration" -ScrollX -WarningAction SilentlyContinue
+                                        }
+
+                                        # File and Language Information
+                                        New-HTMLSection -HeaderText "Agreement Files" {
+                                            New-HTMLTable -DataTable $(
+                                                if ($Agreement.Files -and $Agreement.FileLanguages) {
+                                                    $Languages = $Agreement.FileLanguages
+                                                    $Files = $Agreement.Files
+                                                    0..([Math]::Max($Languages.Count, $Files.Count) - 1) | ForEach-Object {
+                                                        [PSCustomObject]@{
+                                                            'File Name' = if ($_ -lt $Files.Count) { $Files[$_] } else { 'N/A' }
+                                                            'Language'  = if ($_ -lt $Languages.Count) { $Languages[$_] } else { 'N/A' }
+                                                        }
+                                                    }
+                                                } else {
+                                                    [PSCustomObject]@{
+                                                        'File Name' = 'No files'
+                                                        'Language'  = 'No languages'
+                                                    }
+                                                }
+                                            ) -Filtering -DataStore JavaScript -DataTableID "TableToU$($Agreement.Id)Files" -ScrollX -WarningAction SilentlyContinue
+                                        }
+
+                                        # User Scope Settings
+                                        New-HTMLSection -HeaderText "User Scope" {
+                                            New-HTMLTable -DataTable $([PSCustomObject]@{
+                                                    'All Users'      = $Agreement.AcceptanceRequiredBy.AllUsers
+                                                    'External Users' = $Agreement.AcceptanceRequiredBy.ExternalUsers
+                                                    'Internal Users' = $Agreement.AcceptanceRequiredBy.InternalUsers
+                                                }) -Filtering {
+                                                New-HTMLTableCondition -Name 'All Users' -Value $true -BackgroundColor LightBlue -ComparisonType boolean
+                                                New-HTMLTableCondition -Name 'External Users' -Value $true -BackgroundColor LightGreen -ComparisonType boolean
+                                                New-HTMLTableCondition -Name 'Internal Users' -Value $true -BackgroundColor LightYellow -ComparisonType boolean
+                                            } -DataStore JavaScript -DataTableID "TableToU$($Agreement.Id)Scope" -ScrollX -WarningAction SilentlyContinue
+                                        }
+                                    }
                                 }
                             } else {
                                 New-HTMLContainer {
@@ -398,19 +450,92 @@
                                         }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsGeneral" -ScrollX -WarningAction SilentlyContinue
                                 }
 
-                                New-HTMLSection -HeaderText "Method Configurations" {
+                                # Microsoft Authenticator Settings
+                                New-HTMLSection -HeaderText "Microsoft Authenticator" {
+                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                            'State'                      = $AuthMethods.Methods.Authenticator.State
+                                            'Require Number Matching'    = $AuthMethods.Methods.Authenticator.RequireNumberMatching
+                                            'Allow Without Number Match' = $AuthMethods.Methods.Authenticator.AllowWithoutNumberMatch
+                                            'Excluded Groups'            = ($AuthMethods.Methods.Authenticator.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsAuthenticator" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                # FIDO2 Security Key Settings
+                                New-HTMLSection -HeaderText "FIDO2 Security Keys" {
+                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                            'State'                = $AuthMethods.Methods.FIDO2.State
+                                            'Attestation Enforced' = $AuthMethods.Methods.FIDO2.IsAttestationEnforced
+                                            'Excluded Groups'      = ($AuthMethods.Methods.FIDO2.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsFIDO2" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                # Temporary Access Pass Settings
+                                New-HTMLSection -HeaderText "Temporary Access Pass" {
+                                    New-HTMLTable -DataTable $([PSCustomObject]@{
+                                            'State'                      = $AuthMethods.Methods.TemporaryAccess.State
+                                            'Default Length'             = $AuthMethods.Methods.TemporaryAccess.DefaultLength
+                                            'Default Lifetime (Minutes)' = $AuthMethods.Methods.TemporaryAccess.DefaultLifetimeInMinutes
+                                            'Maximum Lifetime (Minutes)' = $AuthMethods.Methods.TemporaryAccess.MaximumLifetimeInMinutes
+                                            'Excluded Groups'            = ($AuthMethods.Methods.TemporaryAccess.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsTAP" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                # Email and SMS Settings
+                                New-HTMLSection -HeaderText "Email and SMS Authentication" {
                                     New-HTMLTable -DataTable $(
-                                        foreach ($Method in $AuthMethods.Methods.Keys) {
+                                        @(
                                             [PSCustomObject]@{
-                                                Method         = $Method
-                                                State          = $AuthMethods.Methods.$Method.State
-                                                ExcludedGroups = ($AuthMethods.Methods.$Method.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                                'Method'                             = 'Email'
+                                                'State'                              = $AuthMethods.Methods.Email.State
+                                                'Allow External ID to Use Email OTP' = $AuthMethods.Methods.Email.AllowExternalIdToUseEmailOtp
+                                                'Excluded Groups'                    = ($AuthMethods.Methods.Email.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
                                             }
-                                        }
-                                    ) -Filtering {
-                                        New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor LightGreen -ComparisonType string
-                                        New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGray -ComparisonType string
-                                    } -DataStore JavaScript -DataTableID "TableAuthMethodsConfig" -ScrollX -WarningAction SilentlyContinue
+                                            [PSCustomObject]@{
+                                                'Method'                             = 'SMS'
+                                                'State'                              = $AuthMethods.Methods.SMS.State
+                                                'Allow External ID to Use Email OTP' = 'N/A'
+                                                'Excluded Groups'                    = ($AuthMethods.Methods.SMS.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                            }
+                                        )
+                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsEmailSMS" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                # Voice and Software Token Settings
+                                New-HTMLSection -HeaderText "Voice and Software Token Authentication" {
+                                    New-HTMLTable -DataTable $(
+                                        @(
+                                            [PSCustomObject]@{
+                                                'Method'          = 'Voice'
+                                                'State'           = $AuthMethods.Methods.Voice.State
+                                                'Excluded Groups' = ($AuthMethods.Methods.Voice.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                            }
+                                            [PSCustomObject]@{
+                                                'Method'          = 'Software Token'
+                                                'State'           = $AuthMethods.Methods.Software.State
+                                                'Excluded Groups' = ($AuthMethods.Methods.Software.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                            }
+                                        )
+                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsVoiceSoftware" -ScrollX -WarningAction SilentlyContinue
+                                }
+
+                                # Windows Hello and X.509 Certificate Settings
+                                New-HTMLSection -HeaderText "Windows Hello and Certificate Authentication" {
+                                    New-HTMLTable -DataTable $(
+                                        @(
+                                            [PSCustomObject]@{
+                                                'Method'                = 'Windows Hello for Business'
+                                                'State'                 = $AuthMethods.Methods.WindowsHello.State
+                                                'Security Keys Enabled' = $AuthMethods.Methods.WindowsHello.SecurityKeys
+                                                'Excluded Groups'       = ($AuthMethods.Methods.WindowsHello.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                            }
+                                            [PSCustomObject]@{
+                                                'Method'                    = 'X.509 Certificate'
+                                                'State'                     = $AuthMethods.Methods.X509.State
+                                                'Certificate User Bindings' = ($AuthMethods.Methods.X509.CertificateUserBindings | ConvertTo-Json)
+                                                'Excluded Groups'           = ($AuthMethods.Methods.X509.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                            }
+                                        )
+                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsHelloX509" -ScrollX -WarningAction SilentlyContinue
                                 }
                             } else {
                                 New-HTMLContainer {
