@@ -30,41 +30,6 @@
     Write-Verbose -Message "Get-MyAuthenticationMethodsPolicy - Getting method configurations"
     $Methods = @{}
 
-    # Helper function to safely get method configuration
-    function Get-AuthMethodConfig {
-        param (
-            [string] $MethodName,
-            [string] $ConfigId
-        )
-        try {
-            Write-Verbose -Message "Get-MyAuthenticationMethodsPolicy - Getting configuration for $MethodName"
-            $Config = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId $ConfigId -ErrorAction Stop
-            return $Config
-        } catch {
-            Write-Warning -Message "Get-MyAuthenticationMethodsPolicy - Failed to get configuration for $MethodName. Error: $($_.Exception.Message)"
-            return $null
-        }
-    }
-
-    # Helper function to convert excludeTargets to a more readable format
-    function ConvertTo-FlattenedExcludeTargets {
-        param (
-            [Array]$ExcludeTargets
-        )
-
-        if (-not $ExcludeTargets -or $ExcludeTargets.Count -eq 0) {
-            return @()
-        }
-
-        $ExcludeTargets | ForEach-Object {
-            [PSCustomObject]@{
-                TargetType  = $_.TargetType
-                Id          = $_.Id
-                DisplayName = $_.TargetType -eq 'group' ? (Get-MgGroup -GroupId $_.Id -ErrorAction SilentlyContinue).DisplayName : $null
-            }
-        }
-    }
-
     # Get each method configuration independently
     $AuthenticatorConfig = Get-AuthMethodConfig -MethodName "Microsoft Authenticator" -ConfigId "MicrosoftAuthenticator"
     $FIDO2Config = Get-AuthMethodConfig -MethodName "FIDO2" -ConfigId "Fido2"
