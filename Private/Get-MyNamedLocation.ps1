@@ -44,7 +44,7 @@
     }
 
     foreach ($Location in $NamedLocations) {
-        if ($Location.AdditionalProperties.oDataType -eq '#microsoft.graph.ipNamedLocation') {
+        if ($Location.AdditionalProperties.'@odata.type' -eq '#microsoft.graph.ipNamedLocation') {
             # Process IP-based named location
             [PSCustomObject]@{
                 Id                                = $Location.Id
@@ -61,7 +61,7 @@
                 RawCountriesAndRegions            = $null
                 CountryCount                      = $null
             }
-        } elseif ($Location.AdditionalProperties.oDataType -eq '#microsoft.graph.countryNamedLocation') {
+        } elseif ($Location.AdditionalProperties.'@odata.type' -eq '#microsoft.graph.countryNamedLocation') {
             # Process country/region-based named location
             [PSCustomObject]@{
                 Id                                = $Location.Id
@@ -80,14 +80,13 @@
             }
         } else {
             # Handle any other type of named location that might be introduced in the future
-            Write-Warning -Message "Get-MyNamedLocation - Unknown location type: $($Location.AdditionalProperties.oDataType) for location $($Location.DisplayName)"
-
+            Write-Warning -Message "Get-MyNamedLocation - Unknown location type: $($Location.AdditionalProperties.'@odata.type') for location $($Location.DisplayName)"
             [PSCustomObject]@{
                 Id                                = $Location.Id
                 DisplayName                       = $Location.DisplayName
                 CreatedDateTime                   = $Location.CreatedDateTime
                 ModifiedDateTime                  = $Location.ModifiedDateTime
-                Type                              = $Location.AdditionalProperties.oDataType.Replace('#microsoft.graph.', '')
+                Type                              = $Location.AdditionalProperties.'@odata.type'.Replace('#microsoft.graph.', '')
                 IsTrusted                         = $null
                 IpRanges                          = $null
                 RawIpRanges                       = $null
