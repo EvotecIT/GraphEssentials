@@ -87,9 +87,9 @@
             }
         }
 
-        New-HTMLTab -Name "All Policies ($($CAData.Policies.All.Count))" {
+        New-HTMLTab -Name "All Policies & Configuration" {
             New-HTMLTabPanel {
-                New-HTMLTab -Name 'Policies' {
+                New-HTMLTab -Name "Policies ($($CAData.Policies.All.Count))" {
                     New-HTMLSection -Invisible {
                         New-HTMLPanel {
                             New-HTMLContainer {
@@ -277,7 +277,7 @@
                                 }
                             } else {
                                 New-HTMLContainer {
-                                    New-HTMLText -Text "Unable to retrieve authentication methods policy." -Color Orange
+                                    New-HTMLText -Text "Unable to retrieve authentication methods policy." -Color Orange -FontSize 11pt
                                 }
                             }
 
@@ -290,7 +290,7 @@
                                     } -DataStore JavaScript -DataTableID "TableAuthContexts" -ScrollX -WarningAction SilentlyContinue
                                 } else {
                                     New-HTMLContainer {
-                                        New-HTMLText -Text "No authentication contexts found." -Color Orange
+                                        New-HTMLText -Text "No authentication contexts found." -Color Orange -FontSize 11pt
                                     }
                                 }
                             }
@@ -367,7 +367,7 @@
                                         }
                                     }
                                 } else {
-                                    New-HTMLText -Text "No Terms of Use agreements found." -Color Orange
+                                    New-HTMLText -Text "No Terms of Use agreements found." -Color Orange -FontSize 11pt
                                 }
                             }
 
