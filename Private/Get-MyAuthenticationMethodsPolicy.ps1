@@ -80,7 +80,7 @@
     # Build the methods hashtable with available configurations
     if ($AuthenticatorConfig) {
         $NumberMatchState = $AuthenticatorConfig.AdditionalProperties.featureSettings.displayAppInformationRequiredState.state
-        $Methods['Authenticator'] = @{
+        $Methods['Authenticator'] = [PSCustomObject]@{
             State                   = $AuthenticatorConfig.State
             ExcludeTargets          = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $AuthenticatorConfig.ExcludeTargets
             RequireNumberMatching   = $NumberMatchState
@@ -89,7 +89,7 @@
     }
 
     if ($FIDO2Config) {
-        $Methods['FIDO2'] = @{
+        $Methods['FIDO2'] = [PSCustomObject]@{
             State                 = $FIDO2Config.State
             ExcludeTargets        = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $FIDO2Config.ExcludeTargets
             IsAttestationEnforced = $FIDO2Config.AdditionalProperties.isAttestationEnforced
@@ -104,14 +104,14 @@
     }
 
     if ($SMSConfig) {
-        $Methods['SMS'] = @{
+        $Methods['SMS'] = [PSCustomObject]@{
             State          = $SMSConfig.State
             ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $SMSConfig.ExcludeTargets
         }
     }
 
     if ($TempAccessConfig) {
-        $Methods['TemporaryAccess'] = @{
+        $Methods['TemporaryAccess'] = [PSCustomObject]@{
             State                    = $TempAccessConfig.State
             ExcludeTargets           = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $TempAccessConfig.ExcludeTargets
             DefaultLength            = $TempAccessConfig.AdditionalProperties.defaultLength
@@ -121,7 +121,7 @@
     }
 
     if ($EmailConfig) {
-        $Methods['Email'] = @{
+        $Methods['Email'] = [PSCustomObject]@{
             State                        = $EmailConfig.State
             ExcludeTargets               = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $EmailConfig.ExcludeTargets
             AllowExternalIdToUseEmailOtp = $EmailConfig.AdditionalProperties.allowExternalIdToUseEmailOtp
@@ -129,27 +129,27 @@
     }
 
     if ($VoiceConfig) {
-        $Methods['Voice'] = @{
+        $Methods['Voice'] = [PSCustomObject]@{
             State          = $VoiceConfig.State
             ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $VoiceConfig.ExcludeTargets
         }
     }
 
     if ($SoftwareConfig) {
-        $Methods['Software'] = @{
+        $Methods['Software'] = [PSCustomObject]@{
             State          = $SoftwareConfig.State
             ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $SoftwareConfig.ExcludeTargets
         }
     }
 
     if ($PasswordConfig) {
-        $Methods['Password'] = @{
+        $Methods['Password'] = [PSCustomObject]@{
             State = $PasswordConfig.State
         }
     }
 
     if ($WindowsHelloConfig) {
-        $Methods['WindowsHello'] = @{
+        $Methods['WindowsHello'] = [PSCustomObject]@{
             State          = $WindowsHelloConfig.State
             ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $WindowsHelloConfig.ExcludeTargets
             SecurityKeys   = $WindowsHelloConfig.AdditionalProperties.securityKeyForWindows10OrFewer
@@ -157,7 +157,7 @@
     }
 
     if ($X509Config) {
-        $Methods['X509'] = @{
+        $Methods['X509'] = [PSCustomObject]@{
             State                   = $X509Config.State
             ExcludeTargets          = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $X509Config.ExcludeTargets
             CertificateUserBindings = @(
@@ -173,6 +173,7 @@
         }
     }
 
+    # Convert the final Methods hashtable to a PSCustomObject as well
     [PSCustomObject]@{
         Id                   = $Policy.Id
         Description          = $Policy.Description
