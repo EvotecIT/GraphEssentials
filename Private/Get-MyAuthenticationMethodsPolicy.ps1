@@ -46,6 +46,25 @@
         }
     }
 
+    # Helper function to convert excludeTargets to a more readable format
+    function ConvertTo-FlattenedExcludeTargets {
+        param (
+            [Array]$ExcludeTargets
+        )
+
+        if (-not $ExcludeTargets -or $ExcludeTargets.Count -eq 0) {
+            return @()
+        }
+
+        $ExcludeTargets | ForEach-Object {
+            [PSCustomObject]@{
+                TargetType  = $_.TargetType
+                Id          = $_.Id
+                DisplayName = $_.TargetType -eq 'group' ? (Get-MgGroup -GroupId $_.Id -ErrorAction SilentlyContinue).DisplayName : $null
+            }
+        }
+    }
+
     # Get each method configuration independently
     $AuthenticatorConfig = Get-AuthMethodConfig -MethodName "Microsoft Authenticator" -ConfigId "MicrosoftAuthenticator"
     $FIDO2Config = Get-AuthMethodConfig -MethodName "FIDO2" -ConfigId "Fido2"
@@ -60,34 +79,41 @@
 
     # Build the methods hashtable with available configurations
     if ($AuthenticatorConfig) {
+        $NumberMatchState = $AuthenticatorConfig.AdditionalProperties.featureSettings.displayAppInformationRequiredState.state
         $Methods['Authenticator'] = @{
             State                   = $AuthenticatorConfig.State
-            ExcludeTargets          = $AuthenticatorConfig.ExcludeTargets
-            RequireNumberMatching   = $AuthenticatorConfig.AdditionalProperties.featureSettings.displayAppInformationRequiredState
-            AllowWithoutNumberMatch = $AuthenticatorConfig.AdditionalProperties.featureSettings.displayAppInformationRequiredState -eq 'enabled'
+            ExcludeTargets          = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $AuthenticatorConfig.ExcludeTargets
+            RequireNumberMatching   = $NumberMatchState
+            AllowWithoutNumberMatch = $NumberMatchState -eq 'enabled'
         }
     }
 
     if ($FIDO2Config) {
         $Methods['FIDO2'] = @{
             State                 = $FIDO2Config.State
-            ExcludeTargets        = $FIDO2Config.ExcludeTargets
+            ExcludeTargets        = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $FIDO2Config.ExcludeTargets
             IsAttestationEnforced = $FIDO2Config.AdditionalProperties.isAttestationEnforced
-            KeyRestrictions       = $FIDO2Config.AdditionalProperties.keyRestrictions
+            KeyRestrictions       = if ($FIDO2Config.AdditionalProperties.keyRestrictions) {
+                [PSCustomObject]@{
+                    AAGUIDs         = $FIDO2Config.AdditionalProperties.keyRestrictions.aaGuids -join ', '
+                    EnforcementType = $FIDO2Config.AdditionalProperties.keyRestrictions.enforcementType
+                    IsEnforced      = $FIDO2Config.AdditionalProperties.keyRestrictions.isEnforced
+                }
+            } else { $null }
         }
     }
 
     if ($SMSConfig) {
         $Methods['SMS'] = @{
             State          = $SMSConfig.State
-            ExcludeTargets = $SMSConfig.ExcludeTargets
+            ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $SMSConfig.ExcludeTargets
         }
     }
 
     if ($TempAccessConfig) {
         $Methods['TemporaryAccess'] = @{
             State                    = $TempAccessConfig.State
-            ExcludeTargets           = $TempAccessConfig.ExcludeTargets
+            ExcludeTargets           = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $TempAccessConfig.ExcludeTargets
             DefaultLength            = $TempAccessConfig.AdditionalProperties.defaultLength
             DefaultLifetimeInMinutes = $TempAccessConfig.AdditionalProperties.defaultLifetimeInMinutes
             MaximumLifetimeInMinutes = $TempAccessConfig.AdditionalProperties.maximumLifetimeInMinutes
@@ -97,7 +123,7 @@
     if ($EmailConfig) {
         $Methods['Email'] = @{
             State                        = $EmailConfig.State
-            ExcludeTargets               = $EmailConfig.ExcludeTargets
+            ExcludeTargets               = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $EmailConfig.ExcludeTargets
             AllowExternalIdToUseEmailOtp = $EmailConfig.AdditionalProperties.allowExternalIdToUseEmailOtp
         }
     }
@@ -105,14 +131,14 @@
     if ($VoiceConfig) {
         $Methods['Voice'] = @{
             State          = $VoiceConfig.State
-            ExcludeTargets = $VoiceConfig.ExcludeTargets
+            ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $VoiceConfig.ExcludeTargets
         }
     }
 
     if ($SoftwareConfig) {
         $Methods['Software'] = @{
             State          = $SoftwareConfig.State
-            ExcludeTargets = $SoftwareConfig.ExcludeTargets
+            ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $SoftwareConfig.ExcludeTargets
         }
     }
 
@@ -125,7 +151,7 @@
     if ($WindowsHelloConfig) {
         $Methods['WindowsHello'] = @{
             State          = $WindowsHelloConfig.State
-            ExcludeTargets = $WindowsHelloConfig.ExcludeTargets
+            ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $WindowsHelloConfig.ExcludeTargets
             SecurityKeys   = $WindowsHelloConfig.AdditionalProperties.securityKeyForWindows10OrFewer
         }
     }
@@ -133,8 +159,17 @@
     if ($X509Config) {
         $Methods['X509'] = @{
             State                   = $X509Config.State
-            ExcludeTargets          = $X509Config.ExcludeTargets
-            CertificateUserBindings = $X509Config.AdditionalProperties.certificateUserBindings
+            ExcludeTargets          = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $X509Config.ExcludeTargets
+            CertificateUserBindings = @(
+                foreach ($binding in $X509Config.AdditionalProperties.certificateUserBindings) {
+                    [PSCustomObject]@{
+                        X509Field          = $binding.x509CertificateField
+                        UserProperty       = $binding.userProperty
+                        Priority           = $binding.priority
+                        TrustAffinityLevel = $binding.trustAffinityLevel
+                    }
+                }
+            )
         }
     }
 
