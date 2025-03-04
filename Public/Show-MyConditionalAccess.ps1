@@ -239,13 +239,42 @@
                                                 [PSCustomObject]@{
                                                     Method               = $Method
                                                     State                = $AuthMethods.Methods.$Method.State
-                                                    ExcludedGroups       = ($AuthMethods.Methods.$Method.ExcludeTargets | ForEach-Object { $_.TargetType }) -join ', '
+                                                    ExcludedGroups       = ($AuthMethods.Methods.$Method.ExcludeTargets | Where-Object { $_.TargetType -eq 'group' } | ForEach-Object { $_.DisplayName }) -join ', '
                                                     ConfigurationDetails = switch ($Method) {
-                                                        'Authenticator' { "Number Matching: $($AuthMethods.Methods.$Method.RequireNumberMatching)" }
-                                                        'FIDO2' { "Attestation Enforced: $($AuthMethods.Methods.$Method.IsAttestationEnforced)" }
-                                                        'TemporaryAccess' { "Default Length: $($AuthMethods.Methods.$Method.DefaultLength), Lifetime: $($AuthMethods.Methods.$Method.DefaultLifetimeInMinutes)m" }
-                                                        'Email' { "External ID OTP: $($AuthMethods.Methods.$Method.AllowExternalIdToUseEmailOtp)" }
-                                                        'WindowsHello' { "Security Keys: $($AuthMethods.Methods.$Method.SecurityKeys)" }
+                                                        'Authenticator' {
+                                                            $config = $AuthMethods.Methods.$Method
+                                                            "Number Matching: $($config.RequireNumberMatching)"
+                                                        }
+                                                        'FIDO2' {
+                                                            $config = $AuthMethods.Methods.$Method
+                                                            "Attestation Enforced: $($config.IsAttestationEnforced)" + $(
+                                                                if ($config.KeyRestrictions) {
+                                                                    "`nKey Restrictions:`n" +
+                                                                    "- Enforcement: $($config.KeyRestrictions.EnforcementType)" +
+                                                                    "- Enforced: $($config.KeyRestrictions.IsEnforced)" +
+                                                                    $(if ($config.KeyRestrictions.AAGUIDs) { "`n- AAGUIDs: $($config.KeyRestrictions.AAGUIDs)" })
+                                                                }
+                                                            )
+                                                        }
+                                                        'TemporaryAccess' {
+                                                            $config = $AuthMethods.Methods.$Method
+                                                            "Default Length: $($config.DefaultLength), Lifetime: $($config.DefaultLifetimeInMinutes)m"
+                                                        }
+                                                        'Email' {
+                                                            $config = $AuthMethods.Methods.$Method
+                                                            "External ID OTP: $($config.AllowExternalIdToUseEmailOtp)"
+                                                        }
+                                                        'WindowsHello' {
+                                                            $config = $AuthMethods.Methods.$Method
+                                                            "Security Keys: $($config.SecurityKeys)"
+                                                        }
+                                                        'X509' {
+                                                            $config = $AuthMethods.Methods.$Method
+                                                            $bindings = $config.CertificateUserBindings | ForEach-Object {
+                                                                "$($_.X509Field)->$($_.UserProperty) (Priority:$($_.Priority))"
+                                                            }
+                                                            "Bindings: " + ($bindings -join '; ')
+                                                        }
                                                         default { "Standard configuration" }
                                                     }
                                                 }
@@ -262,16 +291,33 @@
                                     foreach ($Method in $AuthMethods.Methods.Keys) {
                                         $MethodConfig = $AuthMethods.Methods.$Method
                                         New-HTMLSection -HeaderText $Method -CanCollapse {
-                                            New-HTMLTable -DataTable $(
-                                                $Properties = $MethodConfig.PSObject.Properties |
-                                                Where-Object { $_.Name -notin @('AdditionalProperties', 'Id') }
-                                                $Properties | ForEach-Object {
-                                                    [PSCustomObject]@{
-                                                        Setting = $_.Name
-                                                        Value   = $_.Value
+                                            if ($Method -eq 'X509') {
+                                                New-HTMLTable -DataTable $MethodConfig.CertificateUserBindings -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Bindings" -ScrollX -WarningAction SilentlyContinue
+                                            } elseif ($MethodConfig.ExcludeTargets) {
+                                                New-HTMLTable -DataTable $(
+                                                    $MethodConfig.PSObject.Properties | Where-Object { $_.Name -ne 'ExcludeTargets' } | ForEach-Object {
+                                                        [PSCustomObject]@{
+                                                            Setting = $_.Name
+                                                            Value   = $_.Value
+                                                        }
+                                                    }
+                                                ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Settings" -ScrollX -WarningAction SilentlyContinue
+
+                                                if ($MethodConfig.ExcludeTargets.Count -gt 0) {
+                                                    New-HTMLSection -HeaderText "Excluded Targets" {
+                                                        New-HTMLTable -DataTable $MethodConfig.ExcludeTargets -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Excludes" -ScrollX -WarningAction SilentlyContinue
                                                     }
                                                 }
-                                            ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$Method" -ScrollX -WarningAction SilentlyContinue
+                                            } else {
+                                                New-HTMLTable -DataTable $(
+                                                    $MethodConfig.PSObject.Properties | ForEach-Object {
+                                                        [PSCustomObject]@{
+                                                            Setting = $_.Name
+                                                            Value   = $_.Value
+                                                        }
+                                                    }
+                                                ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$Method" -ScrollX -WarningAction SilentlyContinue
+                                            }
                                         }
                                     }
                                 }
