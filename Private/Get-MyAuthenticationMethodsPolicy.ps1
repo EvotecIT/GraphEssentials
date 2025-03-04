@@ -6,6 +6,7 @@
     .DESCRIPTION
     Gets detailed information about Authentication Methods Policy configured in Azure AD/Entra ID,
     including which authentication methods are enabled and their specific configurations.
+    If any individual method fails to retrieve, the function will continue with the others.
 
     .EXAMPLE
     Get-MyAuthenticationMethodsPolicy
@@ -21,80 +22,126 @@
     try {
         Write-Verbose -Message "Get-MyAuthenticationMethodsPolicy - Getting authentication methods policy"
         $Policy = Get-MgPolicyAuthenticationMethodPolicy -ErrorAction Stop
-        Write-Verbose -Message "Get-MyAuthenticationMethodsPolicy - Getting method configurations"
-
-        $Methods = @{
-            Authenticator   = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'MicrosoftAuthenticator' -ErrorAction Stop
-            FIDO2           = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Fido2' -ErrorAction Stop
-            SMS             = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Sms' -ErrorAction Stop
-            TemporaryAccess = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'TemporaryAccessPass' -ErrorAction Stop
-            Email           = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Email' -ErrorAction Stop
-            Voice           = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Voice' -ErrorAction Stop
-            Software        = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'SoftwareOath' -ErrorAction Stop
-            Password        = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'Password' -ErrorAction Stop
-            WindowsHello    = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'WindowsHelloForBusiness' -ErrorAction Stop
-            X509            = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId 'X509Certificate' -ErrorAction Stop
-        }
-
-        [PSCustomObject]@{
-            Id                   = $Policy.Id
-            Description          = $Policy.Description
-            LastModifiedDateTime = $Policy.LastModifiedDateTime
-            Methods              = @{
-                Authenticator   = @{
-                    State                   = $Methods.Authenticator.State
-                    ExcludeTargets          = $Methods.Authenticator.ExcludeTargets
-                    RequireNumberMatching   = $Methods.Authenticator.AdditionalProperties.featureSettings.displayAppInformationRequiredState
-                    AllowWithoutNumberMatch = $Methods.Authenticator.AdditionalProperties.featureSettings.displayAppInformationRequiredState -eq 'enabled'
-                }
-                FIDO2           = @{
-                    State                 = $Methods.FIDO2.State
-                    ExcludeTargets        = $Methods.FIDO2.ExcludeTargets
-                    IsAttestationEnforced = $Methods.FIDO2.AdditionalProperties.isAttestationEnforced
-                    KeyRestrictions       = $Methods.FIDO2.AdditionalProperties.keyRestrictions
-                }
-                SMS             = @{
-                    State          = $Methods.SMS.State
-                    ExcludeTargets = $Methods.SMS.ExcludeTargets
-                }
-                TemporaryAccess = @{
-                    State                    = $Methods.TemporaryAccess.State
-                    ExcludeTargets           = $Methods.TemporaryAccess.ExcludeTargets
-                    DefaultLength            = $Methods.TemporaryAccess.AdditionalProperties.defaultLength
-                    DefaultLifetimeInMinutes = $Methods.TemporaryAccess.AdditionalProperties.defaultLifetimeInMinutes
-                    MaximumLifetimeInMinutes = $Methods.TemporaryAccess.AdditionalProperties.maximumLifetimeInMinutes
-                }
-                Email           = @{
-                    State                        = $Methods.Email.State
-                    ExcludeTargets               = $Methods.Email.ExcludeTargets
-                    AllowExternalIdToUseEmailOtp = $Methods.Email.AdditionalProperties.allowExternalIdToUseEmailOtp
-                }
-                Voice           = @{
-                    State          = $Methods.Voice.State
-                    ExcludeTargets = $Methods.Voice.ExcludeTargets
-                }
-                Software        = @{
-                    State          = $Methods.Software.State
-                    ExcludeTargets = $Methods.Software.ExcludeTargets
-                }
-                Password        = @{
-                    State = $Methods.Password.State
-                }
-                WindowsHello    = @{
-                    State          = $Methods.WindowsHello.State
-                    ExcludeTargets = $Methods.WindowsHello.ExcludeTargets
-                    SecurityKeys   = $Methods.WindowsHello.AdditionalProperties.securityKeyForWindows10OrFewer
-                }
-                X509            = @{
-                    State                   = $Methods.X509.State
-                    ExcludeTargets          = $Methods.X509.ExcludeTargets
-                    CertificateUserBindings = $Methods.X509.AdditionalProperties.certificateUserBindings
-                }
-            }
-        }
-
     } catch {
-        Write-Warning -Message "Get-MyAuthenticationMethodsPolicy - Failed to get authentication methods policy. Error: $($_.Exception.Message)"
+        Write-Warning -Message "Get-MyAuthenticationMethodsPolicy - Failed to get base authentication methods policy. Error: $($_.Exception.Message)"
         return
+    }
+
+    Write-Verbose -Message "Get-MyAuthenticationMethodsPolicy - Getting method configurations"
+    $Methods = @{}
+
+    # Helper function to safely get method configuration
+    function Get-AuthMethodConfig {
+        param (
+            [string] $MethodName,
+            [string] $ConfigId
+        )
+        try {
+            Write-Verbose -Message "Get-MyAuthenticationMethodsPolicy - Getting configuration for $MethodName"
+            $Config = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId $ConfigId -ErrorAction Stop
+            return $Config
+        } catch {
+            Write-Warning -Message "Get-MyAuthenticationMethodsPolicy - Failed to get configuration for $MethodName. Error: $($_.Exception.Message)"
+            return $null
+        }
+    }
+
+    # Get each method configuration independently
+    $AuthenticatorConfig = Get-AuthMethodConfig -MethodName "Microsoft Authenticator" -ConfigId "MicrosoftAuthenticator"
+    $FIDO2Config = Get-AuthMethodConfig -MethodName "FIDO2" -ConfigId "Fido2"
+    $SMSConfig = Get-AuthMethodConfig -MethodName "SMS" -ConfigId "Sms"
+    $TempAccessConfig = Get-AuthMethodConfig -MethodName "Temporary Access Pass" -ConfigId "TemporaryAccessPass"
+    $EmailConfig = Get-AuthMethodConfig -MethodName "Email" -ConfigId "Email"
+    $VoiceConfig = Get-AuthMethodConfig -MethodName "Voice" -ConfigId "Voice"
+    $SoftwareConfig = Get-AuthMethodConfig -MethodName "Software Token" -ConfigId "SoftwareOath"
+    $PasswordConfig = Get-AuthMethodConfig -MethodName "Password" -ConfigId "Password"
+    $WindowsHelloConfig = Get-AuthMethodConfig -MethodName "Windows Hello for Business" -ConfigId "WindowsHelloForBusiness"
+    $X509Config = Get-AuthMethodConfig -MethodName "X.509 Certificate" -ConfigId "X509Certificate"
+
+    # Build the methods hashtable with available configurations
+    if ($AuthenticatorConfig) {
+        $Methods['Authenticator'] = @{
+            State                   = $AuthenticatorConfig.State
+            ExcludeTargets          = $AuthenticatorConfig.ExcludeTargets
+            RequireNumberMatching   = $AuthenticatorConfig.AdditionalProperties.featureSettings.displayAppInformationRequiredState
+            AllowWithoutNumberMatch = $AuthenticatorConfig.AdditionalProperties.featureSettings.displayAppInformationRequiredState -eq 'enabled'
+        }
+    }
+
+    if ($FIDO2Config) {
+        $Methods['FIDO2'] = @{
+            State                 = $FIDO2Config.State
+            ExcludeTargets        = $FIDO2Config.ExcludeTargets
+            IsAttestationEnforced = $FIDO2Config.AdditionalProperties.isAttestationEnforced
+            KeyRestrictions       = $FIDO2Config.AdditionalProperties.keyRestrictions
+        }
+    }
+
+    if ($SMSConfig) {
+        $Methods['SMS'] = @{
+            State          = $SMSConfig.State
+            ExcludeTargets = $SMSConfig.ExcludeTargets
+        }
+    }
+
+    if ($TempAccessConfig) {
+        $Methods['TemporaryAccess'] = @{
+            State                    = $TempAccessConfig.State
+            ExcludeTargets           = $TempAccessConfig.ExcludeTargets
+            DefaultLength            = $TempAccessConfig.AdditionalProperties.defaultLength
+            DefaultLifetimeInMinutes = $TempAccessConfig.AdditionalProperties.defaultLifetimeInMinutes
+            MaximumLifetimeInMinutes = $TempAccessConfig.AdditionalProperties.maximumLifetimeInMinutes
+        }
+    }
+
+    if ($EmailConfig) {
+        $Methods['Email'] = @{
+            State                        = $EmailConfig.State
+            ExcludeTargets               = $EmailConfig.ExcludeTargets
+            AllowExternalIdToUseEmailOtp = $EmailConfig.AdditionalProperties.allowExternalIdToUseEmailOtp
+        }
+    }
+
+    if ($VoiceConfig) {
+        $Methods['Voice'] = @{
+            State          = $VoiceConfig.State
+            ExcludeTargets = $VoiceConfig.ExcludeTargets
+        }
+    }
+
+    if ($SoftwareConfig) {
+        $Methods['Software'] = @{
+            State          = $SoftwareConfig.State
+            ExcludeTargets = $SoftwareConfig.ExcludeTargets
+        }
+    }
+
+    if ($PasswordConfig) {
+        $Methods['Password'] = @{
+            State = $PasswordConfig.State
+        }
+    }
+
+    if ($WindowsHelloConfig) {
+        $Methods['WindowsHello'] = @{
+            State          = $WindowsHelloConfig.State
+            ExcludeTargets = $WindowsHelloConfig.ExcludeTargets
+            SecurityKeys   = $WindowsHelloConfig.AdditionalProperties.securityKeyForWindows10OrFewer
+        }
+    }
+
+    if ($X509Config) {
+        $Methods['X509'] = @{
+            State                   = $X509Config.State
+            ExcludeTargets          = $X509Config.ExcludeTargets
+            CertificateUserBindings = $X509Config.AdditionalProperties.certificateUserBindings
+        }
+    }
+
+    [PSCustomObject]@{
+        Id                   = $Policy.Id
+        Description          = $Policy.Description
+        LastModifiedDateTime = $Policy.LastModifiedDateTime
+        Methods              = $Methods
     }
 }
