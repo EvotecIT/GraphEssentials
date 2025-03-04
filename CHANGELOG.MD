@@ -1,4 +1,8 @@
-﻿### 0.0.39
+﻿### 0.0.40
+- Improved `Get-MyConditionalAccess`
+- Improved `Show-MyConditionalAccess`
+
+### 0.0.39
 - Improved `Get-MyConditionalAccess`
 - Improved `Show-MyConditionalAccess`
 
