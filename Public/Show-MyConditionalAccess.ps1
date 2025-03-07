@@ -233,55 +233,7 @@
 
                                 # Authentication Methods Summary Table
                                 New-HTMLSection -HeaderText "Authentication Methods Overview" {
-                                    New-HTMLTable -DataTable $(
-                                        @(
-                                            foreach ($Method in $AuthMethods.Methods.Keys) {
-                                                [PSCustomObject]@{
-                                                    Method          = $Method
-                                                    State           = $AuthMethods.Methods.$Method.State
-                                                    ExcludedTargets = $AuthMethods.Methods.$Method.ExcludeTargets -join ", "
-                                                    ExcludedGroups  = ($AuthMethods.Methods.$Method.ExcludeTargets | Where-Object { $_.TargetType -eq 'group' } | ForEach-Object { $_.DisplayName }) -join ', '
-                                                    # ConfigurationDetails = switch ($Method) {
-                                                    #     'Authenticator' {
-                                                    #         $config = $AuthMethods.Methods.$Method
-                                                    #         "Number Matching: $($config.RequireNumberMatching)"
-                                                    #     }
-                                                    #     'FIDO2' {
-                                                    #         $config = $AuthMethods.Methods.$Method
-                                                    #         $restrictions = if ($config.KeyRestrictions) {
-                                                    #             "Key Restrictions:`n" +
-                                                    #             "- Enforcement: $($config.KeyRestrictions.EnforcementType)" +
-                                                    #             "- Enforced: $($config.KeyRestrictions.IsEnforced)" +
-                                                    #             $(if ($config.KeyRestrictions.AAGUIDs) { "`n- AAGUIDs: $($config.KeyRestrictions.AAGUIDs)" })
-                                                    #         }
-                                                    #         "Attestation Enforced: $($config.IsAttestationEnforced)" +
-                                                    #         $(if ($restrictions) { "`n$restrictions" })
-                                                    #     }
-                                                    #     'TemporaryAccess' {
-                                                    #         $config = $AuthMethods.Methods.$Method
-                                                    #         "Default Length: $($config.DefaultLength), Lifetime: $($config.DefaultLifetimeInMinutes)m"
-                                                    #     }
-                                                    #     'Email' {
-                                                    #         $config = $AuthMethods.Methods.$Method
-                                                    #         "External ID OTP: $($config.AllowExternalIdToUseEmailOtp)"
-                                                    #     }
-                                                    #     'WindowsHello' {
-                                                    #         $config = $AuthMethods.Methods.$Method
-                                                    #         "Security Keys: $($config.SecurityKeys)"
-                                                    #     }
-                                                    #     'X509' {
-                                                    #         $config = $AuthMethods.Methods.$Method
-                                                    #         $bindings = $config.CertificateUserBindings | ForEach-Object {
-                                                    #             "$($_.X509Field)->$($_.UserProperty) (Priority:$($_.Priority))"
-                                                    #         }
-                                                    #         "Bindings: " + ($bindings -join '; ')
-                                                    #     }
-                                                    #     default { "Standard configuration" }
-                                                    # }
-                                                }
-                                            }
-                                        )
-                                    ) -Filtering {
+                                    New-HTMLTable -DataTable $AuthMethods.Summary -Filtering {
                                         New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor LightGreen -ComparisonType string
                                         New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGray -ComparisonType string
                                     } -DataStore JavaScript -DataTableID "TableAuthMethodsSummary" -ScrollX -WarningAction SilentlyContinue
@@ -378,58 +330,25 @@
                                 $TermsOfUse = Get-MyTermsOfUse
                                 if ($TermsOfUse) {
                                     New-HTMLSection -HeaderText "Terms of Use Summary" {
-                                        New-HTMLTable -DataTable $(
-                                            foreach ($Agreement in $TermsOfUse) {
-                                                [PSCustomObject]@{
-                                                    DisplayName        = $Agreement.DisplayName
-                                                    Version            = $Agreement.Version
-                                                    AcceptanceRequired = $Agreement.IsAcceptanceRequired
-                                                    ViewingRequired    = $Agreement.IsViewingBeforeAcceptanceRequired
-                                                    Reacceptance       = $Agreement.UserReacceptRequiredFrequency
-                                                    Languages          = ($Agreement.FileLanguages -join ', ')
-                                                    UserScope          = $(
-                                                        @(
-                                                            if ($Agreement.AcceptanceRequiredBy.AllUsers) { 'All Users' }
-                                                            if ($Agreement.AcceptanceRequiredBy.ExternalUsers) { 'External' }
-                                                            if ($Agreement.AcceptanceRequiredBy.InternalUsers) { 'Internal' }
-                                                        ) -join ', '
-                                                    )
-                                                    Modified           = $Agreement.ModifiedDateTime
-                                                }
-                                            }
-                                        ) -Filtering -DataStore JavaScript -DataTableID "TableToUSummary" -ScrollX -WarningAction SilentlyContinue
+                                        New-HTMLTable -DataTable $($TermsOfUse.Summary) -Filtering -DataStore JavaScript -DataTableID "TableToUSummary" -ScrollX -WarningAction SilentlyContinue
                                     }
 
                                     # Detailed Agreement Information
                                     New-HTMLSection -HeaderText "Detailed Agreement Information" -Collapsable {
                                         foreach ($Agreement in $TermsOfUse) {
-                                            New-HTMLSection -HeaderText $Agreement.DisplayName -CanCollapse {
+                                            New-HTMLSection -HeaderText $Agreement.Summary.DisplayName -CanCollapse {
                                                 New-HTMLSection -HeaderText "Settings" {
-                                                    New-HTMLTable -DataTable $([PSCustomObject]@{
-                                                            Id                    = $Agreement.Id
-                                                            Version               = $Agreement.Version
-                                                            Created               = $Agreement.CreatedDateTime
-                                                            Modified              = $Agreement.ModifiedDateTime
-                                                            ViewingRequired       = $Agreement.IsViewingBeforeAcceptanceRequired
-                                                            AcceptanceRequired    = $Agreement.IsAcceptanceRequired
-                                                            ReacceptanceFrequency = $Agreement.UserReacceptRequiredFrequency
-                                                            Expiration            = $Agreement.TermsExpiration
-                                                        }) -DataStore JavaScript -DataTableID "TableToUDetails$($Agreement.Id)" -ScrollX -WarningAction SilentlyContinue
+                                                    New-HTMLTable -DataTable $Agreement.Detailed.Settings -DataStore JavaScript -DataTableID "TableToUDetails$($Agreement.Detailed.Settings.Id)" -ScrollX -WarningAction SilentlyContinue
                                                 }
 
-                                                if ($Agreement.Files -or $Agreement.FileLanguages) {
+                                                if ($Agreement.Detailed.Files) {
                                                     New-HTMLSection -HeaderText "Files & Languages" {
-                                                        New-HTMLTable -DataTable $(
-                                                            $Languages = $Agreement.FileLanguages
-                                                            $Files = $Agreement.Files
-                                                            0..([Math]::Max($Languages.Count, $Files.Count) - 1) | ForEach-Object {
-                                                                [PSCustomObject]@{
-                                                                    FileName = if ($_ -lt $Files.Count) { $Files[$_] } else { 'N/A' }
-                                                                    Language = if ($_ -lt $Languages.Count) { $Languages[$_] } else { 'N/A' }
-                                                                }
-                                                            }
-                                                        ) -DataStore JavaScript -DataTableID "TableToUFiles$($Agreement.Id)" -ScrollX -WarningAction SilentlyContinue
+                                                        New-HTMLTable -DataTable $Agreement.Detailed.Files -DataStore JavaScript -DataTableID "TableToUFiles$($Agreement.Detailed.Settings.Id)" -ScrollX -WarningAction SilentlyContinue
                                                     }
+                                                }
+
+                                                New-HTMLSection -HeaderText "Required Acceptance By" {
+                                                    New-HTMLTable -DataTable $Agreement.Detailed.AcceptanceRequiredBy -DataStore JavaScript -DataTableID "TableToUAcceptance$($Agreement.Detailed.Settings.Id)" -ScrollX -WarningAction SilentlyContinue
                                                 }
                                             }
                                         }
