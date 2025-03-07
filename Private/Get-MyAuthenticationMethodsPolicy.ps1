@@ -144,5 +144,30 @@
         Description          = $Policy.Description
         LastModifiedDateTime = $Policy.LastModifiedDateTime
         Methods              = $Methods
+        Summary             = $(
+            foreach ($Method in $Methods.Keys) {
+                $Config = $Methods.$Method
+                [PSCustomObject]@{
+                    Method              = $Method
+                    State               = $Config.State
+                    ExcludedGroups      = ($Config.ExcludeTargets | Where-Object { $_.TargetType -eq 'group' } | ForEach-Object { $_.DisplayName }) -join ', '
+                    ConfigurationSummary = switch ($Method) {
+                        'Authenticator' { "Number Matching: $($Config.RequireNumberMatching)" }
+                        'FIDO2' {
+                            $result = "Attestation: $($Config.IsAttestationEnforced)"
+                            if ($Config.KeyRestrictions) {
+                                $result += ", Enforcement: $($Config.KeyRestrictions.EnforcementType)"
+                            }
+                            $result
+                        }
+                        'TemporaryAccess' { "Length: $($Config.DefaultLength), Lifetime: $($Config.DefaultLifetimeInMinutes)m" }
+                        'Email' { "External OTP: $($Config.AllowExternalIdToUseEmailOtp)" }
+                        'WindowsHello' { "Security Keys: $($Config.SecurityKeys)" }
+                        'X509' { "$($Config.CertificateUserBindings.Count) binding(s) configured" }
+                        default { "Standard configuration" }
+                    }
+                }
+            }
+        )
     }
 }
