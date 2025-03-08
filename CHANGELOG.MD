@@ -1,4 +1,7 @@
-﻿### 0.0.42
+﻿### 0.0.43
+- Improved `Get-MyDeviceIntune`
+
+### 0.0.42
 - Improved `Get-MyDevice`
 - Improved `Get-MyDeviceIntune`
 
