@@ -10,6 +10,9 @@
     .PARAMETER Type
     Filters devices by type. Valid values are 'Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', and 'Not available'.
 
+    .PARAMETER Synchronized
+    When specified, returns only synchronized devices (devices with OnPremisesSyncEnabled set to true).
+
     .PARAMETER Force
     Forces the function to retrieve Azure devices even if they are already cached by using Get-MyDevice cmdlet.
 
@@ -20,7 +23,7 @@
     .NOTES
     This function requires the Microsoft.Graph.Authentication module and appropriate permissions to access Intune data.
 
-    When you use Type parameter, the function will retrieve Azure devices to match them with Intune devices.
+    When you use Type parameter or Synchronized parameter, the function will retrieve Azure devices to match them with Intune devices.
     This operation may take some time, especially if you have a large number of devices.
     That's why the function tries to use cached Azure devices if they were already retrieved by Get-MyDevice cmdlet.
     If you want to force the function to retrieve Azure devices again, use the Force switch.
@@ -29,6 +32,7 @@
     [cmdletBinding()]
     param(
         [ValidateSet('Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', 'Not available')][string[]] $Type,
+        [switch] $Synchronized,
         [int] $CacheMinutes = 30,
         [switch] $Force
     )
@@ -41,7 +45,7 @@
         return
     }
 
-    if ($Type) {
+    if ($Type -or $Syncronized) {
         # We only need to get Azure devices if we are filtering by type
         try {
             if (-not $Script:Devices -or $Force -or $Script:DevicesDate -lt (Get-Date).AddMinutes(-$CacheMinutes)) {
@@ -71,17 +75,26 @@
             $LastSynchronizedDays = $null
         }
 
+        # Get the Azure device information for the current Intune device
+        if ($CachedAzure[$DeviceI.AzureAdDeviceId]) {
+            $DeviceA = $CachedAzure[$DeviceI.AzureAdDeviceId]
+            $TrustType = $TrustTypes[$DeviceA.TrustType]
+            $SynchronizedDevice = $DeviceA.OnPremisesSyncEnabled
+        } else {
+            $DeviceA = $null
+            $TrustType = 'Not available'
+            $SynchronizedDevice = $null
+        }
+
         if ($Type) {
-            # Get the Azure device information for the current Intune device
-            if ($CachedAzure[$DeviceI.AzureAdDeviceId]) {
-                $DeviceA = $CachedAzure[$DeviceI.AzureAdDeviceId]
-                $TrustType = $TrustTypes[$DeviceA.TrustType]
-            } else {
-                $DeviceA = $null
-                $TrustType = 'Not available'
-            }
             # Only return devices of the specified type
             if ($Type -notcontains $TrustType) {
+                continue
+            }
+        }
+        if ($Synchronized) {
+            # Only return synchronized devices
+            if (-not $SynchronizedDevice) {
                 continue
             }
         }
@@ -150,8 +163,9 @@
             RequireUserEnrollmentApproval           = $DeviceI.RequireUserEnrollmentApproval             # :
             #AdditionalProperties                      = $DeviceI.AdditionalProperties                      # : {}
         }
-        if ($Type) {
+        if ($Type -or $Synchronized) {
             $DeviceInformation['TrustType'] = $TrustType
+            $DeviceInformation['IsSynchronized'] = $SynchronizedDevice
         }
         foreach ($D in $DeviceI.ConfigurationManagerClientEnabledFeatures.PSObject.Properties) {
             if ($D.Name -notin 'AdditionalProperties') {
