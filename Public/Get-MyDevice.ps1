@@ -42,12 +42,13 @@
 
     $Today = Get-Date
     try {
-        $Devices = Get-MgDevice -All -ExpandProperty RegisteredOwners -ErrorAction Stop
+        $Script:DevicesDate = Get-Date
+        $Script:Devices = Get-MgDevice -All -ExpandProperty RegisteredOwners -ErrorAction Stop
     } catch {
         Write-Warning -Message "Get-MyDevice - Failed to get devices. Error: $($_.Exception.Message)"
         return
     }
-    foreach ($Device in $Devices) {
+    foreach ($Device in $Script:Devices) {
         if ($Device.ApproximateLastSignInDateTime) {
             $LastSeenDays = $( - $($Device.ApproximateLastSignInDateTime - $Today).Days)
         } else {
