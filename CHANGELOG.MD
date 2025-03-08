@@ -1,4 +1,8 @@
-﻿### 0.0.41
+﻿### 0.0.42
+- Improved `Get-MyDevice`
+- Improved `Get-MyDeviceIntune`
+
+### 0.0.41
 - Improved `Get-MyConditionalAccess`
 - Improved `Show-MyConditionalAccess`
 
