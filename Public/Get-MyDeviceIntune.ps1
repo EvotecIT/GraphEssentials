@@ -7,17 +7,32 @@
     Gets detailed information about devices managed by Intune from the Microsoft Graph API.
     Provides data about device compliance, management state, and other device-specific properties.
 
+    .PARAMETER Type
+    Filters devices by type. Valid values are 'Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', and 'Not available'.
+
+    .PARAMETER Force
+    Forces the function to retrieve Azure devices even if they are already cached by using Get-MyDevice cmdlet.
+
     .EXAMPLE
     Get-MyDeviceIntune
     Returns all Intune managed devices with their properties.
 
     .NOTES
     This function requires the Microsoft.Graph.Authentication module and appropriate permissions to access Intune data.
+
+    When you use Type parameter, the function will retrieve Azure devices to match them with Intune devices.
+    This operation may take some time, especially if you have a large number of devices.
+    That's why the function tries to use cached Azure devices if they were already retrieved by Get-MyDevice cmdlet.
+    If you want to force the function to retrieve Azure devices again, use the Force switch.
+    The cache is valid for 30 minutes by default.
     #>
     [cmdletBinding()]
     param(
-
+        [ValidateSet('Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', 'Not available')][string[]] $Type,
+        [int] $CacheMinutes = 30,
+        [switch] $Force
     )
+    $CachedAzure = [ordered] @{}
     $Today = Get-Date
     try {
         $DevicesIntune = Get-MgDeviceManagementManagedDevice -All -ErrorAction Stop
@@ -25,11 +40,50 @@
         Write-Warning -Message "Get-MyDeviceIntune - Failed to get intune devices. Error: $($_.Exception.Message)"
         return
     }
+
+    if ($Type) {
+        # We only need to get Azure devices if we are filtering by type
+        try {
+            if (-not $Script:Devices -or $Force -or $Script:DevicesDate -lt (Get-Date).AddMinutes(-$CacheMinutes)) {
+                $DevicesAzure = Get-MgDevice -All -ErrorAction Stop
+            } else {
+                $DevicesAzure = $Script:Devices
+            }
+        } catch {
+            Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure devices. Error: $($_.Exception.Message)"
+            return
+        }
+        foreach ($DeviceA in $DevicesAzure) {
+            $CachedAzure[$DeviceA.DeviceId] = $DeviceA
+        }
+    }
+
+    $TrustTypes = @{
+        'ServerAD'  = 'Hybrid AzureAD'
+        'AzureAD'   = 'AzureAD joined'
+        'Workplace' = 'AzureAD registered'
+    }
+
     foreach ($DeviceI in $DevicesIntune) {
         if ($DeviceI.LastSyncDateTime) {
             $LastSynchronizedDays = $( - $($DeviceI.LastSyncDateTime - $Today).Days)
         } else {
             $LastSynchronizedDays = $null
+        }
+
+        if ($Type) {
+            # Get the Azure device information for the current Intune device
+            if ($CachedAzure[$DeviceI.AzureAdDeviceId]) {
+                $DeviceA = $CachedAzure[$DeviceI.AzureAdDeviceId]
+                $TrustType = $TrustTypes[$DeviceA.TrustType]
+            } else {
+                $DeviceA = $null
+                $TrustType = 'Not available'
+            }
+            # Only return devices of the specified type
+            if ($Type -notcontains $TrustType) {
+                continue
+            }
         }
 
         $DeviceInformation = [ordered] @{
@@ -45,7 +99,6 @@
             UserId                                  = $DeviceI.UserId                                    # : e6a8f1cf-0874-4323-a12f-2bf51bb6dfdd
             UserPrincipalName                       = $DeviceI.UserPrincipalName                         # : przemyslaw.klys@evotec.pl
             EmailAddress                            = $DeviceI.EmailAddress                              # : przemyslaw.klys@evotec.pl
-
             ManagedDeviceName                       = $DeviceI.ManagedDeviceName                         # : przemyslaw.klys_Windows_1/28/2023_10:34 AM
             ManagedDeviceOwnerType                  = $DeviceI.ManagedDeviceOwnerType                    # : company
             ManagementAgent                         = $DeviceI.ManagementAgent                           # : mdm
@@ -96,6 +149,9 @@
             RemoteAssistanceSessionUrl              = $DeviceI.RemoteAssistanceSessionUrl                # :
             RequireUserEnrollmentApproval           = $DeviceI.RequireUserEnrollmentApproval             # :
             #AdditionalProperties                      = $DeviceI.AdditionalProperties                      # : {}
+        }
+        if ($Type) {
+            $DeviceInformation['TrustType'] = $TrustType
         }
         foreach ($D in $DeviceI.ConfigurationManagerClientEnabledFeatures.PSObject.Properties) {
             if ($D.Name -notin 'AdditionalProperties') {
