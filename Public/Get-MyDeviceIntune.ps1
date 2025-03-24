@@ -45,7 +45,7 @@
         return
     }
 
-    if ($Type -or $Syncronized) {
+    if ($Type -or $Synchronized) {
         # We only need to get Azure devices if we are filtering by type
         try {
             if (-not $Script:Devices -or $Force -or $Script:DevicesDate -lt (Get-Date).AddMinutes(-$CacheMinutes)) {
