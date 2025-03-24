@@ -78,7 +78,11 @@
         # Get the Azure device information for the current Intune device
         if ($CachedAzure[$DeviceI.AzureAdDeviceId]) {
             $DeviceA = $CachedAzure[$DeviceI.AzureAdDeviceId]
-            $TrustType = $TrustTypes[$DeviceA.TrustType]
+            if ($DeviceA.TrustType) {
+                $TrustType = $TrustTypes[$DeviceA.TrustType]
+            } else {
+                $TrustType = 'Not available'
+            }
             $SynchronizedDevice = $DeviceA.OnPremisesSyncEnabled
         } else {
             $DeviceA = $null
