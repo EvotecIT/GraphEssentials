@@ -58,7 +58,9 @@
             return
         }
         foreach ($DeviceA in $DevicesAzure) {
-            $CachedAzure[$DeviceA.DeviceId] = $DeviceA
+            if ($DeviceA.DeviceId) {
+                $CachedAzure[$DeviceA.DeviceId] = $DeviceA
+            }
         }
     }
 
@@ -171,19 +173,25 @@
             $DeviceInformation['TrustType'] = $TrustType
             $DeviceInformation['IsSynchronized'] = $SynchronizedDevice
         }
-        foreach ($D in $DeviceI.ConfigurationManagerClientEnabledFeatures.PSObject.Properties) {
-            if ($D.Name -notin 'AdditionalProperties') {
-                $DeviceInformation.Add("ConfigurationManagerClientEnabledFeatures$($D.Name)", $D.Value)
+        if ($DeviceI.ConfigurationManagerClientEnabledFeatures) {
+            foreach ($D in $DeviceI.ConfigurationManagerClientEnabledFeatures.PSObject.Properties) {
+                if ($D.Name -notin 'AdditionalProperties') {
+                    $DeviceInformation["ConfigurationManagerClientEnabledFeatures$($D.Name)"] = $D.Value
+                }
             }
         }
-        foreach ($D in $DeviceI.DeviceCategory.PSObject.Properties) {
-            if ($D.Name -notin 'AdditionalProperties') {
-                $DeviceInformation.Add("DeviceCategory$($D.Name)", $D.Value)
+        if ($DeviceI.DeviceCategory) {
+            foreach ($D in $DeviceI.DeviceCategory.PSObject.Properties) {
+                if ($D.Name -notin 'AdditionalProperties') {
+                    $DeviceInformation["DeviceCategory$($D.Name)"] = $D.Value
+                }
             }
         }
-        foreach ($D in $DeviceI.DeviceHealthAttestationState.PSObject.Properties) {
-            if ($D.Name -notin 'AdditionalProperties') {
-                $DeviceInformation.Add("DeviceHealthAttestationState$($D.Name)", $D.Value)
+        if ($DeviceI.DeviceHealthAttestationState) {
+            foreach ($D in $DeviceI.DeviceHealthAttestationState.PSObject.Properties) {
+                if ($D.Name -notin 'AdditionalProperties') {
+                    $DeviceInformation["DeviceHealthAttestationState$($D.Name)"] = $D.Value
+                }
             }
         }
         [PSCustomObject] $DeviceInformation
