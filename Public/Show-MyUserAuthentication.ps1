@@ -182,7 +182,7 @@ function Show-MyUserAuthentication {
                     # Key metrics section - Extended
                     New-HTMLSection {
                         New-HTMLPanel {
-                            New-HTMLText -Text "Total Users Displayed" -FontSize 14pt -Color '#666666'
+                            New-HTMLText -Text "Total Users" -FontSize 14pt -Color '#666666'
                             New-HTMLText -Text $TotalUsers -FontSize 24pt -Color '#0078d4'
                         }
                         New-HTMLPanel {
