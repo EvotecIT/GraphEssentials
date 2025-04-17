@@ -78,7 +78,7 @@ function New-MyUserAuthenticationObject {
 
         # Additional Info
         TotalMethodsCount                = $AuthMethods.Count
-        MethodTypesRegistered            = $MethodTypes # Renamed for clarity
+        MethodTypesRegistered            = $MethodTypes | Sort-Object -Unique # Renamed for clarity
     }
     return $resultObject
 }
