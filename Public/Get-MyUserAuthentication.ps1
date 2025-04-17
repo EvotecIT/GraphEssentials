@@ -21,12 +21,17 @@ function Get-MyUserAuthentication {
 
     .PARAMETER BatchSize
     Optional. Specifies the number of requests to include in each batch call. Defaults to 20 (the maximum allowed by Graph API).
+
+    .PARAMETER IncludeSecurityQuestionStatus
+    Optional. If specified, performs additional API calls to check if each user has registered security questions.
+    WARNING: This can significantly increase execution time for large numbers of users.
     #>
     [CmdletBinding()]
     param(
         [string] $UserPrincipalName,
         [switch] $IncludeDeviceDetails,
-        [int] $BatchSize = 20
+        [int] $BatchSize = 20,
+        [switch] $IncludeSecurityQuestionStatus
     )
 
     $Today = Get-Date
@@ -77,6 +82,13 @@ function Get-MyUserAuthentication {
             Write-Verbose "Get-MyUserAuthentication - No method details needed to be fetched."
         }
 
+        # 4b. Get Security Question Status (Optional)
+        $securityQuestionLookup = $null
+        if ($IncludeSecurityQuestionStatus) {
+            # This call adds extra overhead and fetches all user registrations
+            $securityQuestionLookup = Get-MySecurityQuestionStatus
+        }
+
 
         # 5. Assemble Final Results
         Write-Verbose "Get-MyUserAuthentication - Assembling final results..."
@@ -104,6 +116,15 @@ function Get-MyUserAuthentication {
                 WindowsHelloMethods    = [System.Collections.Generic.List[object]]::new()
                 SoftwareOath           = [System.Collections.Generic.List[object]]::new()
                 PasswordMethods        = $MethodTypes -contains 'passwordAuthenticationMethod' # Populate PasswordMethods boolean
+            }
+
+            # Add Security Question status if fetched
+            if ($IncludeSecurityQuestionStatus -and $null -ne $securityQuestionLookup) {
+                # Use the lookup table based on UserId
+                $Details['SecurityQuestionsRegistered'] = $securityQuestionLookup.ContainsKey($UserId) -and $securityQuestionLookup[$UserId]
+            } else {
+                # Default to false if not fetched
+                $Details['SecurityQuestionsRegistered'] = $false
             }
 
             # Populate details from the fetched details dictionary or summary if details not requested/fetched

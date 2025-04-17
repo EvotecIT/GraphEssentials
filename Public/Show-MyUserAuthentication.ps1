@@ -24,6 +24,10 @@ function Show-MyUserAuthentication {
     .PARAMETER IncludeDeviceDetails
     When specified, includes detailed information about FIDO2 security keys and
     other authentication device details in the user data section.
+
+    .PARAMETER IncludeSecurityQuestionStatus
+    Optional. If specified, checks if each user has registered security questions.
+    WARNING: This can significantly increase execution time and memory usage.
     #>
     [cmdletBinding()]
     param(
@@ -31,7 +35,8 @@ function Show-MyUserAuthentication {
         [switch] $Online,
         [switch] $ShowHTML,
         [string] $UserPrincipalName,
-        [switch] $IncludeDeviceDetails
+        [switch] $IncludeDeviceDetails,
+        [switch] $IncludeSecurityQuestionStatus
     )
 
     $Script:Reporting = [ordered] @{}
@@ -39,7 +44,11 @@ function Show-MyUserAuthentication {
 
     # --- Get Data ---
     Write-Verbose -Message "Show-MyUserAuthentication - Getting user authentication data"
-    $UserAuth = Get-MyUserAuthentication -UserPrincipalName $UserPrincipalName -IncludeDeviceDetails:$IncludeDeviceDetails.IsPresent
+    $getAuthParams = @{}
+    if ($UserPrincipalName) { $getAuthParams['UserPrincipalName'] = $UserPrincipalName }
+    if ($IncludeDeviceDetails) { $getAuthParams['IncludeDeviceDetails'] = $true }
+    if ($IncludeSecurityQuestionStatus) { $getAuthParams['IncludeSecurityQuestionStatus'] = $true }
+    $UserAuth = Get-MyUserAuthentication @getAuthParams
 
     Write-Verbose -Message "Show-MyUserAuthentication - Getting authentication methods policy"
     $AuthMethodsPolicy = Get-MyAuthenticationMethodsPolicy
@@ -189,8 +198,8 @@ function Show-MyUserAuthentication {
                             foreach ($Column in @('Enabled', 'MFA', 'IsMfaCapable', 'IsPasswordlessCapable', 'PasswordMethodRegistered',
                                     'Microsoft Auth Passwordless', 'FIDO2 Security Key', 'Device Bound PushKey',
                                     'Microsoft Auth Push', 'Windows Hello', 'Microsoft Auth App', 'Hardware OTP',
-                                    'Software OTP', 'Temporary Pass', 'SMS', 'Email',
-                                    'Voice Call', 'Alternative Phone')) {
+                                    'Software OTP', 'Temporary Pass', 'MacOS Secure Key', 'SMS', 'Email',
+                                    'Security Questions Registered', 'Voice Call', 'Alternative Phone')) {
                                 # Check if column exists on the formatted object
                                 if ($FormattedUserAuth[0].PSObject.Properties.Name -contains $Column) {
                                     New-TableCondition -Name $Column -Value $true -BackgroundColor '#00a36d' -Color White -ComparisonType bool

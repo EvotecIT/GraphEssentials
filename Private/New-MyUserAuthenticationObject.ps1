@@ -34,10 +34,10 @@ function New-MyUserAuthenticationObject {
     $resultObject = [PSCustomObject]@{
         UserId                           = $User.Id
         UserPrincipalName                = $User.UserPrincipalName
-        Enabled                          = $User.AccountEnabled
         DisplayName                      = $User.DisplayName
-        CreatedDateTime                  = $User.CreatedDateTime
+        Enabled                          = $User.AccountEnabled
         IsCloudOnly                      = -not $User.OnPremisesSyncEnabled
+
         LastSignInDateTime               = if ($User.SignInActivity) { $User.SignInActivity.LastSignInDateTime } else { $null }
         LastSignInDaysAgo                = if ($User.SignInActivity -and $User.SignInActivity.LastSignInDateTime) { [math]::Round((New-TimeSpan -Start $User.SignInActivity.LastSignInDateTime -End $Today).TotalDays, 0) } else { $null }
         LastNonInteractiveSignInDateTime = if ($User.SignInActivity) { $User.SignInActivity.LastNonInteractiveSignInDateTime } else { $null }
@@ -47,9 +47,10 @@ function New-MyUserAuthenticationObject {
         DefaultMfaMethod                 = $defaultMfaMethod
         IsMfaCapable                     = $MethodTypes -match '(microsoftAuthenticatorAuthenticationMethod|phoneAuthenticationMethod|fido2AuthenticationMethod|softwareOathAuthenticationMethod)' | Sort-Object -Unique
         IsPasswordlessCapable            = $MethodTypes -match '(fido2AuthenticationMethod|windowsHelloForBusinessAuthenticationMethod)' -and (-not $Details.PasswordMethods)
+        MethodTypesRegistered            = $MethodTypes | Sort-Object -Unique # Renamed for clarity
 
         # Method Types (Boolean Flags)
-        'PasswordMethod'                 = $Details.PasswordMethods # This is just a boolean derived earlier
+        'PasswordMethodRegistered'       = $Details.PasswordMethods # This is just a boolean derived earlier
         'Microsoft Auth Passwordless'    = $MethodTypes -contains 'microsoftAuthenticatorAuthenticationMethod' # Check specific type
         'FIDO2 Security Key'             = $MethodTypes -contains 'fido2AuthenticationMethod'
         'Device Bound PushKey'           = $MethodTypes -contains 'deviceBasedPushAuthenticationMethod' # Keep if needed, rare
@@ -62,10 +63,10 @@ function New-MyUserAuthenticationObject {
         #'MacOS Secure Key'               = $false # Not directly available
         'SMS'                            = $Details.PhoneMethods.SmsSignInState -contains 'ready' # Changed from 'enabled' to 'ready' based on docs
         'Email'                          = $Details.EmailMethods.Count -gt 0
-        #'Security Questions'             = $false # Not available
+        # Security Questions column: Use the value passed in $Details, default to false if key doesn't exist
+        'Security Questions Registered'  = $Details.ContainsKey('SecurityQuestionsRegistered') -and $Details['SecurityQuestionsRegistered']
         'Voice Call'                     = ($Details.PhoneMethods | Where-Object { $_.PhoneType -eq 'mobile' -or $_.PhoneType -eq 'alternateMobile' -or $_.PhoneType -eq 'office' }).Count -gt 0 # Check specific types
         'Alternative Phone'              = ($Details.PhoneMethods | Where-Object { $_.PhoneType -eq 'alternateMobile' }).Count -gt 0 # Specific check
-
         # Method Details
         FIDO2Keys                        = $Details.Fido2Keys
         PhoneMethods                     = $Details.PhoneMethods
@@ -73,12 +74,12 @@ function New-MyUserAuthenticationObject {
         MicrosoftAuthenticator           = $Details.MicrosoftAuthenticator
         TemporaryAccessPass              = $Details.TemporaryAccessPass
         WindowsHelloForBusiness          = $Details.WindowsHelloMethods
-        PasswordMethodRegistered         = $Details.PasswordMethods # Renamed for clarity
         SoftwareOathMethods              = $Details.SoftwareOath
 
         # Additional Info
         TotalMethodsCount                = $AuthMethods.Count
-        MethodTypesRegistered            = $MethodTypes | Sort-Object -Unique # Renamed for clarity
+
+        CreatedDateTime                  = $User.CreatedDateTime
     }
     $resultObject
 }
