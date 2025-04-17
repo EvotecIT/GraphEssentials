@@ -44,12 +44,12 @@ function New-MyUserAuthenticationObject {
         LastNonInteractiveSignInDaysAgo  = if ($User.SignInActivity -and $User.SignInActivity.LastNonInteractiveSignInDateTime) { [math]::Round((New-TimeSpan -Start $User.SignInActivity.LastNonInteractiveSignInDateTime -End $Today).TotalDays, 0) } else { $null } # PS 5.1 Compat
 
         # Authentication Status
-        MFA                              = $MethodTypes -match '(microsoftAuthenticatorAuthenticationMethod|phoneAuthenticationMethod|fido2AuthenticationMethod|softwareOathAuthenticationMethod)' # Added SoftwareOath
-        PasswordMethod                   = $Details.PasswordMethods # This is just a boolean derived earlier
+        DefaultMfaMethod                 = $defaultMfaMethod
         IsMfaCapable                     = $MethodTypes -match '(microsoftAuthenticatorAuthenticationMethod|phoneAuthenticationMethod|fido2AuthenticationMethod|softwareOathAuthenticationMethod)' # Added SoftwareOath
         IsPasswordlessCapable            = $MethodTypes -match '(fido2AuthenticationMethod|windowsHelloForBusinessAuthenticationMethod)' -and (-not $Details.PasswordMethods) # Adjusted logic slightly
 
         # Method Types (Boolean Flags)
+        'PasswordMethod'                 = $Details.PasswordMethods # This is just a boolean derived earlier
         'Microsoft Auth Passwordless'    = $MethodTypes -contains 'microsoftAuthenticatorAuthenticationMethod' # Check specific type
         'FIDO2 Security Key'             = $MethodTypes -contains 'fido2AuthenticationMethod'
         'Device Bound PushKey'           = $MethodTypes -contains 'deviceBasedPushAuthenticationMethod' # Keep if needed, rare
@@ -59,10 +59,10 @@ function New-MyUserAuthenticationObject {
         'Hardware OTP'                   = $MethodTypes -contains 'hardwareOathAuthenticationMethod' # Requires detail call not implemented yet
         'Software OTP'                   = $MethodTypes -contains 'softwareOathAuthenticationMethod'
         'Temporary Pass'                 = $MethodTypes -contains 'temporaryAccessPassAuthenticationMethod'
-        'MacOS Secure Key'               = $false # Not directly available
+        #'MacOS Secure Key'               = $false # Not directly available
         'SMS'                            = $Details.PhoneMethods.SmsSignInState -contains 'ready' # Changed from 'enabled' to 'ready' based on docs
         'Email'                          = $Details.EmailMethods.Count -gt 0
-        'Security Questions'             = $false # Not available
+        #'Security Questions'             = $false # Not available
         'Voice Call'                     = ($Details.PhoneMethods | Where-Object { $_.PhoneType -eq 'mobile' -or $_.PhoneType -eq 'alternateMobile' -or $_.PhoneType -eq 'office' }).Count -gt 0 # Check specific types
         'Alternative Phone'              = ($Details.PhoneMethods | Where-Object { $_.PhoneType -eq 'alternateMobile' }).Count -gt 0 # Specific check
 
@@ -79,7 +79,6 @@ function New-MyUserAuthenticationObject {
         # Additional Info
         TotalMethodsCount                = $AuthMethods.Count
         MethodTypesRegistered            = $MethodTypes # Renamed for clarity
-        DefaultMfaMethod                 = $defaultMfaMethod
     }
     return $resultObject
 }
