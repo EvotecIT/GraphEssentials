@@ -31,22 +31,22 @@ function New-MyUserAuthenticationObject {
     }
 
     # Build the final object
-    $resultObject = [PSCustomObject]@{ # Indentation fixed
+    $resultObject = [PSCustomObject]@{
         UserId                           = $User.Id
         UserPrincipalName                = $User.UserPrincipalName
         Enabled                          = $User.AccountEnabled
         DisplayName                      = $User.DisplayName
         CreatedDateTime                  = $User.CreatedDateTime
         IsCloudOnly                      = -not $User.OnPremisesSyncEnabled
-        LastSignInDateTime               = if ($User.SignInActivity) { $User.SignInActivity.LastSignInDateTime } else { $null } # PS 5.1 Compat
-        LastSignInDaysAgo                = if ($User.SignInActivity -and $User.SignInActivity.LastSignInDateTime) { [math]::Round((New-TimeSpan -Start $User.SignInActivity.LastSignInDateTime -End $Today).TotalDays, 0) } else { $null } # PS 5.1 Compat
-        LastNonInteractiveSignInDateTime = if ($User.SignInActivity) { $User.SignInActivity.LastNonInteractiveSignInDateTime } else { $null } # PS 5.1 Compat
-        LastNonInteractiveSignInDaysAgo  = if ($User.SignInActivity -and $User.SignInActivity.LastNonInteractiveSignInDateTime) { [math]::Round((New-TimeSpan -Start $User.SignInActivity.LastNonInteractiveSignInDateTime -End $Today).TotalDays, 0) } else { $null } # PS 5.1 Compat
+        LastSignInDateTime               = if ($User.SignInActivity) { $User.SignInActivity.LastSignInDateTime } else { $null }
+        LastSignInDaysAgo                = if ($User.SignInActivity -and $User.SignInActivity.LastSignInDateTime) { [math]::Round((New-TimeSpan -Start $User.SignInActivity.LastSignInDateTime -End $Today).TotalDays, 0) } else { $null }
+        LastNonInteractiveSignInDateTime = if ($User.SignInActivity) { $User.SignInActivity.LastNonInteractiveSignInDateTime } else { $null }
+        LastNonInteractiveSignInDaysAgo  = if ($User.SignInActivity -and $User.SignInActivity.LastNonInteractiveSignInDateTime) { [math]::Round((New-TimeSpan -Start $User.SignInActivity.LastNonInteractiveSignInDateTime -End $Today).TotalDays, 0) } else { $null }
 
         # Authentication Status
         DefaultMfaMethod                 = $defaultMfaMethod
-        IsMfaCapable                     = $MethodTypes -match '(microsoftAuthenticatorAuthenticationMethod|phoneAuthenticationMethod|fido2AuthenticationMethod|softwareOathAuthenticationMethod)' # Added SoftwareOath
-        IsPasswordlessCapable            = $MethodTypes -match '(fido2AuthenticationMethod|windowsHelloForBusinessAuthenticationMethod)' -and (-not $Details.PasswordMethods) # Adjusted logic slightly
+        IsMfaCapable                     = $MethodTypes -match '(microsoftAuthenticatorAuthenticationMethod|phoneAuthenticationMethod|fido2AuthenticationMethod|softwareOathAuthenticationMethod)' | Sort-Object -Unique
+        IsPasswordlessCapable            = $MethodTypes -match '(fido2AuthenticationMethod|windowsHelloForBusinessAuthenticationMethod)' -and (-not $Details.PasswordMethods)
 
         # Method Types (Boolean Flags)
         'PasswordMethod'                 = $Details.PasswordMethods # This is just a boolean derived earlier
@@ -80,5 +80,5 @@ function New-MyUserAuthenticationObject {
         TotalMethodsCount                = $AuthMethods.Count
         MethodTypesRegistered            = $MethodTypes | Sort-Object -Unique # Renamed for clarity
     }
-    return $resultObject
+    $resultObject
 }
