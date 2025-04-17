@@ -63,7 +63,7 @@ function Show-MyUserAuthentication {
     $PasswordlessCapable = 0
     $StrongWeakAuth = 0
     $ExcludedUserProperties = @(
-        # Add properties from $UserAuth you specifically want to hide from the main table if any
+        if (-not $IncludeSecurityQuestionStatus) { 'Security Questions Registered' }
     )
 
     if ($UserAuth) {
@@ -111,6 +111,31 @@ function Show-MyUserAuthentication {
         }
     }
 
+    # --- Calculate Detailed User Stats ---
+    $Stats = @{ TotalUsers = $TotalUsers } # Start with total from earlier
+    if ($FormattedUserAuth.Count -gt 0) {
+        $Stats['EnabledUsers'] = ($FormattedUserAuth | Where-Object { $_.Enabled }).Count
+        $Stats['CloudOnlyUsers'] = ($FormattedUserAuth | Where-Object { $_.IsCloudOnly }).Count
+        $Stats['UsersWithFIDO2'] = ($FormattedUserAuth | Where-Object { $_.'FIDO2 Security Key' }).Count
+        $Stats['UsersWithWHFB'] = ($FormattedUserAuth | Where-Object { $_.'Windows Hello' }).Count
+        $Stats['UsersWithMSAuthApp'] = ($FormattedUserAuth | Where-Object { $_.'Microsoft Auth App' }).Count
+        $Stats['UsersWithSoftwareOTP'] = ($FormattedUserAuth | Where-Object { $_.'Software OTP' }).Count
+        $Stats['UsersWithSMS'] = ($FormattedUserAuth | Where-Object { $_.SMS }).Count
+        $Stats['UsersWithEmail'] = ($FormattedUserAuth | Where-Object { $_.Email }).Count
+        $Stats['UsersWithVoice'] = ($FormattedUserAuth | Where-Object { $_.'Voice Call' }).Count
+        $Stats['UsersWithPassword'] = ($FormattedUserAuth | Where-Object { $_.PasswordMethodRegistered }).Count
+        $Stats['UsersWithTAP'] = ($FormattedUserAuth | Where-Object { $_.'Temporary Pass' }).Count
+        $Stats['UsersWithSecQuestions'] = if ($IncludeSecurityQuestionStatus) { ($FormattedUserAuth | Where-Object { $_.'Security Questions Registered' }).Count } else { $null } # Only count if flag was used
+
+        # Derived counts
+        $Stats['DisabledUsers'] = $Stats.TotalUsers - $Stats.EnabledUsers
+        $Stats['SyncedUsers'] = $Stats.TotalUsers - $Stats.CloudOnlyUsers
+        $Stats['ZeroMfaUsers'] = $Stats.TotalUsers - $MFACapable # Use $MFACapable calculated earlier
+
+        # Default MFA method breakdown
+        $Stats['DefaultMethodCounts'] = $FormattedUserAuth | Group-Object -Property DefaultMfaMethod | Select-Object -Property Name, Count
+    }
+
     # --- Generate HTML Report ---
     Write-Verbose -Message "Show-MyUserAuthentication - Preparing HTML report"
     New-HTML -TitleText "User Authentication Methods Report" -Online:$Online.IsPresent -FilePath $FilePath -ShowHTML:$ShowHTML.IsPresent {
@@ -154,7 +179,7 @@ function Show-MyUserAuthentication {
                         }
                     }
 
-                    # Key metrics section
+                    # Key metrics section - Extended
                     New-HTMLSection {
                         New-HTMLPanel {
                             New-HTMLText -Text "Total Users Displayed" -FontSize 14pt -Color '#666666'
@@ -186,6 +211,54 @@ function Show-MyUserAuthentication {
                             New-HTMLText -Text $StrongWeakAuth -FontSize 24pt -Color '#0078d4'
                             if ($TotalUsers -gt 0) {
                                 New-HTMLText -Text "$([math]::Round(($StrongWeakAuth / $TotalUsers) * 100, 2))% of users" -Color '#666666'
+                            }
+                        }
+                        # Add new panels for Enabled/Disabled, Cloud/Synced, Zero MFA
+                        New-HTMLPanel {
+                            New-HTMLText -Text "Enabled / Disabled" -FontSize 14pt -Color '#666666'
+                            New-HTMLText -Text "$($Stats.EnabledUsers) / $($Stats.DisabledUsers)" -FontSize 24pt -Color '#0078d4'
+                        }
+                        New-HTMLPanel {
+                            New-HTMLText -Text "Cloud Only / Synced" -FontSize 14pt -Color '#666666'
+                            New-HTMLText -Text "$($Stats.CloudOnlyUsers) / $($Stats.SyncedUsers)" -FontSize 24pt -Color '#0078d4'
+                        }
+                        New-HTMLPanel {
+                            New-HTMLText -Text "Users without MFA" -FontSize 14pt -Color '#666666'
+                            New-HTMLText -Text "$($Stats.ZeroMfaUsers)" -FontSize 24pt -Color '#d13438' # Highlight in red
+                            if ($TotalUsers -gt 0) {
+                                New-HTMLText -Text "$([math]::Round(($Stats.ZeroMfaUsers / $TotalUsers) * 100, 2))% of users" -Color '#666666'
+                            }
+                        }
+                    }
+
+                    # New section for method breakdown charts
+                    if ($FormattedUserAuth.Count -gt 0) {
+                        New-HTMLSection -HeaderText 'Method Registration & Usage Breakdown' {
+                            New-HTMLPanel {
+                                New-HTMLChart -Title 'Users Registered per Method' {
+                                    New-ChartBar -Name 'Password' -Value $Stats.UsersWithPassword
+                                    New-ChartBar -Name 'MS Auth App' -Value $Stats.UsersWithMSAuthApp
+                                    New-ChartBar -Name 'FIDO2' -Value $Stats.UsersWithFIDO2
+                                    New-ChartBar -Name 'Windows Hello' -Value $Stats.UsersWithWHFB
+                                    New-ChartBar -Name 'Software OTP' -Value $Stats.UsersWithSoftwareOTP
+                                    New-ChartBar -Name 'SMS' -Value $Stats.UsersWithSMS
+                                    New-ChartBar -Name 'Voice Call' -Value $Stats.UsersWithVoice
+                                    New-ChartBar -Name 'Email' -Value $Stats.UsersWithEmail
+                                    if ($null -ne $Stats.UsersWithSecQuestions) {
+                                        # Only show if fetched
+                                        New-ChartBar -Name 'Security Questions' -Value $Stats.UsersWithSecQuestions
+                                    }
+                                    New-ChartBar -Name 'Temporary Pass' -Value $Stats.UsersWithTAP
+                                }
+                            }
+                            New-HTMLPanel {
+                                if ($Stats.DefaultMethodCounts) {
+                                    New-HTMLChart -Title 'Default MFA Method Distribution' {
+                                        foreach ($group in $Stats.DefaultMethodCounts) {
+                                            New-ChartPie -Name $group.Name -Value $group.Count
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
