@@ -26,20 +26,19 @@ function Show-MyUserAuthentication {
     other authentication device details in the report.
 
     .EXAMPLE
-    Show-MyUserAuthentication -FilePath "C:\Reports\UserAuthentication.html"
+    Show-MyUserAuthentication -FilePath "C:\Reports\UserAuth.html"
     Generates a user authentication methods report and saves it to the specified path.
 
     .EXAMPLE
-    Show-MyUserAuthentication -FilePath "C:\Reports\UserAuthentication.html" -Online
+    Show-MyUserAuthentication -FilePath "C:\Reports\UserAuth.html" -Online
     Generates a user authentication methods report, saves it to the specified path, and opens it in the default browser.
 
     .EXAMPLE
-    Show-MyUserAuthentication -FilePath "C:\Reports\UserAuthentication.html" -UserPrincipalName "user@contoso.com" -IncludeDeviceDetails
+    Show-MyUserAuthentication -FilePath "C:\Reports\UserAuth.html" -UserPrincipalName "user@contoso.com" -IncludeDeviceDetails
     Generates a detailed authentication report for a specific user including device details.
 
     .NOTES
-    This function requires the PSWriteHTML module and appropriate Microsoft Graph permissions
-    (typically UserAuthenticationMethod.Read.All).
+    This function requires the PSWriteHTML module and appropriate Microsoft Graph permissions.
     #>
     [cmdletBinding()]
     param(
@@ -61,8 +60,45 @@ function Show-MyUserAuthentication {
         return
     }
 
+    # Calculate metrics
+    $TotalUsers = $UserAuth.Count
+    $MFACapable = ($UserAuth | Where-Object { $_.MethodTypes -match 'microsoftAuthenticatorAuthenticationMethod|phoneAuthenticationMethod|fido2AuthenticationMethod' }).Count
+    $StrongAuth = ($UserAuth | Where-Object { $_.MethodTypes -match 'fido2AuthenticationMethod|windowsHelloForBusinessAuthenticationMethod' }).Count
+    $PasswordlessCapable = ($UserAuth | Where-Object {
+            $_.MethodTypes -match 'fido2AuthenticationMethod' -and
+            $_.MethodTypes -notmatch 'passwordAuthenticationMethod'
+        }).Count
+    $StrongWeakAuth = ($UserAuth | Where-Object {
+            $_.MethodTypes -match '(fido2AuthenticationMethod|windowsHelloForBusinessAuthenticationMethod)' -and
+            $_.MethodTypes -match '(phoneAuthenticationMethod|emailAuthenticationMethod)'
+        }).Count
+
+    # Create auth methods detail table
+    $AuthMethodsTable = foreach ($User in $UserAuth) {
+        [PSCustomObject]@{
+            UserId                        = $User.Id
+            UserPrincipalName             = $User.UserPrincipalName
+            Enabled                       = $User.AccountEnabled
+            DisplayName                   = $User.DisplayName
+            MFA                           = $User.MethodTypes -match '(microsoftAuthenticatorAuthenticationMethod|phoneAuthenticationMethod|fido2AuthenticationMethod)'
+            Pass                          = $User.MethodTypes -contains 'passwordAuthenticationMethod'
+            'Microsoft Auth Passwordless' = $User.MethodTypes -contains 'microsoftAuthenticatorAuthenticationMethod'
+            'FIDO2 Security Key'          = $User.MethodTypes -contains 'fido2AuthenticationMethod'
+            'Device Bound PushKey'        = $User.MethodTypes -contains 'deviceBasedPushAuthenticationMethod'
+            'Microsoft Auth Push'         = $User.MethodTypes -match 'microsoftAuthenticatorAuthenticationMethod'
+            'Windows Hello'               = $User.MethodTypes -contains 'windowsHelloForBusinessAuthenticationMethod'
+            'Microsoft Auth App'          = $User.MethodTypes -contains 'microsoftAuthenticatorAuthenticationMethod'
+            'Hardware OTP'                = $User.MethodTypes -contains 'hardwareOathAuthenticationMethod'
+            'Temporary Pass'              = $User.MethodTypes -contains 'temporaryAccessPassAuthenticationMethod'
+            'MacOS Secure Key'            = $false # Not directly available in Graph API
+            'SMS'                         = $User.PhoneMethods.SmsSignInState -contains 'enabled'
+            'Email'                       = $User.EmailMethods.Count -gt 0
+            'Security Questions'          = $false # Not directly available in Graph API
+        }
+    }
+
     Write-Verbose -Message "Show-MyUserAuthentication - Preparing HTML report"
-    New-HTML {
+    New-HTML -TitleText "Authentication Methods Report" -Online:$Online.IsPresent -FilePath $FilePath -ShowHTML:$ShowHTML.IsPresent {
         New-HTMLTabStyle -BorderRadius 0px -TextTransform capitalize -BackgroundColorActive SlateGrey
         New-HTMLSectionStyle -BorderRadius 0px -HeaderBackGroundColor Grey -RemoveShadow
         New-HTMLPanelStyle -BorderRadius 0px
@@ -79,159 +115,63 @@ function Show-MyUserAuthentication {
             }
         }
 
-        New-HTMLTab -Name "User Authentication Overview" {
-            New-HTMLSection -HeaderText "User Authentication Methods Summary" {
-                New-HTMLPanel -Invisible {
-                    New-HTMLContainer {
-                        New-HTMLText -FontSize 11pt -TextBlock {
-                            "This report provides an overview of authentication methods configured for users in your Azure AD/Entra ID environment. "
-                            "Users may have multiple authentication methods configured, and this report shows both the primary and secondary methods available."
-                        }
-                    }
-
-                    # Create summary overview
-                    $Summary = @(
-                        [PSCustomObject]@{
-                            'Total Users' = $UserAuth.Count
-                            'Users with FIDO2' = ($UserAuth | Where-Object { $_.FIDO2Keys.Count -gt 0 }).Count
-                            'Users with Phone Auth' = ($UserAuth | Where-Object { $_.PhoneMethods.Count -gt 0 }).Count
-                            'Users with MS Authenticator' = ($UserAuth | Where-Object { $_.MicrosoftAuthenticator.Count -gt 0 }).Count
-                            'Users with Email Auth' = ($UserAuth | Where-Object { $_.EmailMethods.Count -gt 0 }).Count
-                            'Users with Windows Hello' = ($UserAuth | Where-Object { $_.WindowsHelloForBusiness.Count -gt 0 }).Count
-                        }
-                    )
-
-                    New-HTMLTable -DataTable $Summary -Filtering -HideButtons -DisableSearch -DisablePaging
-                }
+        # Key metrics section
+        New-HTMLSection {
+            New-HTMLPanel {
+                New-HTMLText -Text "Total Users" -FontSize 14pt -Color '#666666'
+                New-HTMLText -Text $TotalUsers -FontSize 24pt -Color '#0078d4'
             }
-
-            New-HTMLSection -HeaderText "User Authentication Details" {
-                New-HTMLTable -DataTable $UserAuth -Filtering {
-                    New-HTMLTableCondition -Name 'IsEnabled' -Value $true -BackgroundColor LightGreen -ComparisonType boolean
-                    New-HTMLTableCondition -Name 'IsEnabled' -Value $false -BackgroundColor LightGray -ComparisonType boolean
-                    New-HTMLTableCondition -Name 'TotalMethodsCount' -Value 1 -Operator le -BackgroundColor Orange -ComparisonType number
-                } -DataStore JavaScript -DataTableID "TableUserAuth" -PagingLength 10 -ScrollX
+            New-HTMLPanel {
+                New-HTMLText -Text "MFA Capable Users" -FontSize 14pt -Color '#666666'
+                New-HTMLText -Text $MFACapable -FontSize 24pt -Color '#0078d4'
+                New-HTMLText -Text "$([math]::Round(($MFACapable / $TotalUsers) * 100, 2))% of users" -Color '#666666'
+            }
+            New-HTMLPanel {
+                New-HTMLText -Text "Strong Auth Methods" -FontSize 14pt -Color '#666666'
+                New-HTMLText -Text $StrongAuth -FontSize 24pt -Color '#0078d4'
+                New-HTMLText -Text "$([math]::Round(($StrongAuth / $TotalUsers) * 100, 2))% of users" -Color '#666666'
+            }
+            New-HTMLPanel {
+                New-HTMLText -Text "Passwordless Capable" -FontSize 14pt -Color '#666666'
+                New-HTMLText -Text $PasswordlessCapable -FontSize 24pt -Color '#0078d4'
+                New-HTMLText -Text "$([math]::Round(($PasswordlessCapable / $TotalUsers) * 100, 2))% of users" -Color '#666666'
+            }
+            New-HTMLPanel {
+                New-HTMLText -Text "Strong + Weak Auth" -FontSize 14pt -Color '#666666'
+                New-HTMLText -Text $StrongWeakAuth -FontSize 24pt -Color '#0078d4'
+                New-HTMLText -Text "$([math]::Round(($StrongWeakAuth / $TotalUsers) * 100, 2))% of users" -Color '#666666'
             }
         }
 
-        if ($IncludeDeviceDetails) {
-            New-HTMLTab -Name "FIDO2 Keys & Device Details" {
-                New-HTMLSection -HeaderText "FIDO2 Security Keys" {
-                    $Fido2Details = foreach ($User in $UserAuth | Where-Object { $_.FIDO2Keys.Count -gt 0 }) {
-                        foreach ($Key in $User.FIDO2Keys) {
-                            [PSCustomObject]@{
-                                UserPrincipalName = $User.UserPrincipalName
-                                DisplayName = $User.DisplayName
-                                KeyModel = $Key.Model
-                                KeyName = $Key.DisplayName
-                                CreatedDateTime = $Key.CreatedDateTime
-                                AAGuid = $Key.AAGuid
-                            }
-                        }
-                    }
-
-                    if ($Fido2Details) {
-                        New-HTMLTable -DataTable $Fido2Details -Filtering -DataStore JavaScript -DataTableID "TableFido2" -PagingLength 10 -ScrollX
-                    } else {
-                        New-HTMLText -Text "No FIDO2 security keys found." -Color Orange -FontSize 11pt
-                    }
+        # Statistics Section with Pie Charts
+        New-HTMLSection -HeaderText 'Authentication Overview' {
+            New-HTMLPanel {
+                New-HTMLChart -Title 'MFA Status' {
+                    New-ChartPie -Name 'MFA Enabled' -Value $MFACapable
+                    New-ChartPie -Name 'No MFA' -Value ($TotalUsers - $MFACapable)
                 }
-
-                New-HTMLSection -HeaderText "Windows Hello for Business" {
-                    $WHfBDetails = foreach ($User in $UserAuth | Where-Object { $_.WindowsHelloForBusiness.Count -gt 0 }) {
-                        foreach ($Device in $User.WindowsHelloForBusiness) {
-                            [PSCustomObject]@{
-                                UserPrincipalName = $User.UserPrincipalName
-                                DisplayName = $User.DisplayName
-                                DeviceName = $Device.DisplayName
-                                CreatedDateTime = $Device.CreatedDateTime
-                                KeyStrength = $Device.KeyStrength
-                                Device = $Device.Device
-                            }
-                        }
-                    }
-
-                    if ($WHfBDetails) {
-                        New-HTMLTable -DataTable $WHfBDetails -Filtering -DataStore JavaScript -DataTableID "TableWHfB" -PagingLength 10 -ScrollX
-                    } else {
-                        New-HTMLText -Text "No Windows Hello for Business devices found." -Color Orange -FontSize 11pt
-                    }
+            }
+            New-HTMLPanel {
+                New-HTMLChart -Title 'Authentication Type' {
+                    New-ChartPie -Name 'Strong Auth' -Value $StrongAuth
+                    New-ChartPie -Name 'Weak Auth' -Value ($MFACapable - $StrongAuth)
+                    New-ChartPie -Name 'Password Only' -Value ($TotalUsers - $MFACapable)
                 }
             }
         }
 
-        New-HTMLTab -Name "Phone & Email Methods" {
-            New-HTMLSection -HeaderText "Phone Authentication Methods" {
-                $PhoneDetails = foreach ($User in $UserAuth | Where-Object { $_.PhoneMethods.Count -gt 0 }) {
-                    foreach ($Phone in $User.PhoneMethods) {
-                        [PSCustomObject]@{
-                            UserPrincipalName = $User.UserPrincipalName
-                            DisplayName = $User.DisplayName
-                            PhoneNumber = $Phone.PhoneNumber
-                            PhoneType = $Phone.PhoneType
-                            SmsSignInState = $Phone.SmsSignInState
-                        }
-                    }
+        # Authentication Methods Section with Table
+        New-HTMLSection -HeaderText 'Authentication Methods Details' {
+            New-HTMLTable -DataTable $AuthMethodsTable {
+                $Columns = @('MFA', 'Pass', 'Microsoft Auth Passwordless', 'FIDO2 Security Key',
+                    'Device Bound PushKey', 'Microsoft Auth Push', 'Windows Hello',
+                    'Microsoft Auth App', 'Hardware OTP', 'Temporary Pass',
+                    'MacOS Secure Key', 'SMS', 'Email', 'Security Questions')
+                foreach ($Column in $Columns) {
+                    New-TableCondition -Name $Column -Value $true -BackgroundColor '#00a36d' -Color White -ComparisonType bool
+                    New-TableCondition -Name $Column -Value $false -BackgroundColor '#d13438' -Color White -ComparisonType bool
                 }
-
-                if ($PhoneDetails) {
-                    New-HTMLTable -DataTable $PhoneDetails -Filtering -DataStore JavaScript -DataTableID "TablePhone" -PagingLength 10 -ScrollX
-                } else {
-                    New-HTMLText -Text "No phone authentication methods found." -Color Orange -FontSize 11pt
-                }
-            }
-
-            New-HTMLSection -HeaderText "Email Authentication Methods" {
-                $EmailDetails = foreach ($User in $UserAuth | Where-Object { $_.EmailMethods.Count -gt 0 }) {
-                    foreach ($Email in $User.EmailMethods) {
-                        [PSCustomObject]@{
-                            UserPrincipalName = $User.UserPrincipalName
-                            DisplayName = $User.DisplayName
-                            EmailAddress = $Email.EmailAddress
-                        }
-                    }
-                }
-
-                if ($EmailDetails) {
-                    New-HTMLTable -DataTable $EmailDetails -Filtering -DataStore JavaScript -DataTableID "TableEmail" -PagingLength 10 -ScrollX
-                } else {
-                    New-HTMLText -Text "No email authentication methods found." -Color Orange -FontSize 11pt
-                }
-            }
+            } -HideFooter -ScrollX -PagingLength 15 -Filtering
         }
-
-        New-HTMLTab -Name "Microsoft Authenticator" {
-            New-HTMLSection -HeaderText "Microsoft Authenticator Apps" {
-                $AuthenticatorDetails = foreach ($User in $UserAuth | Where-Object { $_.MicrosoftAuthenticator.Count -gt 0 }) {
-                    foreach ($Auth in $User.MicrosoftAuthenticator) {
-                        [PSCustomObject]@{
-                            UserPrincipalName = $User.UserPrincipalName
-                            DisplayName = $User.DisplayName
-                            DeviceName = $Auth.DisplayName
-                            DeviceTag = $Auth.DeviceTag
-                            AppVersion = $Auth.PhoneAppVersion
-                        }
-                    }
-                }
-
-                if ($AuthenticatorDetails) {
-                    New-HTMLTable -DataTable $AuthenticatorDetails -Filtering -DataStore JavaScript -DataTableID "TableAuthenticator" -PagingLength 10 -ScrollX
-                } else {
-                    New-HTMLText -Text "No Microsoft Authenticator apps found." -Color Orange -FontSize 11pt
-                }
-            }
-        }
-
-        New-HTMLTab -Name "Sign-in Activity" {
-            New-HTMLSection -HeaderText "User Sign-in Activity" {
-                $SignInDetails = $UserAuth | Select-Object UserPrincipalName, DisplayName, LastSignInDateTime, LastNonInteractiveSignInDateTime, IsEnabled, TotalMethodsCount
-
-                New-HTMLTable -DataTable $SignInDetails -Filtering {
-                    New-HTMLTableCondition -Name 'IsEnabled' -Value $true -BackgroundColor LightGreen -ComparisonType boolean
-                    New-HTMLTableCondition -Name 'IsEnabled' -Value $false -BackgroundColor LightGray -ComparisonType boolean
-                    New-HTMLTableCondition -Name 'TotalMethodsCount' -Value 1 -Operator le -BackgroundColor Orange -ComparisonType number
-                } -DataStore JavaScript -DataTableID "TableSignIn" -PagingLength 10 -ScrollX
-            }
-        }
-    } -ShowHTML:$ShowHTML.IsPresent -FilePath $FilePath -Online:$Online.IsPresent
+    }
 }
