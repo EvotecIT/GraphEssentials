@@ -6,9 +6,9 @@
     CompatiblePSEditions = @('Desktop', 'Core')
     Copyright            = '(c) 2011 - 2025 Przemyslaw Klys @ Evotec. All rights reserved.'
     Description          = 'GraphEssentials is a PowerShell module that helps with Office 365 / Azure AD using mostly Graph'
-    FunctionsToExport    = @('Get-MgToken', 'Get-MyApp', 'Get-MyAppCredentials', 'Get-MyConditionalAccess', 'Get-MyDefenderDeploymentKey', 'Get-MyDefenderHealthIssues', 'Get-MyDefenderSecureScore', 'Get-MyDefenderSecureScoreProfile', 'Get-MyDefenderSensor', 'Get-MyDefenderSummary', 'Get-MyDevice', 'Get-MyDeviceIntune', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleUsers', 'Get-MyTeam', 'Get-MyTenantName', 'Get-MyUsageReports', 'Get-MyUser', 'Invoke-MyGraphEssentials', 'Invoke-MyGraphUsageReports', 'New-MyApp', 'New-MyAppCredentials', 'Remove-MyAppCredentials', 'Send-MyApp', 'Show-MyApp', 'Show-MyConditionalAccess', 'Show-MyDefender')
+    FunctionsToExport    = @('Get-MgToken', 'Get-MyApp', 'Get-MyAppCredentials', 'Get-MyConditionalAccess', 'Get-MyDefenderDeploymentKey', 'Get-MyDefenderHealthIssues', 'Get-MyDefenderSecureScore', 'Get-MyDefenderSecureScoreProfile', 'Get-MyDefenderSensor', 'Get-MyDefenderSummary', 'Get-MyDevice', 'Get-MyDeviceIntune', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleUsers', 'Get-MyTeam', 'Get-MyTenantName', 'Get-MyUsageReports', 'Get-MyUser', 'Get-MyUserAuthentication', 'Invoke-MyGraphEssentials', 'Invoke-MyGraphUsageReports', 'Register-FIDO2Key', 'Test-Registration', 'New-MyApp', 'New-MyAppCredentials', 'Remove-MyAppCredentials', 'Send-MyApp', 'Show-MyApp', 'Show-MyConditionalAccess', 'Show-MyDefender', 'Show-MyUserAuthentication')
     GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
-    ModuleVersion        = '0.0.46'
+    ModuleVersion        = '0.0.47'
     PowerShellVersion    = '5.1'
     PrivateData          = @{
         PSData = @{
@@ -18,7 +18,7 @@
     RequiredModules      = @(@{
             Guid          = 'ee272aa8-baaa-4edf-9f45-b6d6f7d844fe'
             ModuleName    = 'PSSharedGoods'
-            ModuleVersion = '0.0.306'
+            ModuleVersion = '0.0.307'
         }, @{
             Guid          = '0b0ba5c5-ec85-4c2b-a718-874e55a8bc3f'
             ModuleName    = 'PSWriteColor'
