@@ -47,36 +47,78 @@ function Convert-GraphEssentialsAppToReportObject {
             $Source = "Third Party"
         }
     } else {
-         $Source = if ($null -ne $appOwnerOrganizationId) { "Third Party (Assumed)" } else { "First Party (Assumed)" }
+        $Source = if ($null -ne $appOwnerOrganizationId) { "Third Party (Assumed)" } else { "First Party (Assumed)" }
     }
 
     # --- Get Owners (Combine SP and App Owners) ---
-    $spOwners = Get-GraphEssentialsAppOwners -ServicePrincipalObjectId $spId
-    $appOwners = @()
-    $ApplicationObjectId = $ApplicationDetails?.Id
+    $spOwnersRaw = Get-GraphEssentialsAppOwners -ServicePrincipalObjectId $spId
+    $appOwnersRawList = [System.Collections.Generic.List[object]]::new() # Use generic list
+    $ApplicationObjectId = if ($ApplicationDetails) { $ApplicationDetails.Id } else { $null }
     if ($ApplicationObjectId) {
         try {
-            # Use Get-MgApplicationOwner cmdlet
-            $rawAppOwners = Get-MgApplicationOwner -ApplicationId $ApplicationObjectId -ErrorAction Stop
-            if ($rawAppOwners) {
-                $appOwners = $rawAppOwners | ForEach-Object {
-                    $dispName = if ($_.AdditionalProperties.ContainsKey('displayName')) { $_.AdditionalProperties.displayName } else { $null }
-                    $upn = if ($_.AdditionalProperties.ContainsKey('userPrincipalName')) { $_.AdditionalProperties.userPrincipalName } else { $null }
-                    $mail = if ($_.AdditionalProperties.ContainsKey('mail')) { $_.AdditionalProperties.mail } else { $null }
-                    $ownerString = $dispName
-                    if ($upn) { $ownerString += " <$upn>" }
-                    elseif ($mail) { $ownerString += " <$mail>" }
-                    if (-not $ownerString) { $ownerString = $_.Id } # Fallback to ID
-                    $ownerString
+            $rawAppOwnersResult = Get-MgApplicationOwner -ApplicationId $ApplicationObjectId -ErrorAction Stop
+            if ($rawAppOwnersResult) {
+                $rawAppOwnersResult | ForEach-Object {
+                    $ownerDetail = $_ | Select-Object Id, DeletedDateTime, @{n = 'ODataType'; e = { $_.AdditionalProperties.'@odata.type' } }, AdditionalProperties
+                    $appOwnersRawList.Add($ownerDetail) # Add to list
                 }
             }
         } catch {
             Write-Warning "Convert-GraphEssentialsAppToReportObject: Failed to get owners for Application $ApplicationObjectId. Error: $($_.Exception.Message)"
-            $appOwners = @("Error fetching app owners")
+            $appOwnersRawList.Add([PSCustomObject]@{ Error = "Error fetching app owners: $($_.Exception.Message)" }) # Add to list
         }
     }
-    # Combine and unique-ify
-    $CombinedOwners = ($spOwners + $appOwners) | Sort-Object -Unique
+
+    # Combine and format
+    $allOwnerObjects = [System.Collections.Generic.List[object]]::new()
+    if ($spOwnersRaw.Count -gt 1) {
+        $allOwnerObjects.AddRange($spOwnersRaw)
+    } elseif ($spOwnersRaw.Count -eq 1) {
+        $allOwnerObjects.Add($spOwnersRaw)
+    }
+    if ($appOwnersRawList.Count -gt 1) {
+        $allOwnerObjects.AddRange($appOwnersRawList)
+    } elseif ($appOwnersRawList.Count -eq 1) {
+        $allOwnerObjects.Add($appOwnersRawList)
+    }
+
+    $CombinedOwners = @()
+    $processedOwnerIds = @{}
+    $allOwnerObjects | ForEach-Object {
+        $ownerObject = $_ # The richer object
+        if ($ownerObject.PSObject.Properties['Id'] -and $processedOwnerIds.ContainsKey($ownerObject.Id)) {
+            continue # Skip duplicate ID
+        }
+        if ($ownerObject.PSObject.Properties['Id']) {
+            $processedOwnerIds[$ownerObject.Id] = $true
+        }
+        $ownerString = "(Processing error)" # Default
+        if ($ownerObject.PSObject.Properties['Error']) {
+            $ownerString = $ownerObject.Error # Use the error message
+        } elseif ($ownerObject) {
+            # Standard checks for AdditionalProperties hashtable
+            $dispName = if ($ownerObject.AdditionalProperties.ContainsKey('displayName')) { $ownerObject.AdditionalProperties.displayName } else { $null }
+            $upn = if ($ownerObject.AdditionalProperties.ContainsKey('userPrincipalName')) { $ownerObject.AdditionalProperties.userPrincipalName } else { $null }
+            $mail = if ($ownerObject.AdditionalProperties.ContainsKey('mail')) { $ownerObject.AdditionalProperties.mail } else { $null }
+            $oDataType = $ownerObject.ODataType
+            $ownerString = $dispName # Start with display name if available
+
+            # Add UPN or Mail
+            if ($upn) { $ownerString += " <$upn>" }
+            elseif ($mail) { $ownerString += " <$mail>" }
+
+            # Add Type if available and name wasn't found
+            if (-not $dispName -and $oDataType) { $ownerString = $oDataType }
+
+            # Fallback to ID if still nothing useful
+            if (-not $ownerString) { $ownerString = $ownerObject.Id }
+
+            # Optionally add type in parentheses
+            if ($oDataType) { $ownerString += " ($($oDataType.Split('.')[-1]))" }
+        }
+        $CombinedOwners += $ownerString
+    }
+    $CombinedOwners = $CombinedOwners | Sort-Object -Unique
 
     # --- Get Delegated Permissions ---
     $DelegatedScopes = if ($spId) { $AllDelegatedPermissions[$spId] } else { $null }
@@ -153,39 +195,39 @@ function Convert-GraphEssentialsAppToReportObject {
     # --- Build Final Output Object ---
     $OutputObject = [ordered] @{
         # Core Info (from Service Principal)
-        ApplicationName       = $displayName # From SP
-        ApplicationId         = $spId # SP Object ID
-        AppId                 = $appId # App/Client ID
-        Source                = $Source
-        ServicePrincipalType  = $ServicePrincipal.ServicePrincipalType # Added SP Type
+        ApplicationName        = $displayName # From SP
+        ApplicationId          = $spId # SP Object ID
+        AppId                  = $appId # App/Client ID
+        Source                 = $Source
+        ServicePrincipalType   = $ServicePrincipal.ServicePrincipalType # Added SP Type
         # Owners (from Application)
-        Owners                = $CombinedOwners
+        Owners                 = $CombinedOwners
         # Permissions
-        PermissionType        = $PermissionType
-        DelegatedPermissions  = $DelegatedScopes
-        ApplicationPermissions= $ApplicationScopes
+        PermissionType         = $PermissionType
+        DelegatedPermissions   = $DelegatedScopes
+        ApplicationPermissions = $ApplicationScopes
         # Sign-in Activity (from Reports)
-        DelegatedLastSignIn   = if ($SignInInfo -and $SignInInfo.PSObject.Properties['delegatedClientSignInActivity']) { $SignInInfo.delegatedClientSignInActivity.lastSignInDateTime } else { $null }
-        ApplicationLastSignIn = if ($SignInInfo -and $SignInInfo.PSObject.Properties['applicationAuthenticationClientSignInActivity']) { $SignInInfo.applicationAuthenticationClientSignInActivity.lastSignInDateTime } else { $null }
-        LastSignInMethod      = $LastSignInMethod
+        DelegatedLastSignIn    = if ($SignInInfo -and $SignInInfo.PSObject.Properties['delegatedClientSignInActivity']) { $SignInInfo.delegatedClientSignInActivity.lastSignInDateTime } else { $null }
+        ApplicationLastSignIn  = if ($SignInInfo -and $SignInInfo.PSObject.Properties['applicationAuthenticationClientSignInActivity']) { $SignInInfo.applicationAuthenticationClientSignInActivity.lastSignInDateTime } else { $null }
+        LastSignInMethod       = $LastSignInMethod
         # Credentials Summary (from Application)
-        KeysCount             = $KeysCount
-        KeysTypes             = $KeysTypes
-        KeysExpired           = $KeysExpired
-        DaysToExpireOldest    = $DaysToExpireOldest
-        DaysToExpireNewest    = $DaysToExpireNewest
-        KeysDateOldest        = $KeysDateOldest
-        KeysDateNewest        = $KeysDateNewest
-        KeysDescription       = $KeysDescription # From Application credentials
-        DescriptionWithEmail  = $DescriptionWithEmail # From Application credentials
+        KeysCount              = $KeysCount
+        KeysTypes              = $KeysTypes
+        KeysExpired            = $KeysExpired
+        DaysToExpireOldest     = $DaysToExpireOldest
+        DaysToExpireNewest     = $DaysToExpireNewest
+        KeysDateOldest         = $KeysDateOldest
+        KeysDateNewest         = $KeysDateNewest
+        KeysDescription        = $KeysDescription # From Application credentials
+        DescriptionWithEmail   = $DescriptionWithEmail # From Application credentials
         # Other (from Application, if available)
-        Notes                 = $ApplicationDetails?.Notes
-        CreatedDate           = $ApplicationDetails?.CreatedDateTime # CreatedDate is on Application, not SP
+        Notes                  = $ApplicationDetails?.Notes
+        CreatedDate            = $ApplicationDetails?.CreatedDateTime # CreatedDate is on Application, not SP
     }
     if ($IncludeCredentials -and $AppCredentialsDetails) {
         $OutputObject['Keys'] = $AppCredentialsDetails
     }
 
     Write-Verbose "Convert-GraphEssentialsAppToReportObject: Finished processing SP $displayName."
-    return [PSCustomObject]$OutputObject
+    [PSCustomObject] $OutputObject
 }
