@@ -71,16 +71,16 @@ function Convert-GraphEssentialsAppToReportObject {
 
     # Combine and format
     $allOwnerObjects = [System.Collections.Generic.List[object]]::new()
-    if ($spOwnersRaw.Count -gt 1) {
-        $allOwnerObjects.AddRange($spOwnersRaw)
-    } elseif ($spOwnersRaw.Count -eq 1) {
-        $allOwnerObjects.Add($spOwnersRaw)
+    # Add SP owners (handle single object vs collection)
+    if ($spOwnersRaw) {
+        if ($spOwnersRaw -is [array] -or $spOwnersRaw -is [System.Collections.Generic.List[object]]) {
+            $allOwnerObjects.AddRange($spOwnersRaw)
+        } else {
+            $allOwnerObjects.Add($spOwnersRaw) # Add single object
+        }
     }
-    if ($appOwnersRawList.Count -gt 1) {
-        $allOwnerObjects.AddRange($appOwnersRawList)
-    } elseif ($appOwnersRawList.Count -eq 1) {
-        $allOwnerObjects.Add($appOwnersRawList)
-    }
+    # Add App owners (already a list)
+    if ($appOwnersRawList) { $allOwnerObjects.AddRange($appOwnersRawList) }
 
     $CombinedOwners = @()
     $processedOwnerIds = @{}
