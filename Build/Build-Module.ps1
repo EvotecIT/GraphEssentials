@@ -37,11 +37,12 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         'Microsoft.Graph.DeviceManagement'
         'Microsoft.Graph.Teams'
         'Microsoft.Graph.Beta.Security'
+        'Microsoft.Graph.Reports'
     ) -Guid Auto -Version '2.25.0'
 
     New-ConfigurationModule -Type RequiredModule -Name Mailozaurr -Guid Auto -Version '1.0.0'
 
-    New-ConfigurationModuleSkip -IgnoreModuleName 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security'
+    New-ConfigurationModuleSkip -IgnoreModuleName 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security', 'DSInternals.Passkeys'
     New-ConfigurationModule -Type ApprovedModule -Name 'PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword' #, 'PSPublishModule'
 
 
