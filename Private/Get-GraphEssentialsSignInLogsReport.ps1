@@ -13,7 +13,9 @@ function Get-GraphEssentialsSignInLogsReport {
         # Simpler filter focusing on errorCode and presence of appId - might be sufficient and more reliable
         # $signInLogsUri = "v1.0/auditLogs/signIns?`$filter=createdDateTime ge $startTime and appId ne null and status/errorCode eq 0&`$select=appId,clientCredentialType,createdDateTime&`$top=999"
         # Simplest filter for testing BadRequest
-        $signInLogsUri = "v1.0/auditLogs/signIns?`$filter=createdDateTime ge $startTime and appId ne null&`$select=appId,clientCredentialType,createdDateTime&`$top=999"
+        # $signInLogsUri = "v1.0/auditLogs/signIns?`$filter=createdDateTime ge $startTime and appId ne null&`$select=appId,clientCredentialType,createdDateTime&`$top=999"
+        # Filter using signInEventTypes
+        $signInLogsUri = "v1.0/auditLogs/signIns?`$filter=createdDateTime ge $startTime and signInEventTypes/any(t: t eq 'servicePrincipal' or t eq 'managedIdentity')&`$select=appId,clientCredentialType,createdDateTime,status&`$top=999"
 
         # Use Invoke-MgGraphRequest with manual paging
         $signInsResponse = Invoke-MgGraphRequest -Uri $signInLogsUri -Method GET -ErrorAction Stop

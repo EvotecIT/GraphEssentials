@@ -54,6 +54,6 @@ function Get-GraphEssentialsSpDetailsAndAppRoles {
         # Return potentially incomplete results
     }
 
-    # Return both hashtables
-    return [PSCustomObject]@{ SpDetails = $SpDetailsByAppId; AppPermissions = $AppPermissionsBySpId }
+    # Return the list of service principals directly
+    return $allServicePrincipals
 }
