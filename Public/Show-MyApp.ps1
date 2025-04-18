@@ -199,7 +199,7 @@
                             New-ChartPie -Name 'No Credentials' -Value $Categories['Not available']
                         }
                     }
-                }
+                } -Invisible
             }
         } -Wrap wrap
 
