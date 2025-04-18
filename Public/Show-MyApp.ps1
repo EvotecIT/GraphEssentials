@@ -17,6 +17,9 @@
     .PARAMETER ShowHTML
     If specified, displays the HTML content in the PowerShell console after generation.
 
+    .PARAMETER ApplicationType
+    Specifies the type of applications to include in the report.
+
     .EXAMPLE
     Show-MyApp -FilePath "C:\Reports\Applications.html"
     Generates an applications report and saves it to the specified path.
@@ -33,15 +36,17 @@
     param(
         [Parameter(Mandatory)][string] $FilePath,
         [switch] $Online,
-        [switch] $ShowHTML
+        [switch] $ShowHTML,
+        [ValidateSet('All', 'AppRegistrations', 'EnterpriseApps', 'MicrosoftApps', 'ManagedIdentities')]
+        [string]$ApplicationType = 'All'
     )
 
     $Script:Reporting = [ordered] @{}
     $Script:Reporting['Version'] = Get-GitHubVersion -Cmdlet 'Invoke-MyGraphEssentials' -RepositoryOwner 'evotecit' -RepositoryName 'GraphEssentials'
 
     # --- Get Enhanced Application Data ---
-    Write-Verbose "Show-MyApp: Getting application data using Get-MyApp..."
-    $Applications = Get-MyApp # Assumes Get-MyApp is available and provides the new fields
+    Write-Verbose "Show-MyApp: Getting application data using Get-MyApp (ApplicationType: $ApplicationType)..."
+    $Applications = Get-MyApp -ApplicationType $ApplicationType
     if (-not $Applications) {
         Write-Warning "Show-MyApp: No application data received from Get-MyApp. Report will be incomplete."
         # Optionally exit or continue with an empty report
