@@ -164,104 +164,105 @@ function Show-MyUserAuthentication {
                     # Check the formatted data
                     # Statistics Section with Pie Charts
                     New-HTMLSection -HeaderText 'User Authentication Overview' {
-                        New-HTMLPanel {
-                            New-HTMLChart -Title 'MFA Status' {
-                                New-ChartPie -Name 'MFA Capable' -Value $MFACapable
-                                New-ChartPie -Name 'Password Only' -Value ($TotalUsers - $MFACapable)
-                            }
-                        }
-                        New-HTMLPanel {
-                            New-HTMLChart -Title 'Strong Authentication Distribution' {
-                                New-ChartPie -Name 'Strong Auth' -Value $StrongAuth # Based on passwordless or Software OTP
-                                New-ChartPie -Name 'Other MFA (Weak)' -Value ($MFACapable - $StrongAuth) # MFA capable but not using strong methods
-                                New-ChartPie -Name 'Password Only' -Value ($TotalUsers - $MFACapable)
-                            }
-                        }
-                    }
-
-                    # Key metrics section - Extended
-                    New-HTMLSection {
-                        New-HTMLPanel {
-                            New-HTMLText -Text "Total Users" -FontSize 14pt -Color '#666666'
-                            New-HTMLText -Text $TotalUsers -FontSize 24pt -Color '#0078d4'
-                        }
-                        New-HTMLPanel {
-                            New-HTMLText -Text "MFA Capable Users" -FontSize 14pt -Color '#666666'
-                            New-HTMLText -Text $MFACapable -FontSize 24pt -Color '#0078d4'
-                            if ($TotalUsers -gt 0) {
-                                New-HTMLText -Text "$([math]::Round(($MFACapable / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                            }
-                        }
-                        New-HTMLPanel {
-                            New-HTMLText -Text "Strong Auth Registered" -FontSize 14pt -Color '#666666'
-                            New-HTMLText -Text $StrongAuth -FontSize 24pt -Color '#0078d4'
-                            if ($TotalUsers -gt 0) {
-                                New-HTMLText -Text "$([math]::Round(($StrongAuth / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                            }
-                        }
-                        New-HTMLPanel {
-                            New-HTMLText -Text "Passwordless Capable" -FontSize 14pt -Color '#666666'
-                            New-HTMLText -Text $PasswordlessCapable -FontSize 24pt -Color '#0078d4'
-                            if ($TotalUsers -gt 0) {
-                                New-HTMLText -Text "$([math]::Round(($PasswordlessCapable / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                            }
-                        }
-                        New-HTMLPanel {
-                            New-HTMLText -Text "Strong + Weak Auth User" -FontSize 14pt -Color '#666666'
-                            New-HTMLText -Text $StrongWeakAuth -FontSize 24pt -Color '#0078d4'
-                            if ($TotalUsers -gt 0) {
-                                New-HTMLText -Text "$([math]::Round(($StrongWeakAuth / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                            }
-                        }
-                        # Add new panels for Enabled/Disabled, Cloud/Synced, Zero MFA
-                        New-HTMLPanel {
-                            New-HTMLText -Text "Enabled / Disabled" -FontSize 14pt -Color '#666666'
-                            New-HTMLText -Text "$($Stats.EnabledUsers) / $($Stats.DisabledUsers)" -FontSize 24pt -Color '#0078d4'
-                        }
-                        New-HTMLPanel {
-                            New-HTMLText -Text "Cloud Only / Synced" -FontSize 14pt -Color '#666666'
-                            New-HTMLText -Text "$($Stats.CloudOnlyUsers) / $($Stats.SyncedUsers)" -FontSize 24pt -Color '#0078d4'
-                        }
-                        New-HTMLPanel {
-                            New-HTMLText -Text "Users without MFA" -FontSize 14pt -Color '#666666'
-                            New-HTMLText -Text "$($Stats.ZeroMfaUsers)" -FontSize 24pt -Color '#d13438' # Highlight in red
-                            if ($TotalUsers -gt 0) {
-                                New-HTMLText -Text "$([math]::Round(($Stats.ZeroMfaUsers / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                            }
-                        }
-                    }
-
-                    # New section for method breakdown charts
-                    if ($FormattedUserAuth.Count -gt 0) {
-                        New-HTMLSection -HeaderText 'Method Registration & Usage Breakdown' {
+                        # Key metrics section - Extended
+                        New-HTMLSection {
                             New-HTMLPanel {
-                                New-HTMLChart -Title 'Users Registered per Method' {
-                                    New-ChartBar -Name 'Password' -Value $Stats.UsersWithPassword
-                                    New-ChartBar -Name 'MS Auth App' -Value $Stats.UsersWithMSAuthApp
-                                    New-ChartBar -Name 'FIDO2' -Value $Stats.UsersWithFIDO2
-                                    New-ChartBar -Name 'Windows Hello' -Value $Stats.UsersWithWHFB
-                                    New-ChartBar -Name 'Software OTP' -Value $Stats.UsersWithSoftwareOTP
-                                    New-ChartBar -Name 'SMS' -Value $Stats.UsersWithSMS
-                                    New-ChartBar -Name 'Voice Call' -Value $Stats.UsersWithVoice
-                                    New-ChartBar -Name 'Email' -Value $Stats.UsersWithEmail
-                                    if ($null -ne $Stats.UsersWithSecQuestions) {
-                                        # Only show if fetched
-                                        New-ChartBar -Name 'Security Questions' -Value $Stats.UsersWithSecQuestions
-                                    }
-                                    New-ChartBar -Name 'Temporary Pass' -Value $Stats.UsersWithTAP
+                                New-HTMLText -Text "Total Users" -FontSize 14pt -Color '#666666'
+                                New-HTMLText -Text $TotalUsers -FontSize 24pt -Color '#0078d4'
+                            }
+                            New-HTMLPanel {
+                                New-HTMLText -Text "MFA Capable Users" -FontSize 14pt -Color '#666666'
+                                New-HTMLText -Text $MFACapable -FontSize 24pt -Color '#0078d4'
+                                if ($TotalUsers -gt 0) {
+                                    New-HTMLText -Text "$([math]::Round(($MFACapable / $TotalUsers) * 100, 2))% of users" -Color '#666666'
                                 }
                             }
                             New-HTMLPanel {
-                                if ($Stats.DefaultMethodCounts) {
-                                    New-HTMLChart -Title 'Default MFA Method Distribution' {
-                                        foreach ($group in $Stats.DefaultMethodCounts) {
-                                            New-ChartPie -Name $group.Name -Value $group.Count
+                                New-HTMLText -Text "Strong Auth Registered" -FontSize 14pt -Color '#666666'
+                                New-HTMLText -Text $StrongAuth -FontSize 24pt -Color '#0078d4'
+                                if ($TotalUsers -gt 0) {
+                                    New-HTMLText -Text "$([math]::Round(($StrongAuth / $TotalUsers) * 100, 2))% of users" -Color '#666666'
+                                }
+                            }
+                            New-HTMLPanel {
+                                New-HTMLText -Text "Passwordless Capable" -FontSize 14pt -Color '#666666'
+                                New-HTMLText -Text $PasswordlessCapable -FontSize 24pt -Color '#0078d4'
+                                if ($TotalUsers -gt 0) {
+                                    New-HTMLText -Text "$([math]::Round(($PasswordlessCapable / $TotalUsers) * 100, 2))% of users" -Color '#666666'
+                                }
+                            }
+                            New-HTMLPanel {
+                                New-HTMLText -Text "Strong + Weak Auth User" -FontSize 14pt -Color '#666666'
+                                New-HTMLText -Text $StrongWeakAuth -FontSize 24pt -Color '#0078d4'
+                                if ($TotalUsers -gt 0) {
+                                    New-HTMLText -Text "$([math]::Round(($StrongWeakAuth / $TotalUsers) * 100, 2))% of users" -Color '#666666'
+                                }
+                            }
+                            # Add new panels for Enabled/Disabled, Cloud/Synced, Zero MFA
+                            New-HTMLPanel {
+                                New-HTMLText -Text "Enabled / Disabled" -FontSize 14pt -Color '#666666'
+                                New-HTMLText -Text "$($Stats.EnabledUsers) / $($Stats.DisabledUsers)" -FontSize 24pt -Color '#0078d4'
+                            }
+                            New-HTMLPanel {
+                                New-HTMLText -Text "Cloud Only / Synced" -FontSize 14pt -Color '#666666'
+                                New-HTMLText -Text "$($Stats.CloudOnlyUsers) / $($Stats.SyncedUsers)" -FontSize 24pt -Color '#0078d4'
+                            }
+                            New-HTMLPanel {
+                                New-HTMLText -Text "Users without MFA" -FontSize 14pt -Color '#666666'
+                                New-HTMLText -Text "$($Stats.ZeroMfaUsers)" -FontSize 24pt -Color '#d13438' # Highlight in red
+                                if ($TotalUsers -gt 0) {
+                                    New-HTMLText -Text "$([math]::Round(($Stats.ZeroMfaUsers / $TotalUsers) * 100, 2))% of users" -Color '#666666'
+                                }
+                            }
+                        } -Invisible
+                        New-HTMLSection -Invisible {
+                            New-HTMLPanel {
+                                New-HTMLChart -Title 'MFA Status' {
+                                    New-ChartPie -Name 'MFA Capable' -Value $MFACapable
+                                    New-ChartPie -Name 'Password Only' -Value ($TotalUsers - $MFACapable)
+                                }
+                            }
+                            New-HTMLPanel {
+                                New-HTMLChart -Title 'Strong Authentication Distribution' {
+                                    New-ChartPie -Name 'Strong Auth' -Value $StrongAuth # Based on passwordless or Software OTP
+                                    New-ChartPie -Name 'Other MFA (Weak)' -Value ($MFACapable - $StrongAuth) # MFA capable but not using strong methods
+                                    New-ChartPie -Name 'Password Only' -Value ($TotalUsers - $MFACapable)
+                                }
+                            }
+
+                        }
+                        # New section for method breakdown charts
+                        if ($FormattedUserAuth.Count -gt 0) {
+                            New-HTMLSection -HeaderText 'Method Registration & Usage Breakdown' {
+                                New-HTMLPanel {
+                                    New-HTMLChart -Title 'Users Registered per Method' {
+                                        New-ChartBar -Name 'Password' -Value $Stats.UsersWithPassword
+                                        New-ChartBar -Name 'MS Auth App' -Value $Stats.UsersWithMSAuthApp
+                                        New-ChartBar -Name 'FIDO2' -Value $Stats.UsersWithFIDO2
+                                        New-ChartBar -Name 'Windows Hello' -Value $Stats.UsersWithWHFB
+                                        New-ChartBar -Name 'Software OTP' -Value $Stats.UsersWithSoftwareOTP
+                                        New-ChartBar -Name 'SMS' -Value $Stats.UsersWithSMS
+                                        New-ChartBar -Name 'Voice Call' -Value $Stats.UsersWithVoice
+                                        New-ChartBar -Name 'Email' -Value $Stats.UsersWithEmail
+                                        if ($null -ne $Stats.UsersWithSecQuestions) {
+                                            # Only show if fetched
+                                            New-ChartBar -Name 'Security Questions' -Value $Stats.UsersWithSecQuestions
+                                        }
+                                        New-ChartBar -Name 'Temporary Pass' -Value $Stats.UsersWithTAP
+                                    }
+                                }
+                                New-HTMLPanel {
+                                    if ($Stats.DefaultMethodCounts) {
+                                        New-HTMLChart -Title 'Default MFA Method Distribution' {
+                                            foreach ($group in $Stats.DefaultMethodCounts) {
+                                                New-ChartPie -Name $group.Name -Value $group.Count
+                                            }
                                         }
                                     }
                                 }
-                            }
+                            } -Invisible
                         }
-                    }
+                    } -Wrap wrap
 
                     # Consolidated User Details Table
                     New-HTMLSection -HeaderText 'User Authentication Details' {
