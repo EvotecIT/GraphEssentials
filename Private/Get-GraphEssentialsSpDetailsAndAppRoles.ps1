@@ -18,7 +18,7 @@ function Get-GraphEssentialsSpDetailsAndAppRoles {
 
     try {
         # Fetch SPs using Invoke-MgGraphRequest to allow $expand
-        $spUri = "/v1.0/servicePrincipals?`$select=id,appId,displayName,appOwnerOrganizationId&`$expand=appRoleAssignments&`$top=999"
+        $spUri = "/v1.0/servicePrincipals?`$select=id,appId,displayName,appOwnerOrganizationId,servicePrincipalType&`$expand=appRoleAssignments&`$top=999"
         $response = Invoke-MgGraphRequest -Uri $spUri -Method GET -ErrorAction Stop
         $allServicePrincipals = $response.value
         $NextLink = $response.'@odata.nextLink'

@@ -50,19 +50,33 @@ function Convert-GraphEssentialsAppToReportObject {
          $Source = if ($null -ne $appOwnerOrganizationId) { "Third Party (Assumed)" } else { "First Party (Assumed)" }
     }
 
-    # --- Get Owners ---
-    # Owners are associated with the Application object, not the SP directly in this context for reporting.
-    # We need the Application Object ID if it exists.
-    $Owners = @()
+    # --- Get Owners (Combine SP and App Owners) ---
+    $spOwners = Get-GraphEssentialsAppOwners -ServicePrincipalObjectId $spId
+    $appOwners = @()
     $ApplicationObjectId = $ApplicationDetails?.Id
     if ($ApplicationObjectId) {
-        # Requires Get-GraphEssentialsAppOwners function
-        $Owners = Get-GraphEssentialsAppOwners -ApplicationObjectId $ApplicationObjectId
-    } else {
-        Write-Verbose "Convert-GraphEssentialsAppToReportObject: Cannot fetch owners for SP $displayName as corresponding Application details are missing."
-        # SPs like Microsoft ones might have owners via different means not fetched here (e.g. servicePrincipal:addOwner)
-        # For simplicity, we report no owners if no Application object was found/provided.
+        try {
+            # Use Get-MgApplicationOwner cmdlet
+            $rawAppOwners = Get-MgApplicationOwner -ApplicationId $ApplicationObjectId -ErrorAction Stop
+            if ($rawAppOwners) {
+                $appOwners = $rawAppOwners | ForEach-Object {
+                    $dispName = if ($_.AdditionalProperties.ContainsKey('displayName')) { $_.AdditionalProperties.displayName } else { $null }
+                    $upn = if ($_.AdditionalProperties.ContainsKey('userPrincipalName')) { $_.AdditionalProperties.userPrincipalName } else { $null }
+                    $mail = if ($_.AdditionalProperties.ContainsKey('mail')) { $_.AdditionalProperties.mail } else { $null }
+                    $ownerString = $dispName
+                    if ($upn) { $ownerString += " <$upn>" }
+                    elseif ($mail) { $ownerString += " <$mail>" }
+                    if (-not $ownerString) { $ownerString = $_.Id } # Fallback to ID
+                    $ownerString
+                }
+            }
+        } catch {
+            Write-Warning "Convert-GraphEssentialsAppToReportObject: Failed to get owners for Application $ApplicationObjectId. Error: $($_.Exception.Message)"
+            $appOwners = @("Error fetching app owners")
+        }
     }
+    # Combine and unique-ify
+    $CombinedOwners = ($spOwners + $appOwners) | Sort-Object -Unique
 
     # --- Get Delegated Permissions ---
     $DelegatedScopes = if ($spId) { $AllDelegatedPermissions[$spId] } else { $null }
@@ -143,8 +157,9 @@ function Convert-GraphEssentialsAppToReportObject {
         ApplicationId         = $spId # SP Object ID
         AppId                 = $appId # App/Client ID
         Source                = $Source
+        ServicePrincipalType  = $ServicePrincipal.ServicePrincipalType # Added SP Type
         # Owners (from Application)
-        Owners                = $Owners
+        Owners                = $CombinedOwners
         # Permissions
         PermissionType        = $PermissionType
         DelegatedPermissions  = $DelegatedScopes

@@ -1,44 +1,43 @@
 function Get-GraphEssentialsAppOwners {
     param(
-        [string]$ApplicationObjectId # The Object ID of the Application (not AppId/ClientID)
+        [string]$ServicePrincipalObjectId # The Object ID of the Service Principal
     )
-    Write-Verbose "Get-GraphEssentialsAppOwners: Fetching owners for Application ObjectId $ApplicationObjectId..."
-    # Note: Requires Directory.Read.All or Application.Read.All
-    $Owners = @()
-    if (-not $ApplicationObjectId) {
-        Write-Warning "Get-GraphEssentialsAppOwners: Application Object ID not provided. Cannot fetch owners."
-        return $Owners
+    Write-Verbose "Get-GraphEssentialsAppOwners: Fetching owners for Service Principal ObjectId $ServicePrincipalObjectId..."
+    # Note: Requires Directory.Read.All or Application.Read.All / AppRoleAssignment.ReadWrite.All
+    $OwnersList = @()
+    if (-not $ServicePrincipalObjectId) {
+        Write-Warning "Get-GraphEssentialsAppOwners: Service Principal Object ID not provided. Cannot fetch owners."
+        return $OwnersList
     }
 
     try {
-        # Use Invoke-MgGraphRequest with manual paging
-        $uri = "/v1.0/applications/$ApplicationObjectId/owners"
-        $response = Invoke-MgGraphRequest -Uri $uri -Method GET -ErrorAction Stop
-        $rawOwners = $response.value
-        $NextLink = $response.'@odata.nextLink'
-
-        while ($NextLink -ne $null) {
-            Write-Verbose "Get-GraphEssentialsAppOwners: Fetching next page for owners of $ApplicationObjectId..."
-            $response = Invoke-MgGraphRequest -Uri $NextLink -Method GET -ErrorAction Stop
-            $rawOwners += $response.value
-            $NextLink = $response.'@odata.nextLink'
-        }
+        # Use Get-MgServicePrincipalOwner cmdlet
+        # This cmdlet handles paging
+        $rawOwners = Get-MgServicePrincipalOwner -ServicePrincipalId $ServicePrincipalObjectId -ErrorAction Stop
 
         if ($rawOwners) {
-            $Owners = $rawOwners | ForEach-Object {
+            $OwnersList = $rawOwners | ForEach-Object {
                 # Access properties carefully based on object type
-                # Prefer UPN for users, DisplayName otherwise, fallback to ID
-                $upn = $_.userPrincipalName # Directly available on user objects
-                $dispName = $_.displayName # Available on users, groups, SPs
-                if ($upn) { $upn } elseif ($dispName) { $dispName } else { $_.Id }
+                $dispName = if ($_.AdditionalProperties.ContainsKey('displayName')) { $_.AdditionalProperties.displayName } else { $null }
+                $upn = if ($_.AdditionalProperties.ContainsKey('userPrincipalName')) { $_.AdditionalProperties.userPrincipalName } else { $null }
+                $mail = if ($_.AdditionalProperties.ContainsKey('mail')) { $_.AdditionalProperties.mail } else { $null }
+                $ownerString = $dispName
+                if ($upn) {
+                    $ownerString += " <$upn>"
+                } elseif ($mail) {
+                    $ownerString += " <$mail>"
+                }
+                if (-not $ownerString) { $ownerString = $_.Id } # Fallback to ID
+                $ownerString
             }
-            Write-Verbose "Get-GraphEssentialsAppOwners: Found $($Owners.Count) owners for Application $ApplicationObjectId."
+            Write-Verbose "Get-GraphEssentialsAppOwners: Found $($OwnersList.Count) owners for Service Principal $ServicePrincipalObjectId."
         } else {
-            Write-Verbose "Get-GraphEssentialsAppOwners: No owners found for Application $ApplicationObjectId."
+            Write-Verbose "Get-GraphEssentialsAppOwners: No owners found for Service Principal $ServicePrincipalObjectId."
         }
     } catch {
-        Write-Warning "Get-GraphEssentialsAppOwners: Failed to get owners for App $ApplicationObjectId. Error: $($_.Exception.Message)"
-        $Owners = @("Error fetching owners") # Indicate error in output
+        # Handle specific error for owners not supported on this object type if needed
+        Write-Warning "Get-GraphEssentialsAppOwners: Failed to get owners for SP $ServicePrincipalObjectId. Error: $($_.Exception.Message)"
+        $OwnersList = @("Error fetching owners") # Indicate error in output
     }
-    return $Owners
+    return $OwnersList
 }
