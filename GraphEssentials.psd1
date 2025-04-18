@@ -72,6 +72,10 @@
             ModuleName    = 'Microsoft.Graph.Beta.Security'
             ModuleVersion = '2.25.0'
         }, @{
+            Guid          = '0bfc88b7-a8ad-471a-8c86-5f0aa3c84217'
+            ModuleName    = 'Microsoft.Graph.Reports'
+            ModuleVersion = '2.25.0'
+        }, @{
             Guid          = '2b0ea9f1-3ff1-4300-b939-106d5da608fa'
             ModuleName    = 'Mailozaurr'
             ModuleVersion = '1.0.0'
