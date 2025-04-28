@@ -160,6 +160,12 @@
     # --- Process Each Filtered Service Principal ---
     Write-Verbose "Get-MyApp: Converting $($ServicePrincipalsToProcess.Count) Service Principals to report objects..."
     $OutputApplications = foreach ($sp in $ServicePrincipalsToProcess) {
+        # Skip Service Principals without an AppId, as they cannot be correlated
+        if (-not $sp.AppId) {
+            Write-Verbose "Get-MyApp: Skipping SP with null AppId (ID: $($sp.Id), Name: $($sp.DisplayName))"
+            continue
+        }
+
         # Get the optional merged Application details
         $appDetails = $OwnedApplicationDetails[$sp.AppId]
 
