@@ -6,13 +6,12 @@ $connectMgGraphSplat = @{
     Scopes    = @(
         "Application.Read.All", "Policy.Read.PermissionGrant", "Directory.Read.All", "AuditLog.Read.All"
     )
-
     NoWelcome = $true
 }
 
 Connect-MgGraph @connectMgGraphSplat
 
-#Show-MyApp -FilePath $PSScriptRoot\Reports\Applications.html -Show -Verbose #-ApplicationType AppRegistrations
+Show-MyApp -FilePath $PSScriptRoot\Reports\Applications.html -Show -Verbose #-ApplicationType AppRegistrations
 
 
 $App = Get-MyApp -ApplicationName 'Microsoft Graph PowerShell' #-Verbose
