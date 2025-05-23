@@ -1,4 +1,7 @@
-﻿### 0.0.46
+﻿### 0.0.47
+- General improvements
+
+### 0.0.46
 - Improved `Get-MyDeviceIntune`
 
 ### 0.0.45
