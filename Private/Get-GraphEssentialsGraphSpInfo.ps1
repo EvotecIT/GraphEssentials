@@ -1,4 +1,5 @@
 function Get-GraphEssentialsGraphSpInfo {
+    [cmdletBinding()]
     param()
     Write-Verbose "Get-GraphEssentialsGraphSpInfo: Fetching Graph Service Principal Info..."
     $graphSpInfo = $null

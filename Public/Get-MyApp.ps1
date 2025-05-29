@@ -57,11 +57,9 @@
     $graphSpId = if ($graphSpInfo) { $graphSpInfo.Id } else { $null }
     $graphAppRoles = if ($graphSpInfo) { $graphSpInfo.AppRoles } else { $null }
 
-    $AllDelegatedPermissions = if ($graphSpId) {
-        Get-GraphEssentialsDelegatedPermissions -GraphSpId $graphSpId
-    } else {
-        Write-Warning "Get-MyApp: Skipping delegated permission fetch because Graph SP Info was not found."
-        @{}
+    $AllDelegatedPermissions = @{}
+    if ($graphSpId) {
+        $AllDelegatedPermissions = Get-GraphEssentialsDelegatedPermissions -GraphSpId $graphSpId
     }
 
     $SignInActivityReport = Get-GraphEssentialsSignInActivityReport
@@ -77,23 +75,57 @@
 
     # --- Determine Source for Filtering ---
     # We need to calculate source before filtering by ApplicationType
-    $allServicePrincipals = $allServicePrincipals | Select-Object *, @{
-        Name = 'CalculatedSource'
-        Expression = {
-            $spOwnerOrgId = $_.AppOwnerOrganizationId
-            $calculatedSource = "Unknown"
-            if ($TenantId) {
-                if ($spOwnerOrgId -eq $TenantId) {
-                    $calculatedSource = "First Party"
-                } elseif ($null -eq $spOwnerOrgId) {
-                    $calculatedSource = "Microsoft"
-                } else {
-                    $calculatedSource = "Third Party"
-                }
+    <#
+    id                             ed9ba6c9-e2fb-44c6-b0b7-f03927f3b9ed
+    appOwnerOrganizationId         f8cdef31-a31e-4b4a-93e4-5f571e91255a
+    appRoleAssignments             {}
+    appRoleAssignments@odata.cont… https://graph.microsoft.com/v1.0/$metadata#servicePrincipals('edcfc05c-97d8-4fe2-86e4-1b90098a6d06')/appRoleAssignments
+    servicePrincipalType           Application
+    appId                          0469d4cd-df37-4d93-8a61-f8c75b809164
+    displayName                    Policy Administration Service
+    id                             edcfc05c-97d8-4fe2-86e4-1b90098a6d06
+    appOwnerOrganizationId         f8cdef31-a31e-4b4a-93e4-5f571e91255a
+    appRoleAssignments             {}
+    appRoleAssignments@odata.cont… https://graph.microsoft.com/v1.0/$metadata#servicePrincipals('ee0104bf-303b-40f8-84d4-4cc482259367')/appRoleAssignments
+    servicePrincipalType           Application
+    appId                          00000003-0000-0ff1-ce00-000000000000
+    displayName                    Office 365 SharePoint Online
+
+    Get-MyTenantName
+    Name                           Value
+    ----                           -----
+    federationBrandName
+    tenantId                       f8cdef31-a31e-4b4a-93e4-5f571e91255a
+    @odata.context                 https://graph.microsoft.com/beta/$metadata#microsoft.graph.tenantInformation
+    defaultDomainName              sharepoint.com
+    displayName                    Microsoft Services
+    #>
+
+    $allServicePrincipals = $allServicePrincipals | ForEach-Object {
+        #Name = 'CalculatedSource'
+        #Expression = {
+        $spOwnerOrgId = $_.AppOwnerOrganizationId
+        $calculatedSource = "Unknown"
+        if ($TenantId) {
+            if ($spOwnerOrgId -eq $TenantId) {
+                $calculatedSource = "First Party"
+            } elseif ($null -eq $spOwnerOrgId) {
+                $calculatedSource = "Microsoft"
             } else {
-                 $calculatedSource = if ($null -ne $spOwnerOrgId) { "Third Party (Assumed)" } else { "First Party (Assumed)" }
+                $calculatedSource = "Third Party"
             }
-            $calculatedSource
+        } else {
+            $calculatedSource = if ($null -ne $spOwnerOrgId) { "Third Party (Assumed)" } else { "First Party (Assumed)" }
+        }
+
+        [PSCustomObject]@{
+            servicePrincipalType   = $_.servicePrincipalType              #: Application
+            appId                  = $_.appId                             #: 8ae6a0b1-a07f-4ec9-927a-afb8d39da81c
+            displayName            = $_.displayName                       #: Microsoft Device Management EMM API
+            id                     = $_.id                                #: ff83a1e0-0e39-4009-99ed-6bfd38e8a689
+            appOwnerOrganizationId = $_.appOwnerOrganizationId            #: f8cdef31-a31e-4b4a-93e4-5f571e91255a
+            appRoleAssignments     = $_.appRoleAssignments                #: {}
+            CalculatedSource       = $calculatedSource                  #: Third Party
         }
     }
 
@@ -102,9 +134,9 @@
     if ($ApplicationType -ne 'All') {
         Write-Verbose "Get-MyApp: Filtering Service Principals for ApplicationType '$ApplicationType'..."
         switch ($ApplicationType) {
-            'AppRegistrations'  { $ServicePrincipalsToProcess = $allServicePrincipals | Where-Object { $_.CalculatedSource -eq 'First Party' -and $_.ServicePrincipalType -eq 'Application' } }
-            'EnterpriseApps'    { $ServicePrincipalsToProcess = $allServicePrincipals | Where-Object { $_.CalculatedSource -eq 'Third Party' -and $_.ServicePrincipalType -eq 'Application' } } # Define as Third-Party Apps
-            'MicrosoftApps'     { $ServicePrincipalsToProcess = $allServicePrincipals | Where-Object { $_.CalculatedSource -eq 'Microsoft' -and $_.ServicePrincipalType -eq 'Application' } }
+            'AppRegistrations' { $ServicePrincipalsToProcess = $allServicePrincipals | Where-Object { $_.CalculatedSource -eq 'First Party' -and $_.ServicePrincipalType -eq 'Application' } }
+            'EnterpriseApps' { $ServicePrincipalsToProcess = $allServicePrincipals | Where-Object { $_.CalculatedSource -eq 'Third Party' -and $_.ServicePrincipalType -eq 'Application' } } # Define as Third-Party Apps
+            'MicrosoftApps' { $ServicePrincipalsToProcess = $allServicePrincipals | Where-Object { $_.CalculatedSource -eq 'Microsoft' -and $_.ServicePrincipalType -eq 'Application' } }
             'ManagedIdentities' { $ServicePrincipalsToProcess = $allServicePrincipals | Where-Object { $_.ServicePrincipalType -eq 'ManagedIdentity' } }
         }
         Write-Verbose "Get-MyApp: Filtered down to $($ServicePrincipalsToProcess.Count) Service Principals."
@@ -149,12 +181,12 @@
                     $appResponse.value | ForEach-Object { $OwnedApplicationDetails[$_.AppId] = $_ }
                 }
             } catch {
-                 Write-Warning "Get-MyApp: Failed to retrieve Application batch $($i+1). Credentials/Notes for some apps might be missing. Error: $($_.Exception.Message)"
+                Write-Warning "Get-MyApp: Failed to retrieve Application batch $($i+1). Credentials/Notes for some apps might be missing. Error: $($_.Exception.Message)"
             }
         }
         Write-Verbose "Get-MyApp: Finished fetching Application details. Found $($OwnedApplicationDetails.Count) matching applications."
     } else {
-         Write-Verbose "Get-MyApp: No owned SPs found in the current list, skipping Application object fetch."
+        Write-Verbose "Get-MyApp: No owned SPs found in the current list, skipping Application object fetch."
     }
 
     # --- Process Each Filtered Service Principal ---
@@ -170,14 +202,19 @@
         $appDetails = $OwnedApplicationDetails[$sp.AppId]
 
         # Pass SP and optional App details to the conversion function
-        Convert-GraphEssentialsAppToReportObject -ServicePrincipal $sp `
-            -ApplicationDetails $appDetails `
-            -TenantId $TenantId `
-            -AllDelegatedPermissions $AllDelegatedPermissions `
-            -SignInActivityReport $SignInActivityReport `
-            -LastSignInMethodReport $LastSignInMethodReport `
-            -GraphSpId $graphSpId `
-            -GraphAppRoles $graphAppRoles -IncludeCredentials:$IncludeCredentials
+        $convertGraphEssentialsAppToReportObjectSplat = @{
+            ServicePrincipal        = $sp
+            ApplicationDetails      = $appDetails
+            TenantId                = $TenantId
+            AllDelegatedPermissions = $AllDelegatedPermissions
+            SignInActivityReport    = $SignInActivityReport
+            LastSignInMethodReport  = $LastSignInMethodReport
+            GraphSpId               = $graphSpId
+            GraphAppRoles           = $graphAppRoles
+            IncludeCredentials      = $IncludeCredentials
+        }
+
+        Convert-GraphEssentialsAppToReportObject @convertGraphEssentialsAppToReportObjectSplat
     }
 
     Write-Verbose "Get-MyApp: Finished processing Service Principals."

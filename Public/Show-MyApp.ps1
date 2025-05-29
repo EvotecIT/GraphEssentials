@@ -80,8 +80,11 @@
         foreach ($appGroup in $AppsGrouped) {
             $app = $appGroup.Group[0] # Take the first instance for stats
 
-            if ($app.Source -eq 'Third Party') { $ThirdPartyAppsCount++ }
-            else { $FirstPartyAppsCount++ }
+            if ($app.Source -eq 'Third Party') {
+                $ThirdPartyAppsCount++
+            } else {
+                $FirstPartyAppsCount++
+            }
 
             if ($app.PermissionType -match 'Delegated') { $DelegatedAppsCount++ }
             if ($app.PermissionType -match 'Application') { $ApplicationAppsCount++ }

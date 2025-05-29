@@ -1,4 +1,5 @@
 function Get-GraphEssentialsTenantId {
+    [cmdletBinding()]
     param()
 
     Write-Verbose "Get-GraphEssentialsTenantId: Fetching Tenant ID..."
@@ -8,7 +9,7 @@ function Get-GraphEssentialsTenantId {
         if ($TenantId) {
             Write-Verbose "Get-GraphEssentialsTenantId: Tenant ID found: $TenantId"
         } else {
-             Write-Warning "Get-GraphEssentialsTenantId: Could not determine Tenant ID from context."
+            Write-Warning "Get-GraphEssentialsTenantId: Could not determine Tenant ID from context."
         }
     } catch {
         Write-Warning "Get-GraphEssentialsTenantId: Error getting MgContext. Ensure you are connected. Error: $($_.Exception.Message)"
