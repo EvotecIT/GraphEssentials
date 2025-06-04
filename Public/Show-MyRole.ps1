@@ -60,6 +60,10 @@ function Show-MyRole {
     $UserRoleData = Get-MyRoleUsers
     $UserRoleDataFiltered = if ($IncludeDisabledUsers) { $UserRoleData } else { $UserRoleData | Where-Object { $_.Enabled -ne $false } }
 
+    Write-Verbose -Message "Show-MyRole - Getting user role assignments with RolePerColumn"
+    $UserRoleDataPerColumn = Get-MyRoleUsers -RolePerColumn
+    $UserRoleDataPerColumnFiltered = if ($IncludeDisabledUsers) { $UserRoleDataPerColumn } else { $UserRoleDataPerColumn | Where-Object { $_.Enabled -ne $false } }
+
     Write-Verbose -Message "Show-MyRole - Getting PIM role history"
     try {
         $RoleHistory = Get-MyRoleHistory -DaysBack $DaysBack -IncludeAllStatuses -Verbose
@@ -80,11 +84,11 @@ function Show-MyRole {
         TotalRoles             = $RoleData.Count
         RolesWithMembers       = ($RoleData | Where-Object { $_.TotalMembers -gt 0 }).Count
         TotalUsers             = ($UserRoleDataFiltered | Where-Object { $_.Type -eq 'User' }).Count
-        UsersWithRoles         = ($UserRoleDataFiltered | Where-Object { $_.Type -eq 'User' -and ($_.DirectCount -gt 0 -or $_.EligibleCount -gt 0) }).Count
+        UsersWithRoles         = ($UserRoleDataFiltered | Where-Object { $_.Type -eq 'User' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
         TotalServicePrincipals = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*ServicePrincipal*' }).Count
-        SPsWithRoles           = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*ServicePrincipal*' -and ($_.DirectCount -gt 0 -or $_.EligibleCount -gt 0) }).Count
+        SPsWithRoles           = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*ServicePrincipal*' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
         TotalGroups            = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*Group*' }).Count
-        GroupsWithRoles        = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*Group*' -and ($_.DirectCount -gt 0 -or $_.EligibleCount -gt 0) }).Count
+        GroupsWithRoles        = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*Group*' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
         PIMActivations         = ($RoleHistory | Where-Object { $_.Action -like '*Activated*' }).Count
         PIMDeactivations       = ($RoleHistory | Where-Object { $_.Action -like '*Deactivated*' }).Count
         AdminActions           = ($RoleHistory | Where-Object { $_.Action -like 'Admin*' }).Count
@@ -118,7 +122,7 @@ function Show-MyRole {
             }
         }
 
-        New-HTMLTab -Name "Dashboard & Overview" {
+        New-HTMLTab -Name "Overview" {
             # Summary Cards Section
             #New-HTMLSection -HeaderText "Role Management Overview" {
             New-HTMLSection -Density Dense -Invisible {
@@ -155,34 +159,52 @@ function Show-MyRole {
 
             # Most Active Roles Section
             if ($MostActiveRoles) {
-                #New-HTMLSection -HeaderText "Most Active Roles (PIM History)" {
-                New-HTMLPanel {
-                    New-HTMLContainer {
-                        New-HTMLText -FontSize 11pt -TextBlock {
-                            "These roles have the most PIM activity in the selected time period. High activity might indicate "
-                            "either normal operational usage or potential security concerns that warrant investigation."
+
+                New-HTMLSection -HeaderText "Most Active Roles (PIM History)" -Invisible -Density Comfortable {
+                    New-HTMLPanel {
+                        New-HTMLContainer {
+                            $MostActiveRoleData = $MostActiveRoles | ForEach-Object {
+                                [PSCustomObject]@{
+                                    RoleName      = $_.Name
+                                    ActivityCount = $_.Count
+                                    Percentage    = [math]::Round(($_.Count / $RoleHistory.Count) * 100, 1)
+                                }
+                            }
+
+                            New-HTMLChart {
+                                $ChartColors = @('#0078d4', '#198754', '#6f42c1', '#fd7e14', '#ffc107')
+                                New-ChartLegend -Names ($MostActiveRoleData.RoleName) -Color $ChartColors[0..($MostActiveRoleData.Count - 1)]
+                                foreach ($Role in $MostActiveRoleData) {
+                                    New-ChartPie -Name $Role.RoleName -Value $Role.ActivityCount
+                                }
+                            } -Title 'Most Active Roles Distribution' -TitleAlignment left
                         }
                     }
+                    #  }
 
-                    New-HTMLContainer {
-                        $MostActiveRoleData = $MostActiveRoles | ForEach-Object {
-                            [PSCustomObject]@{
-                                RoleName      = $_.Name
-                                ActivityCount = $_.Count
-                                Percentage    = [math]::Round(($_.Count / $RoleHistory.Count) * 100, 1)
+
+                    # Role Assignment Distribution Chart
+                    New-HTMLPanel {
+                        New-HTMLContainer {
+                            # Create assignment type distribution chart
+                            $AssignmentData = @(
+                                [PSCustomObject]@{ Type = 'Direct Assignments'; Count = ($RoleData | Measure-Object -Property DirectMembers -Sum).Sum }
+                                [PSCustomObject]@{ Type = 'Eligible Assignments'; Count = ($RoleData | Measure-Object -Property EligibleMembers -Sum).Sum }
+                                [PSCustomObject]@{ Type = 'Group Assignments'; Count = ($RoleData | Measure-Object -Property GroupsMembers -Sum).Sum }
+                            ) | Where-Object { $_.Count -gt 0 }
+
+                            if ($AssignmentData.Count -gt 0) {
+                                New-HTMLChart {
+                                    $ChartColors = @('#0078d4', '#ffc107', '#6f42c1')
+                                    New-ChartLegend -Names ($AssignmentData.Type) -Color $ChartColors[0..($AssignmentData.Count - 1)]
+                                    foreach ($Assignment in $AssignmentData) {
+                                        New-ChartPie -Name $Assignment.Type -Value $Assignment.Count
+                                    }
+                                } -Title 'Role Assignment Distribution' -TitleAlignment left
                             }
                         }
-
-                        New-HTMLChart {
-                            $ChartColors = @('#0078d4', '#198754', '#6f42c1', '#fd7e14', '#ffc107')
-                            New-ChartLegend -Names ($MostActiveRoleData.RoleName) -Color $ChartColors[0..($MostActiveRoleData.Count - 1)]
-                            foreach ($Role in $MostActiveRoleData) {
-                                New-ChartPie -Name $Role.RoleName -Value $Role.ActivityCount
-                            }
-                        } -Title 'Most Active Roles Distribution' -TitleAlignment center
                     }
                 }
-                #  }
             }
 
             # Quick Stats Tables
@@ -208,6 +230,57 @@ function Show-MyRole {
         }
 
         New-HTMLTab -Name "All Roles ($($RoleData.Count))" {
+            # Security Insights Section (merged into this tab)
+            New-HTMLSection -HeaderText "Security Insights & Analysis" {
+                # High-privilege role analysis
+                $HighPrivilegeRoles = @(
+                    'Global Administrator',
+                    'Privileged Role Administrator',
+                    'Security Administrator',
+                    'Global Reader',
+                    'Directory Writers',
+                    'Application Administrator',
+                    'Cloud Application Administrator'
+                )
+
+                $HighPrivRoleData = $RoleData | Where-Object { $_.Name -in $HighPrivilegeRoles -and $_.TotalMembers -gt 0 } | Sort-Object TotalMembers -Descending
+                $UsersWithMultipleRoles = $UserRoleDataFiltered | Where-Object {
+                    $_.Type -eq 'User' -and
+                    (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) -and
+                    (($_.DirectCount + $_.EligibleCount) -gt 3)
+                } | Sort-Object { $_.DirectCount + $_.EligibleCount } -Descending
+                $AdminSPs = $UserRoleDataFiltered | Where-Object {
+                    $_.Type -like '*ServicePrincipal*' -and
+                    (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0))
+                }
+
+                New-HTMLSection -Density Dense -Invisible {
+                    # Security InfoCards
+                    New-HTMLInfoCard -Title "High-Privilege Roles" -Number $HighPrivRoleData.Count -Subtitle "Roles with significant privileges" -Icon "🚨" -IconColor "#dc3545" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+
+                    New-HTMLInfoCard -Title "Multi-Role Users" -Number $UsersWithMultipleRoles.Count -Subtitle "Users with 4+ role assignments" -Icon "👤" -IconColor "#fd7e14" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+
+                    New-HTMLInfoCard -Title "Admin Service Principals" -Number $AdminSPs.Count -Subtitle "Service principals with admin roles" -Icon "🔧" -IconColor "#6f42c1" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+
+                    New-HTMLInfoCard -Title "Custom Roles" -Number ($RoleData | Where-Object { -not $_.IsBuiltin }).Count -Subtitle "Custom-created role definitions" -Icon "⚙️" -IconColor "#0078d4" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                }
+
+                if ($HighPrivRoleData.Count -gt 0) {
+                    New-HTMLPanel {
+                        New-HTMLContainer {
+                            New-HTMLText -Text "High-Privilege Role Distribution" -FontSize 14pt -FontWeight bold
+                            New-HTMLChart {
+                                $ChartColors = @('#dc3545', '#fd7e14', '#ffc107', '#198754', '#0078d4', '#6f42c1', '#20c997')
+                                New-ChartLegend -Names ($HighPrivRoleData.Name) -Color $ChartColors[0..($HighPrivRoleData.Count - 1)]
+                                foreach ($Role in $HighPrivRoleData) {
+                                    New-ChartPie -Name $Role.Name -Value $Role.TotalMembers
+                                }
+                            } -Title 'High-Privilege Role Assignments' -TitleAlignment left
+                        }
+                    }
+                }
+            }
+
             New-HTMLSection -HeaderText "Azure AD Role Definitions" {
                 New-HTMLPanel -Invisible {
                     New-HTMLContainer {
@@ -224,6 +297,10 @@ function Show-MyRole {
                             New-HTMLTableCondition -Name 'TotalMembers' -Value 0 -Operator gt -BackgroundColor LightGreen -ComparisonType number
                             New-HTMLTableCondition -Name 'DirectMembers' -Value 10 -Operator gt -BackgroundColor Orange -ComparisonType number
                             New-HTMLTableCondition -Name 'EligibleMembers' -Value 10 -Operator gt -BackgroundColor LightYellow -ComparisonType number
+                            # Highlight high-privilege roles
+                            New-HTMLTableCondition -Name 'Name' -Value 'Global Administrator' -BackgroundColor '#ffebee' -ComparisonType string
+                            New-HTMLTableCondition -Name 'Name' -Value 'Privileged Role Administrator' -BackgroundColor '#ffebee' -ComparisonType string
+                            New-HTMLTableCondition -Name 'Name' -Value 'Security Administrator' -BackgroundColor '#fff3e0' -ComparisonType string
                         } -DataStore JavaScript -DataTableID "TableAllRoles" -PagingLength 25 -ScrollX #-WarningAction SilentlyContinue
                     }
                 }
@@ -231,26 +308,61 @@ function Show-MyRole {
         }
 
         New-HTMLTab -Name "Users & Principals ($($UserRoleDataFiltered.Count))" {
-            New-HTMLSection -HeaderText "User Role Assignments" {
-                New-HTMLPanel -Invisible {
-                    New-HTMLContainer {
-                        New-HTMLText -FontSize 11pt -TextBlock {
-                            "Detailed view of all users, service principals, and groups with role assignments. "
-                            "Direct roles are permanently assigned, while eligible roles require activation through PIM. "
-                            "Disabled users are $(if ($IncludeDisabledUsers) { 'included' } else { 'excluded' }) from this view."
+            New-HTMLTabPanel {
+                New-HTMLTab -Name "Standard View" {
+                    New-HTMLSection -HeaderText "User Role Assignments" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "Detailed view of all users, service principals, and groups with role assignments. "
+                                    "Direct roles are permanently assigned, while eligible roles require activation through PIM. "
+                                    "Disabled users are $(if ($IncludeDisabledUsers) { 'included' } else { 'excluded' }) from this view."
+                                }
+                            }
+
+                            New-HTMLContainer {
+                                New-HTMLTable -DataTable $UserRoleDataFiltered -Filtering {
+                                    New-HTMLTableCondition -Name 'Type' -Value 'User' -BackgroundColor LightGreen -ComparisonType string
+                                    New-HTMLTableCondition -Name 'Type' -Value 'ServicePrincipal' -BackgroundColor LightBlue -ComparisonType string
+                                    New-HTMLTableCondition -Name 'Type' -Value 'SecurityGroup' -BackgroundColor LightYellow -ComparisonType string
+                                    New-HTMLTableCondition -Name 'Type' -Value 'DistributionGroup' -BackgroundColor LightCoral -ComparisonType string
+                                    New-HTMLTableCondition -Name 'Enabled' -Value $false -BackgroundColor LightGray -ComparisonType bool
+                                    New-HTMLTableCondition -Name 'DirectCount' -Value 0 -Operator gt -BackgroundColor LightGreen -ComparisonType number
+                                    New-HTMLTableCondition -Name 'EligibleCount' -Value 0 -Operator gt -BackgroundColor LightYellow -ComparisonType number
+                                } -DataStore JavaScript -DataTableID "TableUserRoles" -PagingLength 25 -ScrollX -ExcludeProperty $ExcludedProperties #-WarningAction SilentlyContinue
+                            }
                         }
                     }
+                }
 
-                    New-HTMLContainer {
-                        New-HTMLTable -DataTable $UserRoleDataFiltered -Filtering {
-                            New-HTMLTableCondition -Name 'Type' -Value 'User' -BackgroundColor LightGreen -ComparisonType string
-                            New-HTMLTableCondition -Name 'Type' -Value 'ServicePrincipal' -BackgroundColor LightBlue -ComparisonType string
-                            New-HTMLTableCondition -Name 'Type' -Value 'SecurityGroup' -BackgroundColor LightYellow -ComparisonType string
-                            New-HTMLTableCondition -Name 'Type' -Value 'DistributionGroup' -BackgroundColor LightCoral -ComparisonType string
-                            New-HTMLTableCondition -Name 'Enabled' -Value $false -BackgroundColor LightGray -ComparisonType bool
-                            New-HTMLTableCondition -Name 'DirectCount' -Value 0 -Operator gt -BackgroundColor LightGreen -ComparisonType number
-                            New-HTMLTableCondition -Name 'EligibleCount' -Value 0 -Operator gt -BackgroundColor LightYellow -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableUserRoles" -PagingLength 25 -ScrollX -ExcludeProperty $ExcludedProperties #-WarningAction SilentlyContinue
+                New-HTMLTab -Name "Matrix View (Roles as Columns)" {
+                    New-HTMLSection -HeaderText "User-Role Assignment Matrix" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "Matrix view showing users and their role assignments with each role as a separate column. "
+                                    "This format makes it easy to see role distribution across users and identify role overlap patterns. "
+                                    "Values show assignment type: 'Direct', 'Eligible', or group names for group-based assignments."
+                                }
+                            }
+
+                            New-HTMLContainer {
+                                New-HTMLTable -DataTable $UserRoleDataPerColumnFiltered -Filtering {
+                                    New-HTMLTableCondition -Name 'Enabled' -Value $true -BackgroundColor SpringGreen -ComparisonType bool
+                                    New-HTMLTableCondition -Name 'Enabled' -Value $false -BackgroundColor Salmon -ComparisonType bool
+                                    # Dynamic conditions for role columns
+                                    if ($UserRoleDataPerColumnFiltered -and $UserRoleDataPerColumnFiltered.Count -gt 0) {
+                                        $SampleUser = $UserRoleDataPerColumnFiltered[0]
+                                        foreach ($PropertyName in $SampleUser.PSObject.Properties.Name) {
+                                            if ($PropertyName -notin @('Name', 'Enabled', 'UserPrincipalName', 'Mail', 'Status', 'Type', 'Location', 'CreatedDateTime')) {
+                                                New-HTMLTableCondition -Name $PropertyName -Value 'Direct' -BackgroundColor GoldenFizz -ComparisonType string
+                                                New-HTMLTableCondition -Name $PropertyName -Value 'Eligible' -BackgroundColor SpringGreen -ComparisonType string
+                                            }
+                                        }
+                                    }
+                                } -DataStore JavaScript -DataTableID "TableUserRolesMatrix" -PagingLength 25 -ScrollX -AllProperties #-WarningAction SilentlyContinue
+                            }
+                        }
                     }
                 }
             }
@@ -369,77 +481,7 @@ function Show-MyRole {
             }
         }
 
-        New-HTMLTab -Name "Security Insights" {
-            New-HTMLSection -HeaderText "Role Management Security Analysis" {
-                New-HTMLPanel -Invisible {
-                    New-HTMLContainer {
-                        New-HTMLText -FontSize 11pt -TextBlock {
-                            "Security-focused analysis of your role assignments and PIM usage. "
-                            "These insights help identify potential security risks and areas for improvement."
-                        }
-                    }
 
-                    # High-privilege role analysis
-                    $HighPrivilegeRoles = @(
-                        'Global Administrator',
-                        'Privileged Role Administrator',
-                        'Security Administrator',
-                        'Global Reader',
-                        'Directory Writers',
-                        'Application Administrator',
-                        'Cloud Application Administrator'
-                    )
-
-                    $HighPrivRoleData = $RoleData | Where-Object { $_.Name -in $HighPrivilegeRoles -and $_.TotalMembers -gt 0 } | Sort-Object TotalMembers -Descending
-
-                    if ($HighPrivRoleData) {
-                        New-HTMLContainer {
-                            New-HTMLText -Text "High-Privilege Role Assignments" -FontSize 14pt -FontWeight bold
-                            New-HTMLText -FontSize 11pt -TextBlock {
-                                "These roles have significant privileges and should be closely monitored. "
-                                "Consider using eligible assignments instead of direct assignments for better security."
-                            }
-                            New-HTMLTable -DataTable $HighPrivRoleData -Filtering {
-                                New-HTMLTableCondition -Name 'DirectMembers' -Value 0 -Operator gt -BackgroundColor LightCoral -ComparisonType number
-                                New-HTMLTableCondition -Name 'EligibleMembers' -Value 0 -Operator gt -BackgroundColor LightGreen -ComparisonType number
-                            } -DataStore JavaScript -DataTableID "TableHighPrivRoles" -ScrollX -WarningAction SilentlyContinue
-                        }
-                    }
-
-                    # Users with multiple high-privilege roles
-                    $UsersWithMultipleRoles = $UserRoleDataFiltered | Where-Object {
-                        $_.Type -eq 'User' -and
-                        ($_.DirectCount + $_.EligibleCount) -gt 3
-                    } | Sort-Object { $_.DirectCount + $_.EligibleCount } -Descending
-
-                    if ($UsersWithMultipleRoles) {
-                        New-HTMLContainer {
-                            New-HTMLText -Text "Users with Multiple Roles (4+ roles)" -FontSize 14pt -FontWeight bold
-                            New-HTMLText -FontSize 11pt -TextBlock {
-                                "Users with many role assignments may pose a security risk and should be reviewed regularly."
-                            }
-                            New-HTMLTable -DataTable $UsersWithMultipleRoles -Filtering -DataStore JavaScript -DataTableID "TableMultipleRoles" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
-                        }
-                    }
-
-                    # Service Principals with admin roles
-                    $AdminSPs = $UserRoleDataFiltered | Where-Object {
-                        $_.Type -like '*ServicePrincipal*' -and
-                        ($_.DirectCount -gt 0 -or $_.EligibleCount -gt 0)
-                    }
-
-                    if ($AdminSPs) {
-                        New-HTMLContainer {
-                            New-HTMLText -Text "Service Principals with Administrative Roles" -FontSize 14pt -FontWeight bold
-                            New-HTMLText -FontSize 11pt -TextBlock {
-                                "Service principals with administrative roles should be carefully managed and monitored."
-                            }
-                            New-HTMLTable -DataTable $AdminSPs -Filtering -DataStore JavaScript -DataTableID "TableAdminSPs" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
-                        }
-                    }
-                }
-            }
-        }
 
     } -ShowHTML:$ShowHTML.IsPresent -FilePath $FilePath -Online:$Online.IsPresent -TitleText "Azure AD Role Management Report"
 }
