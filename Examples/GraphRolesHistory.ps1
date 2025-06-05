@@ -4,7 +4,6 @@ $ProgressPreference = 'SilentlyContinue'
 
 Connect-MgGraph -Scopes @(
     "RoleManagement.Read.Directory", "RoleManagement.Read.All", 'RoleAssignmentSchedule.Read.Directory', "Directory.Read.All", "AuditLog.Read.All"
-    "RoleAssignmentSchedule.ReadWrite.Directory", "RoleManagement.ReadWrite.Directory", "RoleAssignmentSchedule.Remove.Directory"
 ) -NoWelcome
 
 # Get last 10000 days of PIM history
