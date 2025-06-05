@@ -87,7 +87,7 @@
 
     try {
         Write-Verbose "Getting service principals..."
-        $ServicePrincipals = Get-MgServicePrincipal -ErrorAction Stop -All -Property CreatedDateTime, 'ServicePrincipalType', 'DisplayName', 'AccountEnabled', 'Id', 'AppID'
+        $ServicePrincipals = Get-MgServicePrincipal -ErrorAction Stop -All -Property CreatedDateTime, 'ServicePrincipalType', 'DisplayName', 'AccountEnabled', 'Id', 'AppId'
     } catch {
         Write-Warning -Message "Get-MyRoleHistory - Failed to get service principals. Error: $($_.Exception.Message)"
         $ErrorsCount++
@@ -168,7 +168,7 @@
         }
     }
 
-        # Translate role name to role ID if specified
+    # Translate role name to role ID if specified
     $ResolvedRoleId = $RoleId
     if ($RoleName) {
         $MatchingRoles = $CacheRoles.Keys | Where-Object { $CacheRoles[$_].DisplayName -like $RoleName }
@@ -231,7 +231,7 @@
         $AllRequests = $AllRequests | Where-Object { $_.Status -in @('Provisioned', 'Revoked', 'Granted', 'Denied') }
     }
 
-        # Process and format the results
+    # Process and format the results
     Write-Verbose "Processing $($AllRequests.Count) role requests (assignments and eligibility)..."
 
     [array]$Results = foreach ($Request in $AllRequests) {
@@ -289,7 +289,7 @@
             PrincipalName         = $PrincipalName
             PrincipalType         = $PrincipalType
             PrincipalId           = $Request.PrincipalId
-            PrincipalMail         = if ($Principal) { $Principal.Mail -or $Principal.UserPrincipalName } else { $null }
+            PrincipalMail         = if ($Principal) { $Principal.Mail } else { $null }
             Justification         = $Request.Justification
             DirectoryScope        = $Request.DirectoryScopeId
             Duration              = $Duration
