@@ -159,7 +159,6 @@ function Show-MyRole {
 
             # Most Active Roles Section
             if ($MostActiveRoles) {
-
                 New-HTMLSection -HeaderText "Most Active Roles (PIM History)" -Invisible -Density Comfortable {
                     New-HTMLPanel {
                         New-HTMLContainer {
@@ -172,16 +171,15 @@ function Show-MyRole {
                             }
 
                             New-HTMLChart {
-                                $ChartColors = @('#0078d4', '#198754', '#6f42c1', '#fd7e14', '#ffc107')
-                                New-ChartLegend -Names ($MostActiveRoleData.RoleName) -Color $ChartColors[0..($MostActiveRoleData.Count - 1)]
+                                $ChartColors = @('#0078d4', '#198754', '#6f42c1', '#fd7e14', '#ffc107', '#20c997', '#dc3545', '#6c757d')
+                                $LegendColors = $ChartColors[0..([Math]::Min($MostActiveRoleData.Count - 1, $ChartColors.Count - 1))]
+                                New-ChartLegend -Names $MostActiveRoleData.RoleName -Color $LegendColors
                                 foreach ($Role in $MostActiveRoleData) {
                                     New-ChartPie -Name $Role.RoleName -Value $Role.ActivityCount
                                 }
                             } -Title 'Most Active Roles Distribution' -TitleAlignment left
                         }
                     }
-                    #  }
-
 
                     # Role Assignment Distribution Chart
                     New-HTMLPanel {
@@ -270,8 +268,9 @@ function Show-MyRole {
                         New-HTMLContainer {
                             New-HTMLText -Text "High-Privilege Role Distribution" -FontSize 14pt -FontWeight bold
                             New-HTMLChart {
-                                $ChartColors = @('#dc3545', '#fd7e14', '#ffc107', '#198754', '#0078d4', '#6f42c1', '#20c997')
-                                New-ChartLegend -Names ($HighPrivRoleData.Name) -Color $ChartColors[0..($HighPrivRoleData.Count - 1)]
+                                $ChartColors = @('#0078d4', '#198754', '#6f42c1', '#fd7e14', '#ffc107', '#20c997', '#dc3545', '#6c757d')
+                                $LegendColors = $ChartColors[0..([Math]::Min($MostActiveRoleData.Count - 1, $ChartColors.Count - 1))]
+                                New-ChartLegend -Names $MostActiveRoleData.RoleName -Color $LegendColors
                                 foreach ($Role in $HighPrivRoleData) {
                                     New-ChartPie -Name $Role.Name -Value $Role.TotalMembers
                                 }
