@@ -50,7 +50,7 @@
 - Added `Get-MyDefenderHealthIssues`
 
 ### 0.0.33
-- Add `Get-MyTentantName`
+- Add `Get-MyTenantName`
 
 ### 0.0.32 - 2023.07.25
 - Migrates to microsoft graph 2.1.0
