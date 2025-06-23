@@ -26,7 +26,7 @@
         }, @{
             Guid          = 'a7bdf640-f5cb-4acf-9de0-365b322d245c'
             ModuleName    = 'PSWriteHTML'
-            ModuleVersion = '1.31.0'
+            ModuleVersion = '1.35.0'
         }, @{
             Guid          = '883916f2-9184-46ee-b1f8-b6a2fb784cee'
             ModuleName    = 'Microsoft.Graph.Authentication'
