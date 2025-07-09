@@ -84,14 +84,36 @@
                 if ($null -ne $Credentials.DisplayName) {
                     $DisplayName = $Credentials.DisplayName
                 } elseif ($null -ne $Credentials.CustomKeyIdentifier) {
-                    if ($Credentials.CustomKeyIdentifier[0] -eq 255 -and $Credentials.CustomKeyIdentifier[1] -eq 254 -and $Credentials.CustomKeyIdentifier[0] -ne 0 -and $Credentials.CustomKeyIdentifier[0] -ne 0) {
-                        $DisplayName = [System.Text.Encoding]::Unicode.GetString($Credentials.CustomKeyIdentifier)
-                    } elseif ($Credentials.CustomKeyIdentifier[0] -eq 255 -and $Credentials.CustomKeyIdentifier[1] -eq 254 -and $Credentials.CustomKeyIdentifier[0] -eq 0 -and $Credentials.CustomKeyIdentifier[0] -eq 0) {
-                        $DisplayName = [System.Text.Encoding]::UTF32.GetString($Credentials.CustomKeyIdentifier)
-                    } elseif ($Credentials.CustomKeyIdentifier[1] -eq 0 -and $Credentials.CustomKeyIdentifier[3] -eq 0) {
-                        $DisplayName = [System.Text.Encoding]::Unicode.GetString($Credentials.CustomKeyIdentifier)
-                    } else {
-                        $DisplayName = [System.Text.Encoding]::UTF8.GetString($Credentials.CustomKeyIdentifier)
+                    # CustomKeyIdentifier is often Base64 encoded string, not byte[]
+                    try {
+                        $bytes = $null
+                        if ($Credentials.CustomKeyIdentifier -is [string]) {
+                            $bytes = [System.Convert]::FromBase64String($Credentials.CustomKeyIdentifier)
+                        } elseif ($Credentials.CustomKeyIdentifier -is [byte[]]) {
+                            # If it's already bytes, use it directly
+                            $bytes = $Credentials.CustomKeyIdentifier
+                        }
+
+                        if ($bytes) {
+                            # Attempt decoding with different encodings based on common patterns
+                            if ($bytes.Length -ge 2 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254) { # UTF-16 LE BOM
+                                $DisplayName = [System.Text.Encoding]::Unicode.GetString($bytes)
+                            } elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0 -and $bytes[1] -eq 0 -and $bytes[2] -eq 254 -and $bytes[3] -eq 255) { # UTF-32 BE BOM - Less common
+                                $DisplayName = [System.Text.Encoding]::BigEndianUnicode.GetString($bytes) # Assuming UTF-16 BE if 32 isn't available easily, adjust if needed
+                            } elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254 -and $bytes[2] -eq 0 -and $bytes[3] -eq 0) { # UTF-32 LE BOM
+                                $DisplayName = [System.Text.Encoding]::UTF32.GetString($bytes)
+                            } elseif ($bytes.Length -ge 2 -and $bytes[1] -eq 0 -and ($bytes.Length % 2 -eq 0)) { # Heuristic: Likely UTF-16 LE if second byte is null
+                                $DisplayName = [System.Text.Encoding]::Unicode.GetString($bytes)
+                            } else {
+                                # Default fallback to UTF8
+                                $DisplayName = [System.Text.Encoding]::UTF8.GetString($bytes)
+                            }
+                        } else {
+                            $DisplayName = "(Could not process CustomKeyIdentifier)"
+                        }
+                    } catch {
+                        Write-Warning "Error decoding CustomKeyIdentifier for App '$($App.DisplayName)' KeyId '$($Credentials.KeyId)': $($_.Exception.Message)"
+                        $DisplayName = "(Error decoding CustomKeyIdentifier)"
                     }
                 } else {
                     $DisplayName = $Null
@@ -145,14 +167,36 @@
                 if ($null -ne $Credentials.DisplayName) {
                     $DisplayName = $Credentials.DisplayName
                 } elseif ($null -ne $Credentials.CustomKeyIdentifier) {
-                    if ($Credentials.CustomKeyIdentifier[0] -eq 255 -and $Credentials.CustomKeyIdentifier[1] -eq 254 -and $Credentials.CustomKeyIdentifier[0] -ne 0 -and $Credentials.CustomKeyIdentifier[0] -ne 0) {
-                        $DisplayName = [System.Text.Encoding]::Unicode.GetString($Credentials.CustomKeyIdentifier)
-                    } elseif ($Credentials.CustomKeyIdentifier[0] -eq 255 -and $Credentials.CustomKeyIdentifier[1] -eq 254 -and $Credentials.CustomKeyIdentifier[0] -eq 0 -and $Credentials.CustomKeyIdentifier[0] -eq 0) {
-                        $DisplayName = [System.Text.Encoding]::UTF32.GetString($Credentials.CustomKeyIdentifier)
-                    } elseif ($Credentials.CustomKeyIdentifier[1] -eq 0 -and $Credentials.CustomKeyIdentifier[3] -eq 0) {
-                        $DisplayName = [System.Text.Encoding]::Unicode.GetString($Credentials.CustomKeyIdentifier)
-                    } else {
-                        $DisplayName = [System.Text.Encoding]::UTF8.GetString($Credentials.CustomKeyIdentifier)
+                    # CustomKeyIdentifier is often Base64 encoded string, not byte[]
+                    try {
+                        $bytes = $null
+                        if ($Credentials.CustomKeyIdentifier -is [string]) {
+                            $bytes = [System.Convert]::FromBase64String($Credentials.CustomKeyIdentifier)
+                        } elseif ($Credentials.CustomKeyIdentifier -is [byte[]]) {
+                            # If it's already bytes, use it directly
+                            $bytes = $Credentials.CustomKeyIdentifier
+                        }
+
+                        if ($bytes) {
+                            # Attempt decoding with different encodings based on common patterns
+                            if ($bytes.Length -ge 2 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254) { # UTF-16 LE BOM
+                                $DisplayName = [System.Text.Encoding]::Unicode.GetString($bytes)
+                            } elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0 -and $bytes[1] -eq 0 -and $bytes[2] -eq 254 -and $bytes[3] -eq 255) { # UTF-32 BE BOM - Less common
+                                $DisplayName = [System.Text.Encoding]::BigEndianUnicode.GetString($bytes) # Assuming UTF-16 BE if 32 isn't available easily, adjust if needed
+                            } elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254 -and $bytes[2] -eq 0 -and $bytes[3] -eq 0) { # UTF-32 LE BOM
+                                $DisplayName = [System.Text.Encoding]::UTF32.GetString($bytes)
+                            } elseif ($bytes.Length -ge 2 -and $bytes[1] -eq 0 -and ($bytes.Length % 2 -eq 0)) { # Heuristic: Likely UTF-16 LE if second byte is null
+                                $DisplayName = [System.Text.Encoding]::Unicode.GetString($bytes)
+                            } else {
+                                # Default fallback to UTF8
+                                $DisplayName = [System.Text.Encoding]::UTF8.GetString($bytes)
+                            }
+                        } else {
+                            $DisplayName = "(Could not process CustomKeyIdentifier)"
+                        }
+                    } catch {
+                        Write-Warning "Error decoding CustomKeyIdentifier for App '$($App.DisplayName)' KeyId '$($Credentials.KeyId)': $($_.Exception.Message)"
+                        $DisplayName = "(Error decoding CustomKeyIdentifier)"
                     }
                 } else {
                     $DisplayName = $Null
