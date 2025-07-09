@@ -42,7 +42,13 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
 
     New-ConfigurationModule -Type RequiredModule -Name Mailozaurr -Guid Auto -Version '1.0.0'
 
-    New-ConfigurationModuleSkip -IgnoreModuleName 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security', 'DSInternals.Passkeys'
+    New-ConfigurationModuleSkip -IgnoreModuleName @(
+        'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Security',
+        'DSInternals.Passkeys'
+    ) -IgnoreFunctionName @(
+        'Get-PasskeyRegistrationOptions'
+        'New-Passkey'
+    )
     New-ConfigurationModule -Type ApprovedModule -Name 'PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword' #, 'PSPublishModule'
 
 

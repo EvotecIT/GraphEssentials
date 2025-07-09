@@ -1,4 +1,18 @@
-﻿### 0.0.46
+﻿### 0.0.48
+
+#### What's Changed
+* Fix tenant name script typo by @PrzemyslawKlys in https://github.com/EvotecIT/GraphEssentials/pull/3
+* My roles history by @PrzemyslawKlys in https://github.com/EvotecIT/GraphEssentials/pull/4
+
+#### New Contributors
+* @PrzemyslawKlys made their first contribution in https://github.com/EvotecIT/GraphEssentials/pull/3
+
+**Full Changelog**: https://github.com/EvotecIT/GraphEssentials/compare/v0.0.47...v0.0.48
+
+### 0.0.47
+- General improvements
+
+### 0.0.46
 - Improved `Get-MyDeviceIntune`
 
 ### 0.0.45
@@ -47,7 +61,7 @@
 - Added `Get-MyDefenderHealthIssues`
 
 ### 0.0.33
-- Add `Get-MyTentantName`
+- Add `Get-MyTenantName`
 
 ### 0.0.32 - 2023.07.25
 - Migrates to microsoft graph 2.1.0
