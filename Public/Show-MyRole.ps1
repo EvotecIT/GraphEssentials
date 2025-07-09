@@ -396,7 +396,7 @@ function Show-MyRole {
 
                         for ($i = 0; $i -lt $TopActions.Count; $i++) {
                             $Action = $TopActions[$i]
-                            $Icon = $ActionIcons[$Action.Action] ?? '📊'
+                            $Icon = if ($ActionIcons[$Action.Action]) { $ActionIcons[$Action.Action] } else { '📊' }
                             $Color = $ActionColors[$i % $ActionColors.Count]
                             New-HTMLInfoCard -Title $Action.Action -Number $Action.Count -Subtitle "$($Action.Percentage)% of all activity" -Icon $Icon -IconColor $Color -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
                         }
