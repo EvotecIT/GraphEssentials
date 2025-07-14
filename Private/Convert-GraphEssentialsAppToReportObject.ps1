@@ -123,7 +123,7 @@ function Convert-GraphEssentialsAppToReportObject {
     # --- Get Delegated Permissions ---
     $DelegatedScopes = if ($spId) { $AllDelegatedPermissions[$spId] } else { $null }
 
-    # --- Get Sign-in Info ---
+    # --- Get Comprehensive Sign-in Info ---
     $SignInInfo = $SignInActivityReport[$appId]
     $LastSignInMethod = $LastSignInMethodReport[$appId]
 
@@ -195,35 +195,57 @@ function Convert-GraphEssentialsAppToReportObject {
     # --- Build Final Output Object ---
     $OutputObject = [ordered] @{
         # Core Info (from Service Principal)
-        ApplicationName        = $displayName # From SP
-        ApplicationId          = $spId # SP Object ID
-        AppId                  = $appId # App/Client ID
-        Source                 = $Source
-        ServicePrincipalType   = $ServicePrincipal.ServicePrincipalType # Added SP Type
-        ApplicationType        = $ApplicationType # not working
+        ApplicationName                       = $displayName # From SP
+        ApplicationId                         = $spId # SP Object ID
+        AppId                                 = $appId # App/Client ID
+        Source                                = $Source
+        ServicePrincipalType                  = $ServicePrincipal.ServicePrincipalType # Added SP Type
+        ApplicationType                       = $ApplicationType # not working
         # Owners (from Application)
-        Owners                 = $CombinedOwners
+        Owners                                = $CombinedOwners
         # Permissions
-        PermissionType         = $PermissionType
-        DelegatedPermissions   = $DelegatedScopes
-        ApplicationPermissions = $ApplicationScopes
-        # Sign-in Activity (from Reports)
-        DelegatedLastSignIn    = if ($SignInInfo -and $SignInInfo.PSObject.Properties['delegatedClientSignInActivity']) { $SignInInfo.delegatedClientSignInActivity.lastSignInDateTime } else { $null }
-        ApplicationLastSignIn  = if ($SignInInfo -and $SignInInfo.PSObject.Properties['applicationAuthenticationClientSignInActivity']) { $SignInInfo.applicationAuthenticationClientSignInActivity.lastSignInDateTime } else { $null }
-        LastSignInMethod       = $LastSignInMethod
+        PermissionType                        = $PermissionType
+        DelegatedPermissions                  = $DelegatedScopes
+        ApplicationPermissions                = $ApplicationScopes
+        # Comprehensive Application Activity Analysis - for Security Assessment
+        DaysSinceLastActivity                 = if ($SignInInfo) { $SignInInfo.DaysSinceLastActivity } else { $null }
+        DaysSinceLastSuccessfulActivity       = if ($SignInInfo) { $SignInInfo.DaysSinceLastSuccessfulActivity } else { $null }
+        MostRecentActivityDate                = if ($SignInInfo) { $SignInInfo.MostRecentActivityDate } else { $null }
+        MostRecentSuccessfulActivityDate      = if ($SignInInfo) { $SignInInfo.MostRecentSuccessfulActivityDate } else { $null }
+        ActivityLevel                         = if ($SignInInfo) { $SignInInfo.ActivityLevel } else { "Unknown" }
+        ActivityTypes                         = if ($SignInInfo) { $SignInInfo.ActivityTypes } else { "No Activity" }
+        ActivitySources                       = if ($SignInInfo) { $SignInInfo.ActivitySourcesSummary } else { "None" }
+        DataQuality                           = if ($SignInInfo) { $SignInInfo.DataQuality } else { "None" }
+
+        # Additional Activity Details for Comprehensive Assessment
+        LastAuditActivity                     = if ($SignInInfo) { $SignInInfo.LastAuditActivity } else { $null }
+        LastAuditOperation                    = if ($SignInInfo) { $SignInInfo.LastAuditOperation } else { $null }
+
+        # Detailed Sign-in Breakdown
+        DelegatedClientLastSignIn             = if ($SignInInfo) { $SignInInfo.DelegatedClientLastSignIn } else { $null }
+        DelegatedClientLastSuccessfulSignIn   = if ($SignInInfo) { $SignInInfo.DelegatedClientLastSuccessfulSignIn } else { $null }
+        ApplicationClientLastSignIn           = if ($SignInInfo) { $SignInInfo.ApplicationClientLastSignIn } else { $null }
+        ApplicationClientLastSuccessfulSignIn = if ($SignInInfo) { $SignInInfo.ApplicationClientLastSuccessfulSignIn } else { $null }
+        DelegatedResourceLastSignIn           = if ($SignInInfo) { $SignInInfo.DelegatedResourceLastSignIn } else { $null }
+        ApplicationResourceLastSignIn         = if ($SignInInfo) { $SignInInfo.ApplicationResourceLastSignIn } else { $null }
+
+        # Legacy fields for backward compatibility
+        DelegatedLastSignIn                   = if ($SignInInfo) { $SignInInfo.DelegatedClientLastSignIn } else { $null }
+        ApplicationLastSignIn                 = if ($SignInInfo) { $SignInInfo.ApplicationClientLastSignIn } else { $null }
+        LastSignInMethod                      = $LastSignInMethod
         # Credentials Summary (from Application)
-        KeysCount              = $KeysCount
-        KeysTypes              = $KeysTypes
-        KeysExpired            = $KeysExpired
-        DaysToExpireOldest     = $DaysToExpireOldest
-        DaysToExpireNewest     = $DaysToExpireNewest
-        KeysDateOldest         = $KeysDateOldest
-        KeysDateNewest         = $KeysDateNewest
-        KeysDescription        = $KeysDescription # From Application credentials
-        DescriptionWithEmail   = $DescriptionWithEmail # From Application credentials
+        KeysCount                             = $KeysCount
+        KeysTypes                             = $KeysTypes
+        KeysExpired                           = $KeysExpired
+        DaysToExpireOldest                    = $DaysToExpireOldest
+        DaysToExpireNewest                    = $DaysToExpireNewest
+        KeysDateOldest                        = $KeysDateOldest
+        KeysDateNewest                        = $KeysDateNewest
+        KeysDescription                       = $KeysDescription # From Application credentials
+        DescriptionWithEmail                  = $DescriptionWithEmail # From Application credentials
         # Other (from Application, if available)
-        Notes                  = $ApplicationDetails?.Notes
-        CreatedDate            = $ApplicationDetails?.CreatedDateTime # CreatedDate is on Application, not SP
+        Notes                                 = if ($ApplicationDetails) { $ApplicationDetails.Notes } else { $null }
+        CreatedDate                           = if ($ApplicationDetails) { $ApplicationDetails.CreatedDateTime } else { $null }
     }
     if ($IncludeCredentials -and $AppCredentialsDetails) {
         $OutputObject['Keys'] = $AppCredentialsDetails

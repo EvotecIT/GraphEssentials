@@ -12,8 +12,8 @@ function Get-GraphEssentialsSpDetailsAndAppRoles {
     Write-Verbose "Get-GraphEssentialsSpDetailsAndAppRoles: Fetching all Service Principals with App Role Assignments..."
 
     if (-not $GraphSpId -or -not $GraphAppRoles) {
-         Write-Warning "Get-GraphEssentialsSpDetailsAndAppRoles: Cannot proceed without Graph SP ID and Graph App Roles."
-         return [PSCustomObject]@{ SpDetails = $SpDetailsByAppId; AppPermissions = $AppPermissionsBySpId } # Return empty tables
+        Write-Warning "Get-GraphEssentialsSpDetailsAndAppRoles: Cannot proceed without Graph SP ID and Graph App Roles."
+        return [PSCustomObject]@{ SpDetails = $SpDetailsByAppId; AppPermissions = $AppPermissionsBySpId } # Return empty tables
     }
 
     try {

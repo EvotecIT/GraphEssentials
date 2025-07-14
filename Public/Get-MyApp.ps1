@@ -4,10 +4,14 @@
     Retrieves Azure AD application (Service Principal) information from Microsoft Graph API.
 
     .DESCRIPTION
-    Gets detailed information about Azure AD/Entra Service Principals (Enterprise Apps) including display names, owners,
-    client IDs, credential details (for owned apps), source, sign-in activity, and permissions.
+    Gets comprehensive information about Azure AD/Entra Service Principals (Enterprise Apps) with multi-source activity analysis for security assessment.
+    Includes display names, owners, client IDs, credential details (for owned apps), source, and comprehensive activity tracking across:
+    - User sign-ins (interactive and non-interactive)
+    - Service principal operations and API usage
+    - Delegated access through Azure Portal and other Microsoft services
+    - Application authentication activity and management operations
+    This provides complete "Days Since Last Activity" calculations for identifying unused/dead applications.
     Uses helper functions in the Private folder for data retrieval steps.
-    Can optionally include detailed credential information in the output objects.
 
     .PARAMETER ApplicationName
     Optional. The display name of a specific Service Principal (Enterprise App) to retrieve. If not specified, all are returned.
@@ -18,6 +22,19 @@
 
     .PARAMETER ApplicationType
     Optional. Filters the Service Principals based on their type. Valid values are 'All', 'AppRegistrations', 'EnterpriseApps', 'MicrosoftApps', and 'ManagedIdentities'.
+
+    .PARAMETER IncludeDetailedSignInLogs
+    Switch parameter. When specified, includes detailed authentication method information for the LastSignInMethod field.
+    NOTE: This parameter now has limited impact since comprehensive activity tracking is enabled by default.
+    The primary difference is that it fetches authentication method details (e.g., "Password", "MFA", "Certificate").
+    For most security assessments, this parameter is optional as the comprehensive activity data provides sufficient information.
+    WARNING: This can be slower for large tenants as it downloads recent sign-in logs to extract authentication methods.
+
+    .PARAMETER IncludeRealtimeSignIns
+    Switch parameter. When specified, includes real-time sign-in logs for enhanced activity accuracy.
+    WARNING: This can be very expensive for large tenants (100k+ users) as it downloads recent sign-in logs for all applications.
+    The aggregated data (default) is usually sufficient for security assessment and is much faster.
+    Only use this for small tenants or when you need the most current sign-in data.
 
     .EXAMPLE
     Get-MyApp
@@ -35,6 +52,14 @@
     Get-MyApp -ApplicationType EnterpriseApps
     Returns all Enterprise Apps with enhanced information.
 
+    .EXAMPLE
+    Get-MyApp -IncludeDetailedSignInLogs
+    Returns all Service Principals with authentication method details. WARNING: This can be slow for large tenants.
+
+    .EXAMPLE
+    Get-MyApp -IncludeRealtimeSignIns
+    Returns all Service Principals with real-time sign-in data for enhanced accuracy. WARNING: This can be very slow for large tenants (100k+ users).
+
     .NOTES
     This function requires the Microsoft.Graph.Applications, Microsoft.Graph.ServicePrincipal, and potentially Microsoft.Graph.Reports modules and appropriate permissions.
     Requires Application.Read.All, AuditLog.Read.All, Directory.Read.All, Policy.Read.PermissionGrant policies.
@@ -46,7 +71,9 @@
         [string] $ApplicationName,
         [switch] $IncludeCredentials,
         [ValidateSet('All', 'AppRegistrations', 'EnterpriseApps', 'MicrosoftApps', 'ManagedIdentities')]
-        [string]$ApplicationType = 'All'
+        [string]$ApplicationType = 'All',
+        [switch] $IncludeDetailedSignInLogs,
+        [switch] $IncludeRealtimeSignIns
     )
 
     Write-Verbose "Get-MyApp: Starting data retrieval (ApplicationType: $ApplicationType)..."
@@ -62,8 +89,16 @@
         $AllDelegatedPermissions = Get-GraphEssentialsDelegatedPermissions -GraphSpId $graphSpId
     }
 
-    $SignInActivityReport = Get-GraphEssentialsSignInActivityReport
-    $LastSignInMethodReport = Get-GraphEssentialsSignInLogsReport
+    # Get comprehensive activity tracking across all sources for security assessment
+    # For performance reasons, we use aggregated data only by default unless specifically requested
+    # This prevents expensive API calls in large tenants while still providing excellent security assessment
+    $SignInActivityReport = Get-GraphEssentialsComprehensiveActivityReport -Days 90 -IncludeRealtimeSignIns $IncludeRealtimeSignIns.IsPresent
+    # Fetch detailed authentication method logs only if explicitly requested (for performance)
+    $LastSignInMethodReport = if ($IncludeDetailedSignInLogs) {
+        Get-GraphEssentialsSignInLogsReport -IncludeAuthenticationMethods $true
+    } else {
+        @{}
+    }
 
     # --- Pre-fetch Service Principals with expanded assignments ---
     $allServicePrincipals = Get-GraphEssentialsSpDetailsAndAppRoles -GraphSpId $graphSpId -GraphAppRoles $graphAppRoles
@@ -165,7 +200,7 @@
         # Build filter string for AppIds - handle potential large number of IDs
         $batchSize = 15 # Max IDs per filter clause recommended by MS Graph docs
         $numBatches = [Math]::Ceiling($ownedSpAppIds.Count / $batchSize)
-        $appProperties = @('Id', 'AppId', 'Notes', 'PasswordCredentials', 'KeyCredentials') # Only properties needed
+        $appProperties = @('Id', 'AppId', 'Notes', 'PasswordCredentials', 'KeyCredentials', 'CreatedDateTime') # Include CreatedDateTime
         $selectClause = "`$select=$(($appProperties -join ',' ))"
 
         for ($i = 0; $i -lt $numBatches; $i++) {
