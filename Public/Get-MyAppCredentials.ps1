@@ -53,13 +53,16 @@
         [int] $GreaterThanDaysToExpire,
         [switch] $Expired,
         [alias('DescriptionCredentials', 'ClientSecretName')][string] $DisplayNameCredentials,
-        [Parameter(DontShow)][Array] $ApplicationList
+        [Parameter(DontShow)][Array] $ApplicationList,
+        [switch] $IncludeFederated
     )
     if (-not $ApplicationList) {
+        # Always request credential properties explicitly; SDK often omits them unless selected
+        $props = @('Id','DisplayName','AppId','PasswordCredentials','KeyCredentials','CreatedDateTime')
         if ($ApplicationName) {
-            $ApplicationList = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual
+            $ApplicationList = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual -Property ($props -join ',')
         } else {
-            $ApplicationList = Get-MgApplication -All
+            $ApplicationList = Get-MgApplication -All -Property ($props -join ',')
         }
     } else {
         $ApplicationList = foreach ($App in $ApplicationList) {
@@ -84,14 +87,36 @@
                 if ($null -ne $Credentials.DisplayName) {
                     $DisplayName = $Credentials.DisplayName
                 } elseif ($null -ne $Credentials.CustomKeyIdentifier) {
-                    if ($Credentials.CustomKeyIdentifier[0] -eq 255 -and $Credentials.CustomKeyIdentifier[1] -eq 254 -and $Credentials.CustomKeyIdentifier[0] -ne 0 -and $Credentials.CustomKeyIdentifier[0] -ne 0) {
-                        $DisplayName = [System.Text.Encoding]::Unicode.GetString($Credentials.CustomKeyIdentifier)
-                    } elseif ($Credentials.CustomKeyIdentifier[0] -eq 255 -and $Credentials.CustomKeyIdentifier[1] -eq 254 -and $Credentials.CustomKeyIdentifier[0] -eq 0 -and $Credentials.CustomKeyIdentifier[0] -eq 0) {
-                        $DisplayName = [System.Text.Encoding]::UTF32.GetString($Credentials.CustomKeyIdentifier)
-                    } elseif ($Credentials.CustomKeyIdentifier[1] -eq 0 -and $Credentials.CustomKeyIdentifier[3] -eq 0) {
-                        $DisplayName = [System.Text.Encoding]::Unicode.GetString($Credentials.CustomKeyIdentifier)
-                    } else {
-                        $DisplayName = [System.Text.Encoding]::UTF8.GetString($Credentials.CustomKeyIdentifier)
+                    # CustomKeyIdentifier is often Base64 encoded string, not byte[]
+                    try {
+                        $bytes = $null
+                        if ($Credentials.CustomKeyIdentifier -is [string]) {
+                            $bytes = [System.Convert]::FromBase64String($Credentials.CustomKeyIdentifier)
+                        } elseif ($Credentials.CustomKeyIdentifier -is [byte[]]) {
+                            # If it's already bytes, use it directly
+                            $bytes = $Credentials.CustomKeyIdentifier
+                        }
+
+                        if ($bytes) {
+                            # Attempt decoding with different encodings based on common patterns
+                            if ($bytes.Length -ge 2 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254) { # UTF-16 LE BOM
+                                $DisplayName = [System.Text.Encoding]::Unicode.GetString($bytes)
+                            } elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0 -and $bytes[1] -eq 0 -and $bytes[2] -eq 254 -and $bytes[3] -eq 255) { # UTF-32 BE BOM - Less common
+                                $DisplayName = [System.Text.Encoding]::BigEndianUnicode.GetString($bytes) # Assuming UTF-16 BE if 32 isn't available easily, adjust if needed
+                            } elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254 -and $bytes[2] -eq 0 -and $bytes[3] -eq 0) { # UTF-32 LE BOM
+                                $DisplayName = [System.Text.Encoding]::UTF32.GetString($bytes)
+                            } elseif ($bytes.Length -ge 2 -and $bytes[1] -eq 0 -and ($bytes.Length % 2 -eq 0)) { # Heuristic: Likely UTF-16 LE if second byte is null
+                                $DisplayName = [System.Text.Encoding]::Unicode.GetString($bytes)
+                            } else {
+                                # Default fallback to UTF8
+                                $DisplayName = [System.Text.Encoding]::UTF8.GetString($bytes)
+                            }
+                        } else {
+                            $DisplayName = "(Could not process CustomKeyIdentifier)"
+                        }
+                    } catch {
+                        Write-Warning "Error decoding CustomKeyIdentifier for App '$($App.DisplayName)' KeyId '$($Credentials.KeyId)': $($_.Exception.Message)"
+                        $DisplayName = "(Error decoding CustomKeyIdentifier)"
                     }
                 } else {
                     $DisplayName = $Null
@@ -145,14 +170,36 @@
                 if ($null -ne $Credentials.DisplayName) {
                     $DisplayName = $Credentials.DisplayName
                 } elseif ($null -ne $Credentials.CustomKeyIdentifier) {
-                    if ($Credentials.CustomKeyIdentifier[0] -eq 255 -and $Credentials.CustomKeyIdentifier[1] -eq 254 -and $Credentials.CustomKeyIdentifier[0] -ne 0 -and $Credentials.CustomKeyIdentifier[0] -ne 0) {
-                        $DisplayName = [System.Text.Encoding]::Unicode.GetString($Credentials.CustomKeyIdentifier)
-                    } elseif ($Credentials.CustomKeyIdentifier[0] -eq 255 -and $Credentials.CustomKeyIdentifier[1] -eq 254 -and $Credentials.CustomKeyIdentifier[0] -eq 0 -and $Credentials.CustomKeyIdentifier[0] -eq 0) {
-                        $DisplayName = [System.Text.Encoding]::UTF32.GetString($Credentials.CustomKeyIdentifier)
-                    } elseif ($Credentials.CustomKeyIdentifier[1] -eq 0 -and $Credentials.CustomKeyIdentifier[3] -eq 0) {
-                        $DisplayName = [System.Text.Encoding]::Unicode.GetString($Credentials.CustomKeyIdentifier)
-                    } else {
-                        $DisplayName = [System.Text.Encoding]::UTF8.GetString($Credentials.CustomKeyIdentifier)
+                    # CustomKeyIdentifier is often Base64 encoded string, not byte[]
+                    try {
+                        $bytes = $null
+                        if ($Credentials.CustomKeyIdentifier -is [string]) {
+                            $bytes = [System.Convert]::FromBase64String($Credentials.CustomKeyIdentifier)
+                        } elseif ($Credentials.CustomKeyIdentifier -is [byte[]]) {
+                            # If it's already bytes, use it directly
+                            $bytes = $Credentials.CustomKeyIdentifier
+                        }
+
+                        if ($bytes) {
+                            # Attempt decoding with different encodings based on common patterns
+                            if ($bytes.Length -ge 2 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254) { # UTF-16 LE BOM
+                                $DisplayName = [System.Text.Encoding]::Unicode.GetString($bytes)
+                            } elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 0 -and $bytes[1] -eq 0 -and $bytes[2] -eq 254 -and $bytes[3] -eq 255) { # UTF-32 BE BOM - Less common
+                                $DisplayName = [System.Text.Encoding]::BigEndianUnicode.GetString($bytes) # Assuming UTF-16 BE if 32 isn't available easily, adjust if needed
+                            } elseif ($bytes.Length -ge 4 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254 -and $bytes[2] -eq 0 -and $bytes[3] -eq 0) { # UTF-32 LE BOM
+                                $DisplayName = [System.Text.Encoding]::UTF32.GetString($bytes)
+                            } elseif ($bytes.Length -ge 2 -and $bytes[1] -eq 0 -and ($bytes.Length % 2 -eq 0)) { # Heuristic: Likely UTF-16 LE if second byte is null
+                                $DisplayName = [System.Text.Encoding]::Unicode.GetString($bytes)
+                            } else {
+                                # Default fallback to UTF8
+                                $DisplayName = [System.Text.Encoding]::UTF8.GetString($bytes)
+                            }
+                        } else {
+                            $DisplayName = "(Could not process CustomKeyIdentifier)"
+                        }
+                    } catch {
+                        Write-Warning "Error decoding CustomKeyIdentifier for App '$($App.DisplayName)' KeyId '$($Credentials.KeyId)': $($_.Exception.Message)"
+                        $DisplayName = "(Error decoding CustomKeyIdentifier)"
                     }
                 } else {
                     $DisplayName = $Null
@@ -194,6 +241,33 @@
                 }
                 $Creds
 
+            }
+        }
+        if ($IncludeFederated.IsPresent) {
+            try {
+                if (-not (Get-Command Get-MgApplicationFederatedIdentityCredential -ErrorAction SilentlyContinue)) {
+                    Import-Module Microsoft.Graph.Applications -ErrorAction Stop | Out-Null
+                }
+                $fidcs = Get-MgApplicationFederatedIdentityCredential -ApplicationId $App.Id -All -ErrorAction Stop
+                foreach ($fidc in $fidcs) {
+                    $display = if ($fidc.Description) { $fidc.Description } elseif ($fidc.Name) { $fidc.Name } else { $null }
+                    [PSCustomObject]@{
+                        ObjectId        = $App.Id
+                        ApplicationName = $App.DisplayName
+                        Type            = 'Federated'
+                        ClientID        = $App.AppId
+                        CreatedDate     = $App.CreatedDateTime
+                        KeyDisplayName  = $display
+                        KeyId           = $fidc.Id
+                        Hint            = $null
+                        Expired         = $false
+                        DaysToExpire    = $null
+                        StartDateTime   = $null
+                        EndDateTime     = $null
+                    }
+                }
+            } catch {
+                Write-Verbose "Get-MyAppCredentials: Failed to fetch federated identity credentials for $($App.DisplayName): $($_.Exception.Message)"
             }
         }
     }
