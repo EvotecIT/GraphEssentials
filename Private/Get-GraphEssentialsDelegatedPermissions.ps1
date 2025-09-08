@@ -11,17 +11,29 @@ function Get-GraphEssentialsDelegatedPermissions {
     }
 
     try {
-        $uri = "v1.0/oauth2PermissionGrants?`$filter=consentType eq 'AllPrincipals' and resourceId eq '$GraphSpId'&`$top=999"
+        $coreDelegatedPermissions = @()
 
-        # Use Invoke-MgGraphRequest with manual paging
-        $response = Invoke-MgGraphRequest -Uri $uri -Method GET -OutputType PSObject -ErrorAction Stop
-        $coreDelegatedPermissions = $response.value
+        # Tenant-wide grants (admin consent)
+        $uriAll = "v1.0/oauth2PermissionGrants?`$filter=consentType eq 'AllPrincipals' and resourceId eq '$GraphSpId'&`$top=999"
+        $response = Invoke-MgGraphRequest -Uri $uriAll -Method GET -OutputType PSObject -ErrorAction Stop
+        if ($response.value) { $coreDelegatedPermissions += $response.value }
         $NextLink = $response.'@odata.nextLink'
-
-        while ($NextLink -ne $null) {
-            Write-Verbose "Get-GraphEssentialsDelegatedPermissions: Fetching next page for delegated permissions..."
+        while ($NextLink) {
+            Write-Verbose "Get-GraphEssentialsDelegatedPermissions: Fetching next page for delegated permissions (AllPrincipals)..."
             $response = Invoke-MgGraphRequest -Uri $NextLink -Method GET -OutputType PSObject -ErrorAction Stop
-            $coreDelegatedPermissions += $response.value
+            if ($response.value) { $coreDelegatedPermissions += $response.value }
+            $NextLink = $response.'@odata.nextLink'
+        }
+
+        # Per-user grants (self-consent). Can be numerous; we only need app-level scope list.
+        $uriUser = "v1.0/oauth2PermissionGrants?`$filter=consentType eq 'Principal' and resourceId eq '$GraphSpId'&`$top=999"
+        $response = Invoke-MgGraphRequest -Uri $uriUser -Method GET -OutputType PSObject -ErrorAction Stop
+        if ($response.value) { $coreDelegatedPermissions += $response.value }
+        $NextLink = $response.'@odata.nextLink'
+        while ($NextLink) {
+            Write-Verbose "Get-GraphEssentialsDelegatedPermissions: Fetching next page for delegated permissions (Principal)..."
+            $response = Invoke-MgGraphRequest -Uri $NextLink -Method GET -OutputType PSObject -ErrorAction Stop
+            if ($response.value) { $coreDelegatedPermissions += $response.value }
             $NextLink = $response.'@odata.nextLink'
         }
 

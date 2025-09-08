@@ -41,7 +41,8 @@ function Get-GraphEssentialsComprehensiveActivityReport {
         [int]$Days = 90,
         [bool]$IncludeRealtimeSignIns = $false,
         [string[]]$SpecificAppIds = @(),
-        [int]$MaxRealtimeRecords = 1000
+        [int]$MaxRealtimeRecords = 1000,
+        [hashtable]$SpIdToAppId = @{}
     )
 
     Write-Verbose "Get-GraphEssentialsComprehensiveActivityReport: Starting comprehensive application activity analysis (last $Days days)..."
@@ -112,7 +113,7 @@ function Get-GraphEssentialsComprehensiveActivityReport {
                     }
                 }
 
-                $SignInUri = "/beta/auditLogs/signIns?`$filter=$SignInFilter&`$top=$MaxRealtimeRecords"
+                $SignInUri = "/beta/auditLogs/signIns?`$filter=$SignInFilter&`$select=appId,appDisplayName,createdDateTime,status,signInEventTypes,userId,servicePrincipalId&`$top=$MaxRealtimeRecords"
                 Write-Verbose "Get-GraphEssentialsComprehensiveActivityReport: Calling $SignInUri"
                 $SignInResult = Invoke-MgGraphRequest -Uri $SignInUri -Method GET
 
@@ -259,6 +260,39 @@ function Get-GraphEssentialsComprehensiveActivityReport {
                         $Report.ActivitySources += "Real-time Sign-ins"
                     }
 
+                    # Classify most recent sign-in to delegated vs application where possible
+                    $eventTypes = @()
+                    if ($MostRecentSuccessful -and $MostRecentSuccessful.signInEventTypes) {
+                        $eventTypes = @($MostRecentSuccessful.signInEventTypes)
+                    } elseif ($MostRecentSignIn -and $MostRecentSignIn.signInEventTypes) {
+                        $eventTypes = @($MostRecentSignIn.signInEventTypes)
+                    }
+                    $isAppSignIn = $false
+                    if ($eventTypes -and ($eventTypes -contains 'servicePrincipal' -or $eventTypes -contains 'managedIdentity')) {
+                        $isAppSignIn = $true
+                    }
+                    if ($isAppSignIn) {
+                        if (-not $Report.ApplicationClientLastSignIn -or $RealtimeDate -gt $Report.ApplicationClientLastSignIn) {
+                            $Report.ApplicationClientLastSignIn = $RealtimeDate
+                        }
+                        if ($MostRecentSuccessful -and $MostRecentSuccessful.createdDateTime) {
+                            try { $sdt = [DateTime]::Parse($MostRecentSuccessful.createdDateTime) } catch { $sdt = $null }
+                            if ($sdt -and (-not $Report.ApplicationClientLastSuccessfulSignIn -or $sdt -gt $Report.ApplicationClientLastSuccessfulSignIn)) {
+                                $Report.ApplicationClientLastSuccessfulSignIn = $sdt
+                            }
+                        }
+                    } else {
+                        if (-not $Report.DelegatedClientLastSignIn -or $RealtimeDate -gt $Report.DelegatedClientLastSignIn) {
+                            $Report.DelegatedClientLastSignIn = $RealtimeDate
+                        }
+                        if ($MostRecentSuccessful -and $MostRecentSuccessful.createdDateTime) {
+                            try { $sdt = [DateTime]::Parse($MostRecentSuccessful.createdDateTime) } catch { $sdt = $null }
+                            if ($sdt -and (-not $Report.DelegatedClientLastSuccessfulSignIn -or $sdt -gt $Report.DelegatedClientLastSuccessfulSignIn)) {
+                                $Report.DelegatedClientLastSuccessfulSignIn = $sdt
+                            }
+                        }
+                    }
+
                     # Add app display name
                     if ($MostRecentSignIn.appDisplayName) {
                         $Report.AppDisplayName = $MostRecentSignIn.appDisplayName
@@ -282,12 +316,24 @@ function Get-GraphEssentialsComprehensiveActivityReport {
             Write-Verbose "Get-GraphEssentialsComprehensiveActivityReport: Calling $AuditUri"
             $AuditResult = Invoke-MgGraphRequest -Uri $AuditUri -Method GET
 
-                                    if ($AuditResult.value -and $AuditResult.value.Count -gt 0) {
-                Write-Verbose "Get-GraphEssentialsComprehensiveActivityReport: Processing $($AuditResult.value.Count) directory audit records..."
+            $allAudits = @()
+            if ($AuditResult.value) { $allAudits += $AuditResult.value }
+            $next = $AuditResult.'@odata.nextLink'
+            $page = 1
+            while ($null -ne $next -and $page -lt 10) { # cap to 10 pages to protect performance
+                Write-Verbose "Get-GraphEssentialsComprehensiveActivityReport: Fetching next page for directory audits..."
+                $AuditResult = Invoke-MgGraphRequest -Uri $next -Method GET
+                if ($AuditResult.value) { $allAudits += $AuditResult.value }
+                $next = $AuditResult.'@odata.nextLink'
+                $page++
+            }
+
+            if ($allAudits -and $allAudits.Count -gt 0) {
+                Write-Verbose "Get-GraphEssentialsComprehensiveActivityReport: Processing $($allAudits.Count) directory audit records..."
 
                 # Filter for recent application-related activities after retrieval
                 $RecentDate = (Get-Date).AddDays(-$Days)
-                $AppRelatedAudits = $AuditResult.value | Where-Object {
+                $AppRelatedAudits = $allAudits | Where-Object {
                     # Filter by date first
                     if ($_.activityDateTime) {
                         try {
@@ -326,8 +372,19 @@ function Get-GraphEssentialsComprehensiveActivityReport {
                     # Look for target applications in audit records
                     if ($AuditRecord.targetResources) {
                         foreach ($Target in $AuditRecord.targetResources) {
-                            if ($Target.type -eq "Application" -and $Target.id -and $AuditRecord.activityDateTime) {
-                                $AppId = $Target.id
+                            if ((@('Application','ServicePrincipal') -contains $Target.type) -and $Target.id -and $AuditRecord.activityDateTime) {
+                                $AppId = $null
+                                if ($Target.type -eq 'ServicePrincipal' -and $SpIdToAppId.ContainsKey($Target.id)) {
+                                    $AppId = $SpIdToAppId[$Target.id]
+                                } elseif ($Target.type -eq 'Application') {
+                                    # Try to infer AppId from additionalDetails
+                                    $AppId = $null
+                                    if ($AuditRecord.additionalDetails) {
+                                        $appIdDetail = $AuditRecord.additionalDetails | Where-Object { $_.key -match '^(appId|applicationId)$' -and $_.value }
+                                        if ($appIdDetail) { $AppId = $appIdDetail[0].value }
+                                    }
+                                }
+                                if (-not $AppId) { continue }
 
                                 # Handle different date formats from the API
                                 try {

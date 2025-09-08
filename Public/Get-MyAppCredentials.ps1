@@ -53,13 +53,16 @@
         [int] $GreaterThanDaysToExpire,
         [switch] $Expired,
         [alias('DescriptionCredentials', 'ClientSecretName')][string] $DisplayNameCredentials,
-        [Parameter(DontShow)][Array] $ApplicationList
+        [Parameter(DontShow)][Array] $ApplicationList,
+        [switch] $IncludeFederated
     )
     if (-not $ApplicationList) {
+        # Always request credential properties explicitly; SDK often omits them unless selected
+        $props = @('Id','DisplayName','AppId','PasswordCredentials','KeyCredentials','CreatedDateTime')
         if ($ApplicationName) {
-            $ApplicationList = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual
+            $ApplicationList = Get-MgApplication -Filter "displayName eq '$ApplicationName'" -All -ConsistencyLevel eventual -Property ($props -join ',')
         } else {
-            $ApplicationList = Get-MgApplication -All
+            $ApplicationList = Get-MgApplication -All -Property ($props -join ',')
         }
     } else {
         $ApplicationList = foreach ($App in $ApplicationList) {
@@ -238,6 +241,33 @@
                 }
                 $Creds
 
+            }
+        }
+        if ($IncludeFederated.IsPresent) {
+            try {
+                if (-not (Get-Command Get-MgApplicationFederatedIdentityCredential -ErrorAction SilentlyContinue)) {
+                    Import-Module Microsoft.Graph.Applications -ErrorAction Stop | Out-Null
+                }
+                $fidcs = Get-MgApplicationFederatedIdentityCredential -ApplicationId $App.Id -All -ErrorAction Stop
+                foreach ($fidc in $fidcs) {
+                    $display = if ($fidc.Description) { $fidc.Description } elseif ($fidc.Name) { $fidc.Name } else { $null }
+                    [PSCustomObject]@{
+                        ObjectId        = $App.Id
+                        ApplicationName = $App.DisplayName
+                        Type            = 'Federated'
+                        ClientID        = $App.AppId
+                        CreatedDate     = $App.CreatedDateTime
+                        KeyDisplayName  = $display
+                        KeyId           = $fidc.Id
+                        Hint            = $null
+                        Expired         = $false
+                        DaysToExpire    = $null
+                        StartDateTime   = $null
+                        EndDateTime     = $null
+                    }
+                }
+            } catch {
+                Write-Verbose "Get-MyAppCredentials: Failed to fetch federated identity credentials for $($App.DisplayName): $($_.Exception.Message)"
             }
         }
     }

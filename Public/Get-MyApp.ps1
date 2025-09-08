@@ -89,19 +89,26 @@
         $AllDelegatedPermissions = Get-GraphEssentialsDelegatedPermissions -GraphSpId $graphSpId
     }
 
+    # --- Pre-fetch Service Principals with expanded assignments ---
+    $allServicePrincipals = Get-GraphEssentialsSpDetailsAndAppRoles -GraphSpId $graphSpId -GraphAppRoles $graphAppRoles
+
+    # Build SP->AppId map for correlating audit logs to AppId
+    $spIdToAppId = @{}
+    if ($allServicePrincipals) {
+        foreach ($sp in $allServicePrincipals) {
+            if ($sp.Id -and $sp.AppId) { $spIdToAppId[$sp.Id] = $sp.AppId }
+        }
+    }
+
     # Get comprehensive activity tracking across all sources for security assessment
     # For performance reasons, we use aggregated data only by default unless specifically requested
-    # This prevents expensive API calls in large tenants while still providing excellent security assessment
-    $SignInActivityReport = Get-GraphEssentialsComprehensiveActivityReport -Days 90 -IncludeRealtimeSignIns $IncludeRealtimeSignIns.IsPresent
+    $SignInActivityReport = Get-GraphEssentialsComprehensiveActivityReport -Days 90 -IncludeRealtimeSignIns $IncludeRealtimeSignIns.IsPresent -SpIdToAppId $spIdToAppId
     # Fetch detailed authentication method logs only if explicitly requested (for performance)
     $LastSignInMethodReport = if ($IncludeDetailedSignInLogs) {
         Get-GraphEssentialsSignInLogsReport -IncludeAuthenticationMethods $true
     } else {
         @{}
     }
-
-    # --- Pre-fetch Service Principals with expanded assignments ---
-    $allServicePrincipals = Get-GraphEssentialsSpDetailsAndAppRoles -GraphSpId $graphSpId -GraphAppRoles $graphAppRoles
 
     if (-not $allServicePrincipals) {
         Write-Warning "Get-MyApp: Failed to retrieve Service Principals. Report will be empty."

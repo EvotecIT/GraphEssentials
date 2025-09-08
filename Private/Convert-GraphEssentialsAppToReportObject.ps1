@@ -200,7 +200,6 @@ function Convert-GraphEssentialsAppToReportObject {
         AppId                                 = $appId # App/Client ID
         Source                                = $Source
         ServicePrincipalType                  = $ServicePrincipal.ServicePrincipalType # Added SP Type
-        ApplicationType                       = $ApplicationType # not working
         # Owners (from Application)
         Owners                                = $CombinedOwners
         # Permissions
