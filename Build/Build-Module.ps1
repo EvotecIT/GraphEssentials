@@ -38,6 +38,7 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         'Microsoft.Graph.Teams'
         'Microsoft.Graph.Beta.Security'
         'Microsoft.Graph.Reports'
+        'Microsoft.Graph.Beta.Reports'
     ) -Guid Auto -Version '2.25.0'
 
     New-ConfigurationModule -Type RequiredModule -Name Mailozaurr -Guid Auto -Version '1.0.0'
