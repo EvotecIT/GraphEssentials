@@ -63,6 +63,63 @@ function Show-MyRole {
     Write-Verbose -Message "Show-MyRole - Getting user role assignments with RolePerColumn"
     $UserRoleDataPerColumn = Get-MyRoleUsers -RolePerColumn
     $UserRoleDataPerColumnFiltered = if ($IncludeDisabledUsers) { $UserRoleDataPerColumn } else { $UserRoleDataPerColumn | Where-Object { $_.Enabled -ne $false } }
+    $RoleHolderTotal = ($UserRoleDataFiltered | Where-Object { $_.Type -eq 'User' }).Count
+    $RoleHolderLicenseSummary = @()
+    $RoleHolderServicePlanSummary = @()
+    if ($RoleHolderTotal -gt 0) {
+        $licenseCounts = [System.Collections.Generic.Dictionary[string, int]]::new()
+        $servicePlanCounts = [System.Collections.Generic.Dictionary[string, int]]::new()
+        foreach ($entry in $UserRoleDataFiltered) {
+            if ($entry.Type -ne 'User') {
+                continue
+            }
+            if ($entry.Licenses) {
+                foreach ($license in $entry.Licenses) {
+                    if ($null -eq $license) {
+                        continue
+                    }
+                    if ($licenseCounts.ContainsKey($license)) {
+                        $licenseCounts[$license]++
+                    } else {
+                        $licenseCounts[$license] = 1
+                    }
+                }
+            }
+            if ($entry.LicenseServices) {
+                foreach ($service in $entry.LicenseServices) {
+                    if ($null -eq $service) {
+                        continue
+                    }
+                    if ($servicePlanCounts.ContainsKey($service)) {
+                        $servicePlanCounts[$service]++
+                    } else {
+                        $servicePlanCounts[$service] = 1
+                    }
+                }
+            }
+        }
+        $RoleHolderLicenseSummary = @(
+            foreach ($licenseName in $licenseCounts.Keys) {
+                $count = $licenseCounts[$licenseName]
+                [PSCustomObject]@{
+                    License         = $licenseName
+                    RoleHolderCount = $count
+                    Percentage      = [math]::Round(($count / $RoleHolderTotal) * 100, 1)
+                }
+            }
+        ) | Sort-Object -Property @{ Expression = 'RoleHolderCount'; Descending = $true }, @{ Expression = 'License'; Descending = $false }
+        $RoleHolderServicePlanSummary = @(
+            foreach ($serviceName in $servicePlanCounts.Keys) {
+                $count = $servicePlanCounts[$serviceName]
+                [PSCustomObject]@{
+                    ServicePlan     = $serviceName
+                    RoleHolderCount = $count
+                    Percentage      = [math]::Round(($count / $RoleHolderTotal) * 100, 1)
+                }
+            }
+        ) | Sort-Object -Property @{ Expression = 'RoleHolderCount'; Descending = $true }, @{ Expression = 'ServicePlan'; Descending = $false }
+    }
+
 
     Write-Verbose -Message "Show-MyRole - Getting PIM role history"
     try {
@@ -320,6 +377,27 @@ function Show-MyRole {
                             }
 
                             New-HTMLContainer {
+                                if ($RoleHolderTotal -gt 0) {
+                                    if ($RoleHolderLicenseSummary.Count -gt 0 -or $RoleHolderServicePlanSummary.Count -gt 0) {
+                                        New-HTMLContainer {
+                                            New-HTMLText -FontSize 11pt -TextBlock {
+                                                "License footprint across $RoleHolderTotal user role holders. Monitor privileged identities for productivity workloads."
+                                            }
+                                        }
+                                    }
+                                    if ($RoleHolderLicenseSummary.Count -gt 0) {
+                                        New-HTMLContainer {
+                                            New-HTMLText -FontSize 10pt -FontWeight bold -Text "Top Licenses Assigned to Role Holders"
+                                            New-HTMLTable -DataTable $RoleHolderLicenseSummary -DataStore JavaScript -DataTableID "TableRoleHolderLicenses" -PagingLength 10
+                                        }
+                                    }
+                                    if ($RoleHolderServicePlanSummary.Count -gt 0) {
+                                        New-HTMLContainer {
+                                            New-HTMLText -FontSize 10pt -FontWeight bold -Text "Service Plans Enabled for Role Holders"
+                                            New-HTMLTable -DataTable $RoleHolderServicePlanSummary -DataStore JavaScript -DataTableID "TableRoleHolderServicePlans" -PagingLength 10
+                                        }
+                                    }
+                                }
                                 New-HTMLTable -DataTable $UserRoleDataFiltered -Filtering {
                                     New-HTMLTableCondition -Name 'Type' -Value 'User' -BackgroundColor LightGreen -ComparisonType string
                                     New-HTMLTableCondition -Name 'Type' -Value 'ServicePrincipal' -BackgroundColor LightBlue -ComparisonType string
