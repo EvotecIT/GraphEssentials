@@ -58,11 +58,76 @@ function Show-MyRole {
 
     Write-Verbose -Message "Show-MyRole - Getting user role assignments"
     $UserRoleData = Get-MyRoleUsers
-    $UserRoleDataFiltered = if ($IncludeDisabledUsers) { $UserRoleData } else { $UserRoleData | Where-Object { $_.Enabled -ne $false } }
+    $UserRoleDataFiltered = if ($IncludeDisabledUsers) {
+        $UserRoleData
+    } else {
+        $UserRoleData.Where({ $_.Enabled -ne $false })
+    }
 
     Write-Verbose -Message "Show-MyRole - Getting user role assignments with RolePerColumn"
     $UserRoleDataPerColumn = Get-MyRoleUsers -RolePerColumn
-    $UserRoleDataPerColumnFiltered = if ($IncludeDisabledUsers) { $UserRoleDataPerColumn } else { $UserRoleDataPerColumn | Where-Object { $_.Enabled -ne $false } }
+    $UserRoleDataPerColumnFiltered = if ($IncludeDisabledUsers) {
+        $UserRoleDataPerColumn
+    } else {
+        $UserRoleDataPerColumn.Where({ $_.Enabled -ne $false })
+    }
+    $RoleHolderTotal = $UserRoleDataFiltered.Where({ $_.Type -eq 'User' }).Count
+    $RoleHolderLicenseSummary = @()
+    $RoleHolderServicePlanSummary = @()
+    if ($RoleHolderTotal -gt 0) {
+        $licenseCounts = [System.Collections.Generic.Dictionary[string, int]]::new()
+        $servicePlanCounts = [System.Collections.Generic.Dictionary[string, int]]::new()
+        foreach ($entry in $UserRoleDataFiltered) {
+            if ($entry.Type -ne 'User') {
+                continue
+            }
+            if ($entry.Licenses) {
+                foreach ($license in $entry.Licenses) {
+                    if ($null -eq $license) {
+                        continue
+                    }
+                    if ($licenseCounts.ContainsKey($license)) {
+                        $licenseCounts[$license]++
+                    } else {
+                        $licenseCounts[$license] = 1
+                    }
+                }
+            }
+            if ($entry.LicenseServices) {
+                foreach ($service in $entry.LicenseServices) {
+                    if ($null -eq $service) {
+                        continue
+                    }
+                    if ($servicePlanCounts.ContainsKey($service)) {
+                        $servicePlanCounts[$service]++
+                    } else {
+                        $servicePlanCounts[$service] = 1
+                    }
+                }
+            }
+        }
+        $RoleHolderLicenseSummary = @(
+            foreach ($licenseName in $licenseCounts.Keys) {
+                $count = $licenseCounts[$licenseName]
+                [PSCustomObject]@{
+                    License         = $licenseName
+                    RoleHolderCount = $count
+                    Percentage      = [math]::Round(($count / $RoleHolderTotal) * 100, 1)
+                }
+            }
+        ) | Sort-Object -Property @{ Expression = 'RoleHolderCount'; Descending = $true }, @{ Expression = 'License'; Descending = $false }
+        $RoleHolderServicePlanSummary = @(
+            foreach ($serviceName in $servicePlanCounts.Keys) {
+                $count = $servicePlanCounts[$serviceName]
+                [PSCustomObject]@{
+                    ServicePlan     = $serviceName
+                    RoleHolderCount = $count
+                    Percentage      = [math]::Round(($count / $RoleHolderTotal) * 100, 1)
+                }
+            }
+        ) | Sort-Object -Property @{ Expression = 'RoleHolderCount'; Descending = $true }, @{ Expression = 'ServicePlan'; Descending = $false }
+    }
+
 
     Write-Verbose -Message "Show-MyRole - Getting PIM role history"
     try {
@@ -80,19 +145,20 @@ function Show-MyRole {
 
     # Calculate statistics
     Write-Verbose -Message "Show-MyRole - Calculating statistics"
+    $RecentCutoff = (Get-Date).AddDays(-7)
     $Stats = @{
         TotalRoles             = $RoleData.Count
-        RolesWithMembers       = ($RoleData | Where-Object { $_.TotalMembers -gt 0 }).Count
-        TotalUsers             = ($UserRoleDataFiltered | Where-Object { $_.Type -eq 'User' }).Count
-        UsersWithRoles         = ($UserRoleDataFiltered | Where-Object { $_.Type -eq 'User' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
-        TotalServicePrincipals = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*ServicePrincipal*' }).Count
-        SPsWithRoles           = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*ServicePrincipal*' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
-        TotalGroups            = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*Group*' }).Count
-        GroupsWithRoles        = ($UserRoleDataFiltered | Where-Object { $_.Type -like '*Group*' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
-        PIMActivations         = ($RoleHistory | Where-Object { $_.Action -like '*Activated*' }).Count
-        PIMDeactivations       = ($RoleHistory | Where-Object { $_.Action -like '*Deactivated*' }).Count
-        AdminActions           = ($RoleHistory | Where-Object { $_.Action -like 'Admin*' }).Count
-        RecentActivity         = ($RoleHistory | Where-Object { $_.CreatedDateTime -gt (Get-Date).AddDays(-7) }).Count
+        RolesWithMembers       = $RoleData.Where({ $_.TotalMembers -gt 0 }).Count
+        TotalUsers             = $UserRoleDataFiltered.Where({ $_.Type -eq 'User' }).Count
+        UsersWithRoles         = $UserRoleDataFiltered.Where({ $_.Type -eq 'User' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
+        TotalServicePrincipals = $UserRoleDataFiltered.Where({ $_.Type -like '*ServicePrincipal*' }).Count
+        SPsWithRoles           = $UserRoleDataFiltered.Where({ $_.Type -like '*ServicePrincipal*' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
+        TotalGroups            = $UserRoleDataFiltered.Where({ $_.Type -like '*Group*' }).Count
+        GroupsWithRoles        = $UserRoleDataFiltered.Where({ $_.Type -like '*Group*' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
+        PIMActivations         = $RoleHistory.Where({ $_.Action -like '*Activated*' }).Count
+        PIMDeactivations       = $RoleHistory.Where({ $_.Action -like '*Deactivated*' }).Count
+        AdminActions           = $RoleHistory.Where({ $_.Action -like 'Admin*' }).Count
+        RecentActivity         = $RoleHistory.Where({ $_.CreatedDateTime -gt $RecentCutoff }).Count
     }
 
     # Get most active roles from history
@@ -189,7 +255,7 @@ function Show-MyRole {
                                 [PSCustomObject]@{ Type = 'Direct Assignments'; Count = ($RoleData | Measure-Object -Property DirectMembers -Sum).Sum }
                                 [PSCustomObject]@{ Type = 'Eligible Assignments'; Count = ($RoleData | Measure-Object -Property EligibleMembers -Sum).Sum }
                                 [PSCustomObject]@{ Type = 'Group Assignments'; Count = ($RoleData | Measure-Object -Property GroupsMembers -Sum).Sum }
-                            ) | Where-Object { $_.Count -gt 0 }
+                            ).Where({ $_.Count -gt 0 })
 
                             if ($AssignmentData.Count -gt 0) {
                                 New-HTMLChart {
@@ -241,16 +307,16 @@ function Show-MyRole {
                     'Cloud Application Administrator'
                 )
 
-                $HighPrivRoleData = $RoleData | Where-Object { $_.Name -in $HighPrivilegeRoles -and $_.TotalMembers -gt 0 } | Sort-Object TotalMembers -Descending
-                $UsersWithMultipleRoles = $UserRoleDataFiltered | Where-Object {
-                    $_.Type -eq 'User' -and
-                    (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) -and
-                    (($_.DirectCount + $_.EligibleCount) -gt 3)
-                } | Sort-Object { $_.DirectCount + $_.EligibleCount } -Descending
-                $AdminSPs = $UserRoleDataFiltered | Where-Object {
-                    $_.Type -like '*ServicePrincipal*' -and
-                    (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0))
-                }
+                $HighPrivRoleData = $RoleData.Where({ $_.Name -in $HighPrivilegeRoles -and $_.TotalMembers -gt 0 }) | Sort-Object TotalMembers -Descending
+                $UsersWithMultipleRoles = $UserRoleDataFiltered.Where({
+                        $_.Type -eq 'User' -and
+                        (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) -and
+                        (($_.DirectCount + $_.EligibleCount) -gt 3)
+                    }) | Sort-Object { $_.DirectCount + $_.EligibleCount } -Descending
+                $AdminSPs = $UserRoleDataFiltered.Where({
+                        $_.Type -like '*ServicePrincipal*' -and
+                        (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0))
+                    })
 
                 New-HTMLSection -Density Dense -Invisible {
                     # Security InfoCards
@@ -260,7 +326,7 @@ function Show-MyRole {
 
                     New-HTMLInfoCard -Title "Admin Service Principals" -Number $AdminSPs.Count -Subtitle "Service principals with admin roles" -Icon "🔧" -IconColor "#6f42c1" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
 
-                    New-HTMLInfoCard -Title "Custom Roles" -Number ($RoleData | Where-Object { -not $_.IsBuiltin }).Count -Subtitle "Custom-created role definitions" -Icon "⚙️" -IconColor "#0078d4" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                    New-HTMLInfoCard -Title "Custom Roles" -Number ($RoleData.Where({ -not $_.IsBuiltin }).Count) -Subtitle "Custom-created role definitions" -Icon "⚙️" -IconColor "#0078d4" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
                 }
 
                 if ($HighPrivRoleData.Count -gt 0) {
@@ -320,6 +386,27 @@ function Show-MyRole {
                             }
 
                             New-HTMLContainer {
+                                if ($RoleHolderTotal -gt 0) {
+                                    if ($RoleHolderLicenseSummary.Count -gt 0 -or $RoleHolderServicePlanSummary.Count -gt 0) {
+                                        New-HTMLContainer {
+                                            New-HTMLText -FontSize 11pt -TextBlock {
+                                                "License footprint across $RoleHolderTotal user role holders. Monitor privileged identities for productivity workloads."
+                                            }
+                                        }
+                                    }
+                                    if ($RoleHolderLicenseSummary.Count -gt 0) {
+                                        New-HTMLContainer {
+                                            New-HTMLText -FontSize 10pt -FontWeight bold -Text "Top Licenses Assigned to Role Holders"
+                                            New-HTMLTable -DataTable $RoleHolderLicenseSummary -DataStore JavaScript -DataTableID "TableRoleHolderLicenses" -PagingLength 10
+                                        }
+                                    }
+                                    if ($RoleHolderServicePlanSummary.Count -gt 0) {
+                                        New-HTMLContainer {
+                                            New-HTMLText -FontSize 10pt -FontWeight bold -Text "Service Plans Enabled for Role Holders"
+                                            New-HTMLTable -DataTable $RoleHolderServicePlanSummary -DataStore JavaScript -DataTableID "TableRoleHolderServicePlans" -PagingLength 10
+                                        }
+                                    }
+                                }
                                 New-HTMLTable -DataTable $UserRoleDataFiltered -Filtering {
                                     New-HTMLTableCondition -Name 'Type' -Value 'User' -BackgroundColor LightGreen -ComparisonType string
                                     New-HTMLTableCondition -Name 'Type' -Value 'ServicePrincipal' -BackgroundColor LightBlue -ComparisonType string

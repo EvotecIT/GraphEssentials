@@ -1,4 +1,4 @@
-﻿function Get-MyRoleUsers {
+function Get-MyRoleUsers {
     <#
     .SYNOPSIS
     Retrieves detailed information about users assigned to Azure AD roles.
@@ -38,7 +38,7 @@
     )
     $ErrorsCount = 0
     try {
-        $Users = Get-MgUser -ErrorAction Stop -All -Property DisplayName, CreatedDateTime, 'AccountEnabled', 'Mail', 'UserPrincipalName', 'Id', 'UserType', 'OnPremisesDistinguishedName', 'OnPremisesSamAccountName', 'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesUserPrincipalName'
+        $Users = Get-MgUser -ErrorAction Stop -All -Property DisplayName, CreatedDateTime, 'AccountEnabled', 'Mail', 'UserPrincipalName', 'Id', 'UserType', 'OnPremisesDistinguishedName', 'OnPremisesSamAccountName', 'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesUserPrincipalName', 'LicenseAssignmentStates', 'AssignedPlans', 'AssignedLicenses'
     } catch {
         Write-Warning -Message "Get-MyRoleUsers - Failed to get users. Error: $($_.Exception.Message)"
         $ErrorsCount++
@@ -79,6 +79,12 @@
         return
     }
 
+    $LicenseLookup = $null
+    try {
+        $LicenseLookup = Get-MyLicense -Internal
+    } catch {
+        Write-Warning -Message "Get-MyRoleUsers - Failed to get license metadata. Error: $($_.Exception.Message)"
+    }
     $CacheUsersAndApps = [ordered] @{}
     foreach ($User in $Users) {
         $CacheUsersAndApps[$User.Id] = @{
@@ -253,6 +259,62 @@
             $null
         }
 
+        $LicenseNames = $null
+        $LicenseAssignmentDetails = $null
+        $LicenseServiceNames = $null
+        if ($LicenseLookup -and $CacheUsersAndApps[$Identity].Identity.GetType().Name -eq 'MicrosoftGraphUser') {
+            $licenseNamesList = [System.Collections.Generic.List[string]]::new()
+            $licenseAssignmentList = [System.Collections.Generic.List[string]]::new()
+            $licenseServiceList = [System.Collections.Generic.List[string]]::new()
+
+            if ($CacheUsersAndApps[$Identity].Identity.LicenseAssignmentStates) {
+                foreach ($licenseAssignment in $CacheUsersAndApps[$Identity].Identity.LicenseAssignmentStates) {
+                    $licenseName = $LicenseLookup['Licenses'][$licenseAssignment.SkuId]
+                    if ($licenseName) {
+                        if (-not $licenseNamesList.Contains($licenseName)) {
+                            $licenseNamesList.Add($licenseName)
+                        }
+                        if ($licenseAssignment.State -eq 'Active') {
+                            $assignmentLabel = if ($licenseAssignment.AssignedByGroup -and $licenseAssignment.AssignedByGroup.Count -gt 0) {
+                                "Group ($($licenseAssignment.AssignedByGroup.Count))"
+                            } else {
+                                'Direct'
+                            }
+                        } else {
+                            $assignmentLabel = $licenseAssignment.State
+                        }
+                        $licenseAssignmentList.Add("$licenseName [$assignmentLabel]")
+                    } else {
+                        $licenseAssignmentList.Add("$($licenseAssignment.SkuId) [$($licenseAssignment.State)]")
+                    }
+                }
+            }
+
+            if ($CacheUsersAndApps[$Identity].Identity.AssignedPlans) {
+                foreach ($assignedPlan in $CacheUsersAndApps[$Identity].Identity.AssignedPlans) {
+                    if ($assignedPlan.CapabilityStatus -eq 'Deleted') {
+                        continue
+                    }
+                    $planName = $LicenseLookup['ServicePlans'][$assignedPlan.ServicePlanId]
+                    if (-not $planName) {
+                        $planName = $assignedPlan.Service
+                    }
+                    if ($planName -and -not $licenseServiceList.Contains($planName)) {
+                        $licenseServiceList.Add($planName)
+                    }
+                }
+            }
+
+            if ($licenseNamesList.Count -gt 0) {
+                $LicenseNames = $licenseNamesList
+            }
+            if ($licenseAssignmentList.Count -gt 0) {
+                $LicenseAssignmentDetails = $licenseAssignmentList
+            }
+            if ($licenseServiceList.Count -gt 0) {
+                $LicenseServiceNames = $licenseServiceList
+            }
+        }
         if (-not $RolePerColumn) {
             if ($OnlyWithRoles) {
                 if ($CacheUsersAndApps[$Identity].Direct.Count -eq 0 -and $CacheUsersAndApps[$Identity].Eligible.Count -eq 0) {
@@ -267,6 +329,9 @@
                 CreatedDateTime   = $CacheUsersAndApps[$Identity].Identity.CreatedDateTime
                 Mail              = $CacheUsersAndApps[$Identity].Identity.Mail
                 UserPrincipalName = $CacheUsersAndApps[$Identity].Identity.UserPrincipalName
+                Licenses          = $LicenseNames
+                LicenseAssignments = $LicenseAssignmentDetails
+                LicenseServices   = $LicenseServiceNames
                 AppId             = $CacheUsersAndApps[$Identity].Identity.AppID
                 DirectCount       = $CacheUsersAndApps[$Identity].Direct.Count
                 EligibleCount     = $CacheUsersAndApps[$Identity].Eligible.Count
@@ -302,6 +367,9 @@
                 CreatedDateTime   = $CacheUsersAndApps[$Identity].Identity.CreatedDateTime
                 Mail              = $CacheUsersAndApps[$Identity].Identity.Mail
                 UserPrincipalName = $CacheUsersAndApps[$Identity].Identity.UserPrincipalName
+                Licenses           = $LicenseNames
+                LicenseAssignments = $LicenseAssignmentDetails
+                LicenseServices    = $LicenseServiceNames
             }
             foreach ($Role in $ListActiveRoles | Sort-Object -Unique) {
                 $UserIdentity[$Role] = ''
