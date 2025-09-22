@@ -150,7 +150,7 @@ function Show-MyRole {
         TotalRoles             = $RoleData.Count
         RolesWithMembers       = $RoleData.Where({ $_.TotalMembers -gt 0 }).Count
         TotalUsers             = $UserRoleDataFiltered.Where({ $_.Type -eq 'User' }).Count
-        UsersWithRoles         = $UserRoleDataFiltered.Where({ $_.Type -eq 'User' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
+        UsersWithRoles         = $UserRoleDataFiltered.Where({ $_.Type -eq 'User' -and ($_.AllRolesCount -and $_.AllRolesCount -gt 0) }).Count
         TotalServicePrincipals = $UserRoleDataFiltered.Where({ $_.Type -like '*ServicePrincipal*' }).Count
         SPsWithRoles           = $UserRoleDataFiltered.Where({ $_.Type -like '*ServicePrincipal*' -and (($_.DirectCount -and $_.DirectCount -gt 0) -or ($_.EligibleCount -and $_.EligibleCount -gt 0)) }).Count
         TotalGroups            = $UserRoleDataFiltered.Where({ $_.Type -like '*Group*' }).Count
@@ -415,6 +415,9 @@ function Show-MyRole {
                                     New-HTMLTableCondition -Name 'Enabled' -Value $false -BackgroundColor LightGray -ComparisonType bool
                                     New-HTMLTableCondition -Name 'DirectCount' -Value 0 -Operator gt -BackgroundColor LightGreen -ComparisonType number
                                     New-HTMLTableCondition -Name 'EligibleCount' -Value 0 -Operator gt -BackgroundColor LightYellow -ComparisonType number
+                                    New-HTMLTableCondition -Name 'GroupDirectCount' -Value 0 -Operator gt -BackgroundColor LightCyan -ComparisonType number
+                                    New-HTMLTableCondition -Name 'GroupEligibleCount' -Value 0 -Operator gt -BackgroundColor LemonChiffon -ComparisonType number
+                                    New-HTMLTableCondition -Name 'AllRolesCount' -Value 0 -Operator gt -BackgroundColor AliceBlue -ComparisonType number
                                 } -DataStore JavaScript -DataTableID "TableUserRoles" -PagingLength 25 -ScrollX -ExcludeProperty $ExcludedProperties #-WarningAction SilentlyContinue
                             }
                         }

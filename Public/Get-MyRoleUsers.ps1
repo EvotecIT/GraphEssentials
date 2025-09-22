@@ -316,11 +316,57 @@ function Get-MyRoleUsers {
             }
         }
         if (-not $RolePerColumn) {
+            # Expand group-based role assignments for this identity
+            $GroupNameMember = $CacheUserMembers[$CacheUsersAndApps[$Identity].Identity.Id]
+            $GroupDirectRolesList = [System.Collections.Generic.List[string]]::new()
+            $GroupEligibleRolesList = [System.Collections.Generic.List[string]]::new()
+            if ($GroupNameMember) {
+                foreach ($roleName in $GroupNameMember['Role'].Keys) {
+                    $roleInfo = $GroupNameMember['Role'][$roleName]
+                    if ($roleInfo.GroupsDirect.Count -gt 0) {
+                        if (-not $GroupDirectRolesList.Contains($roleName)) {
+                            $GroupDirectRolesList.Add($roleName)
+                        }
+                    }
+                    if ($roleInfo.GroupsEligible.Count -gt 0) {
+                        if (-not $GroupEligibleRolesList.Contains($roleName)) {
+                            $GroupEligibleRolesList.Add($roleName)
+                        }
+                    }
+                }
+            }
             if ($OnlyWithRoles) {
-                if ($CacheUsersAndApps[$Identity].Direct.Count -eq 0 -and $CacheUsersAndApps[$Identity].Eligible.Count -eq 0) {
+                $hasAnyRole = (
+                    $CacheUsersAndApps[$Identity].Direct.Count +
+                    $CacheUsersAndApps[$Identity].Eligible.Count +
+                    $GroupDirectRolesList.Count +
+                    $GroupEligibleRolesList.Count
+                ) -gt 0
+                if (-not $hasAnyRole) {
                    continue
                 }
             }
+            # Build per-role group membership summary and overall count
+            $GroupRolesSummaryList = [System.Collections.Generic.List[string]]::new()
+            if ($GroupNameMember) {
+                foreach ($roleName in $GroupNameMember['Role'].Keys) {
+                    $roleInfo = $GroupNameMember['Role'][$roleName]
+                    if ($roleInfo.GroupsDirect.Count -gt 0) {
+                        $namesDirect = [System.Collections.Generic.List[string]]::new()
+                        foreach ($g in $roleInfo.GroupsDirect) { $namesDirect.Add($g.DisplayName) }
+                        $GroupRolesSummaryList.Add("$roleName (Direct): " + ([string]::Join(', ', $namesDirect)))
+                    }
+                    if ($roleInfo.GroupsEligible.Count -gt 0) {
+                        $namesEligible = [System.Collections.Generic.List[string]]::new()
+                        foreach ($g in $roleInfo.GroupsEligible) { $namesEligible.Add($g.DisplayName) }
+                        $GroupRolesSummaryList.Add("$roleName (Eligible): " + ([string]::Join(', ', $namesEligible)))
+                    }
+                }
+            }
+            $AllRolesCount = $CacheUsersAndApps[$Identity].Direct.Count +
+                             $CacheUsersAndApps[$Identity].Eligible.Count +
+                             $GroupDirectRolesList.Count +
+                             $GroupEligibleRolesList.Count
             [PSCustomObject] @{
                 Name              = $CacheUsersAndApps[$Identity].Identity.DisplayName
                 Enabled           = $CacheUsersAndApps[$Identity].Identity.AccountEnabled
@@ -335,8 +381,14 @@ function Get-MyRoleUsers {
                 AppId             = $CacheUsersAndApps[$Identity].Identity.AppID
                 DirectCount       = $CacheUsersAndApps[$Identity].Direct.Count
                 EligibleCount     = $CacheUsersAndApps[$Identity].Eligible.Count
+                GroupDirectCount  = $GroupDirectRolesList.Count
+                GroupEligibleCount= $GroupEligibleRolesList.Count
+                AllRolesCount     = $AllRolesCount
                 Direct            = $CacheUsersAndApps[$Identity].Direct.DisplayName
                 Eligible          = $CacheUsersAndApps[$Identity].Eligible.DisplayName
+                GroupDirectRoles  = $GroupDirectRolesList
+                GroupEligibleRoles= $GroupEligibleRolesList
+                GroupRoleAssignments = $GroupRolesSummaryList
                 Location          = $CanonicalName
 
                 #OnPremisesSamAccountName    = $CacheUsersAndApps[$Identity].Identity.OnPremisesSamAccountName
