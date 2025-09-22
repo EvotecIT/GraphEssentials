@@ -115,6 +115,7 @@ function Get-MyUserAuthentication {
                 TemporaryAccessPass    = [System.Collections.Generic.List[object]]::new()
                 WindowsHelloMethods    = [System.Collections.Generic.List[object]]::new()
                 SoftwareOath           = [System.Collections.Generic.List[object]]::new()
+                HardwareOath           = [System.Collections.Generic.List[object]]::new()
                 PasswordMethods        = $MethodTypes -contains 'passwordAuthenticationMethod' # Populate PasswordMethods boolean
             }
 
@@ -204,6 +205,16 @@ function Get-MyUserAuthentication {
                                 })
                         } # If fetch fails, SoftwareOath remains potentially incomplete
                     }
+                    "#microsoft.graph.hardwareOathAuthenticationMethod" {
+                        if ($detailFetchSuccess) {
+                            $Details.HardwareOath.Add(@{
+                                    DisplayName  = $methodDetail.DisplayName
+                                    Issuer       = $methodDetail.Issuer
+                                    SerialNumber = $methodDetail.SerialNumber
+                                    Slot         = $methodDetail.Slot
+                                })
+                        } # If fetch fails, HardwareOath remains potentially incomplete
+                    }
                 } # End Switch
             } # End Foreach ($requestItem)
 
@@ -214,6 +225,8 @@ function Get-MyUserAuthentication {
 
                 $whfbSummaries = $AuthMethods | Where-Object { $_.'@odata.type' -eq '#microsoft.graph.windowsHelloForBusinessAuthenticationMethod' }
                 $whfbSummaries | ForEach-Object { $Details.WindowsHelloMethods.Add($_.displayName) }
+                $hardwareOathSummaries = $AuthMethods | Where-Object { $_.'@odata.type' -eq '#microsoft.graph.hardwareOathAuthenticationMethod' }
+                $hardwareOathSummaries | ForEach-Object { $Details.HardwareOath.Add($_.displayName) }
             }
 
 

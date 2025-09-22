@@ -53,7 +53,9 @@ function New-MyUserAuthenticationObject {
         'PasswordMethodRegistered'       = $Details.PasswordMethods # This is just a boolean derived earlier
         'Microsoft Auth Passwordless'    = $MethodTypes -contains 'microsoftAuthenticatorAuthenticationMethod' # Check specific type
         'FIDO2 Security Key'             = $MethodTypes -contains 'fido2AuthenticationMethod'
-        'Device Bound PushKey'           = $MethodTypes -contains 'deviceBasedPushAuthenticationMethod' # Keep if needed, rare
+        'Device Bound PushKey'           = $MethodTypes -contains 'deviceBasedPushAuthenticationMethod' # Legacy column retained
+        'Device Bound Push'              = ($MethodTypes -contains 'deviceBasedPushAuthenticationMethod') -or (
+                                              ($AuthMethods | Where-Object { $_.'@odata.type' -eq '#microsoft.graph.deviceBasedPushAuthenticationMethod' }).Count -gt 0)
         'Microsoft Auth Push'            = $MethodTypes -contains 'microsoftAuthenticatorAuthenticationMethod' # Same as passwordless bool for now
         'Windows Hello'                  = $MethodTypes -contains 'windowsHelloForBusinessAuthenticationMethod'
         'Microsoft Auth App'             = $MethodTypes -contains 'microsoftAuthenticatorAuthenticationMethod' # Same as passwordless bool for now
@@ -75,9 +77,11 @@ function New-MyUserAuthenticationObject {
         TemporaryAccessPass              = $Details.TemporaryAccessPass
         WindowsHelloForBusiness          = $Details.WindowsHelloMethods
         SoftwareOathMethods              = $Details.SoftwareOath
+        HardwareOathMethods              = $Details.HardwareOath
 
         # Additional Info
         TotalMethodsCount                = $AuthMethods.Count
+        DeviceBoundPushCount             = ($AuthMethods | Where-Object { $_.'@odata.type' -eq '#microsoft.graph.deviceBasedPushAuthenticationMethod' }).Count
 
         CreatedDateTime                  = $User.CreatedDateTime
     }

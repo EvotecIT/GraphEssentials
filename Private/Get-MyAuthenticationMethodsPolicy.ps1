@@ -30,17 +30,19 @@
     Write-Verbose -Message "Get-MyAuthenticationMethodsPolicy - Getting method configurations"
     $Methods = @{}
 
-    # Get each method configuration independently
+    # Query all known methods; individual calls are wrapped in try/catch inside Get-AuthMethodConfig and will warn when missing
     $AuthenticatorConfig = Get-AuthMethodConfig -MethodName "Microsoft Authenticator" -ConfigId "MicrosoftAuthenticator"
-    $FIDO2Config = Get-AuthMethodConfig -MethodName "FIDO2" -ConfigId "Fido2"
-    $SMSConfig = Get-AuthMethodConfig -MethodName "SMS" -ConfigId "Sms"
-    $TempAccessConfig = Get-AuthMethodConfig -MethodName "Temporary Access Pass" -ConfigId "TemporaryAccessPass"
-    $EmailConfig = Get-AuthMethodConfig -MethodName "Email" -ConfigId "Email"
-    $VoiceConfig = Get-AuthMethodConfig -MethodName "Voice" -ConfigId "Voice"
-    $SoftwareConfig = Get-AuthMethodConfig -MethodName "Software Token" -ConfigId "SoftwareOath"
-    $PasswordConfig = Get-AuthMethodConfig -MethodName "Password" -ConfigId "Password"
+    $FIDO2Config        = Get-AuthMethodConfig -MethodName "FIDO2" -ConfigId "Fido2"
+    $SMSConfig          = Get-AuthMethodConfig -MethodName "SMS" -ConfigId "Sms"
+    $TempAccessConfig   = Get-AuthMethodConfig -MethodName "Temporary Access Pass" -ConfigId "TemporaryAccessPass"
+    $EmailConfig        = Get-AuthMethodConfig -MethodName "Email" -ConfigId "Email"
+    $VoiceConfig        = Get-AuthMethodConfig -MethodName "Voice" -ConfigId "Voice"
+    $SoftwareConfig     = Get-AuthMethodConfig -MethodName "Software Token" -ConfigId "SoftwareOath"
+    # Note: Password is not a configurable Authentication Methods Policy resource in most tenants
+    # and typically returns resourceNotFound. We intentionally do not query it to avoid noise.
     $WindowsHelloConfig = Get-AuthMethodConfig -MethodName "Windows Hello for Business" -ConfigId "WindowsHelloForBusiness"
-    $X509Config = Get-AuthMethodConfig -MethodName "X.509 Certificate" -ConfigId "X509Certificate"
+    $X509Config         = Get-AuthMethodConfig -MethodName "X.509 Certificate" -ConfigId "X509Certificate"
+    $HardwareOathConfig = Get-AuthMethodConfig -MethodName "Hardware OATH" -ConfigId "HardwareOath"
 
     # Build the methods hashtable with available configurations
     if ($AuthenticatorConfig) {
@@ -107,12 +109,6 @@
         }
     }
 
-    if ($PasswordConfig) {
-        $Methods['Password'] = [PSCustomObject]@{
-            State = $PasswordConfig.State
-        }
-    }
-
     if ($WindowsHelloConfig) {
         $Methods['WindowsHello'] = [PSCustomObject]@{
             State          = $WindowsHelloConfig.State
@@ -135,6 +131,13 @@
                     }
                 }
             )
+        }
+    }
+
+    if ($HardwareOathConfig) {
+        $Methods['HardwareOath'] = [PSCustomObject]@{
+            State          = $HardwareOathConfig.State
+            ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $HardwareOathConfig.ExcludeTargets
         }
     }
 
