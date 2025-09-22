@@ -35,6 +35,7 @@ function ConvertTo-MyFormattedUserAuth {
             'Microsoft Auth Passwordless'    = $User.'Microsoft Auth Passwordless'
             'FIDO2 Security Key'             = $User.'FIDO2 Security Key'
             'Device Bound PushKey'           = $User.'Device Bound PushKey'
+            'Device Bound Push'              = $User.'Device Bound Push'
             'Microsoft Auth Push'            = $User.'Microsoft Auth Push'
             'Windows Hello'                  = $User.'Windows Hello'
             'Microsoft Auth App'             = $User.'Microsoft Auth App'
@@ -46,6 +47,9 @@ function ConvertTo-MyFormattedUserAuth {
             'Security Questions Registered'  = $User.'Security Questions Registered'
             'Voice Call'                     = $User.'Voice Call'
             'Alternative Phone'              = $User.'Alternative Phone'
+
+            # Counts
+            DeviceBoundPushCount             = $User.DeviceBoundPushCount
 
             # Call formatter function for complex properties
             MethodTypesRegistered            = Format-MyUserAuthProperty -PropertyData $User.MethodTypesRegistered -PropertyType 'MethodTypesRegistered' -NotConfigured 'None'

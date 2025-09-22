@@ -115,8 +115,8 @@ function Show-MyUserAuthentication {
         }
     } elseif ($IncludeRoles) {
         $rolesOnly = Get-MyUserRolesAndLicensesLookup -AllUsers:$false
-        if ($rolesOnly) { 
-            $RolesLookup = $rolesOnly.Roles 
+        if ($rolesOnly) {
+            $RolesLookup = $rolesOnly.Roles
             if ($IncludeLicenseServices) { $LicenseServicesLookup = $rolesOnly.LicenseServices }
         }
     } elseif ($IncludeLicenses -or $IncludeLicenseServices) {
@@ -127,7 +127,7 @@ function Show-MyUserAuthentication {
                 $LicensesLookup = @{}
                 $LicenseServicesLookup = @{}
                 foreach ($u in $allUsersForLicenses) {
-                    if ($u.UserPrincipalName) { 
+                    if ($u.UserPrincipalName) {
                         if ($IncludeLicenses)        { $LicensesLookup[$u.UserPrincipalName]        = $u.Licenses }
                         if ($IncludeLicenseServices)  { $LicenseServicesLookup[$u.UserPrincipalName]  = $u.Plans }
                     }
@@ -315,7 +315,7 @@ function Show-MyUserAuthentication {
                                 }
                             }
                             New-TableCondition -Name 'IsCloudOnly' -Value $true -BackgroundColor '#0078d4' -Color White -ComparisonType bool
-                        } -ScrollX -Filtering -ExcludeProperty $UserExcludedProperties # No ArrayJoin needed
+                        } -ScrollX -Filtering -ExcludeProperty $UserExcludedProperties -InvokeHTMLTags # No ArrayJoin needed
                     }
                 } else {
                     # Display message if no user data
