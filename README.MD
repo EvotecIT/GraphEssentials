@@ -57,18 +57,42 @@ Connect-MgGraph -AccessToken $AccessToken
 Connect-MgGraph -Scopes Application.ReadWrite.All, AccessReview.Read.All, AdministrativeUnit.Read.All, 'User.Read.All', RoleManagement.Read.Directory, Directory.Read.All, EntitlementManagement.Read.All
 ```
 
+### Available Commands
 
-#### MDI
+Complete list of commands available in GraphEssentials module.
 
-Classing guide: https://learn.microsoft.com/en-us/previous-versions/defender-for-identity/classic-integrate-mde
-Updated starting point: https://learn.microsoft.com/en-us/defender-for-identity/quick-installation-guide
-Start here: https://learn.microsoft.com/en-us/defender-for-identity/prerequisites
-
-1. [Capacity planning](https://learn.microsoft.com/en-us/defender-for-identity/capacity-planning)
-2. [Download the Sizing tool](https://github.com/microsoft/ATA-AATP-Sizing-Tool/releases)
-3. [Service account recommendations](https://learn.microsoft.com/en-us/defender-for-identity/directory-service-accounts)
-4. [Download the Sensor](https://learn.microsoft.com/en-us/defender-for-identity/download-sensor)
-5. [Install the Sensor on DC's ](https://learn.microsoft.com/en-us/defender-for-identity/install-sensor)
-6. [Basic Settings that you should review](https://www.microsoft.com/videoplayer/embed/RWFVEX)
-7. [ADFS Configuration](https://learn.microsoft.com/en-us/defender-for-identity/active-directory-federation-services)
-8. [Configure Object Auditing](https://aka.ms/mdi/objectauditing) - this is a must
+| CommandType | Name                             |
+| ----------- | -------------------------------- |
+| Function    | Get-MgToken                      |
+| Function    | Get-MyApp                        |
+| Function    | Get-MyAppCredentials             |
+| Function    | Get-MyConditionalAccess          |
+| Function    | Get-MyDefenderDeploymentKey      |
+| Function    | Get-MyDefenderHealthIssues       |
+| Function    | Get-MyDefenderSecureScore        |
+| Function    | Get-MyDefenderSecureScoreProfile |
+| Function    | Get-MyDefenderSensor             |
+| Function    | Get-MyDefenderSummary            |
+| Function    | Get-MyDevice                     |
+| Function    | Get-MyDeviceIntune               |
+| Function    | Get-MyLicense                    |
+| Function    | Get-MyRole                       |
+| Function    | Get-MyRoleHistory                |
+| Function    | Get-MyRoleUsers                  |
+| Function    | Get-MyTeam                       |
+| Function    | Get-MyTenantName                 |
+| Function    | Get-MyUsageReports               |
+| Function    | Get-MyUser                       |
+| Function    | Get-MyUserAuthentication         |
+| Function    | Invoke-MyGraphEssentials         |
+| Function    | Invoke-MyGraphUsageReports       |
+| Function    | New-MyApp                        |
+| Function    | New-MyAppCredentials             |
+| Function    | Register-FIDO2Key                |
+| Function    | Remove-MyAppCredentials          |
+| Function    | Send-MyApp                       |
+| Function    | Show-MyApp                       |
+| Function    | Show-MyConditionalAccess         |
+| Function    | Show-MyDefender                  |
+| Function    | Show-MyRole                      |
+| Function    | Show-MyUserAuthentication        |
