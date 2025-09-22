@@ -38,7 +38,8 @@
     $EmailConfig        = Get-AuthMethodConfig -MethodName "Email" -ConfigId "Email"
     $VoiceConfig        = Get-AuthMethodConfig -MethodName "Voice" -ConfigId "Voice"
     $SoftwareConfig     = Get-AuthMethodConfig -MethodName "Software Token" -ConfigId "SoftwareOath"
-    $PasswordConfig     = Get-AuthMethodConfig -MethodName "Password" -ConfigId "Password"
+    # Note: Password is not a configurable Authentication Methods Policy resource in most tenants
+    # and typically returns resourceNotFound. We intentionally do not query it to avoid noise.
     $WindowsHelloConfig = Get-AuthMethodConfig -MethodName "Windows Hello for Business" -ConfigId "WindowsHelloForBusiness"
     $X509Config         = Get-AuthMethodConfig -MethodName "X.509 Certificate" -ConfigId "X509Certificate"
     $HardwareOathConfig = Get-AuthMethodConfig -MethodName "Hardware OATH" -ConfigId "HardwareOath"
@@ -105,12 +106,6 @@
         $Methods['Software'] = [PSCustomObject]@{
             State          = $SoftwareConfig.State
             ExcludeTargets = ConvertTo-FlattenedExcludeTargets -ExcludeTargets $SoftwareConfig.ExcludeTargets
-        }
-    }
-
-    if ($PasswordConfig) {
-        $Methods['Password'] = [PSCustomObject]@{
-            State = $PasswordConfig.State
         }
     }
 
