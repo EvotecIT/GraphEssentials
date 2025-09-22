@@ -61,6 +61,9 @@ function New-MyAuthDetailRequests {
                 "#microsoft.graph.softwareOathAuthenticationMethod" {
                     $needsDetail = $true; $detailUrl = "/users/$($UserId)/authentication/softwareOathMethods/$($methodId)"
                 }
+                "#microsoft.graph.hardwareOathAuthenticationMethod" {
+                    $needsDetail = $true; $detailUrl = "/users/$($UserId)/authentication/hardwareOathMethods/$($methodId)"
+                }
             }
 
             # Add to list if detail needed

@@ -28,6 +28,21 @@ function Show-MyUserAuthentication {
     .PARAMETER IncludeSecurityQuestionStatus
     Optional. If specified, checks if each user has registered security questions.
     WARNING: This can significantly increase execution time and memory usage.
+
+    .PARAMETER IncludeRoles
+    Optional. When specified, augments the user details with a Roles column
+    showing aggregated directory roles per user (direct, eligible, and via groups).
+    Reuses existing Get-MyRoleUsers data.
+
+    .PARAMETER IncludeLicenses
+    Optional. When specified, augments the user details with a Licenses column
+    showing assigned license names per user. Reuses existing Get-MyUser or
+    Get-MyRoleUsers (when IncludeRoles is also used) data.
+
+    .PARAMETER IncludeLicenseServices
+    Optional. When specified, augments the user details with LicenseServices (aka
+    sublicenses/service plans) per user. Reuses existing data from Get-MyRoleUsers
+    (LicenseServices) or Get-MyUser (Plans) depending on other switches.
     #>
     [cmdletBinding()]
     param(
@@ -36,7 +51,10 @@ function Show-MyUserAuthentication {
         [switch] $ShowHTML,
         [string] $UserPrincipalName,
         [switch] $IncludeDeviceDetails,
-        [switch] $IncludeSecurityQuestionStatus
+        [switch] $IncludeSecurityQuestionStatus,
+        [switch] $IncludeRoles,
+        [switch] $IncludeLicenses,
+        [switch] $IncludeLicenseServices
     )
 
     $Script:Reporting = [ordered] @{}
@@ -83,11 +101,52 @@ function Show-MyUserAuthentication {
         # Allow report generation to continue to show policy info if available
     }
 
+    # --- Optional lookups for Roles/Licenses (reuse existing calls) ---
+    $RolesLookup = $null
+    $LicensesLookup = $null
+    $LicenseServicesLookup = $null
+    if ($IncludeRoles -and ($IncludeLicenses -or $IncludeLicenseServices)) {
+        # Single call to reuse both datasets where possible
+        $bothLookups = Get-MyUserRolesAndLicensesLookup -AllUsers
+        if ($bothLookups) {
+            $RolesLookup = $bothLookups.Roles
+            $LicensesLookup = $bothLookups.Licenses
+            $LicenseServicesLookup = $bothLookups.LicenseServices
+        }
+    } elseif ($IncludeRoles) {
+        $rolesOnly = Get-MyUserRolesAndLicensesLookup -AllUsers:$false
+        if ($rolesOnly) { 
+            $RolesLookup = $rolesOnly.Roles 
+            if ($IncludeLicenseServices) { $LicenseServicesLookup = $rolesOnly.LicenseServices }
+        }
+    } elseif ($IncludeLicenses -or $IncludeLicenseServices) {
+        # Get license names per user with existing helper
+        try {
+            $allUsersForLicenses = Get-MyUser
+            if ($allUsersForLicenses) {
+                $LicensesLookup = @{}
+                $LicenseServicesLookup = @{}
+                foreach ($u in $allUsersForLicenses) {
+                    if ($u.UserPrincipalName) { 
+                        if ($IncludeLicenses)        { $LicensesLookup[$u.UserPrincipalName]        = $u.Licenses }
+                        if ($IncludeLicenseServices)  { $LicenseServicesLookup[$u.UserPrincipalName]  = $u.Plans }
+                    }
+                }
+            }
+        } catch {
+            Write-Warning -Message "Show-MyUserAuthentication - Failed to retrieve licenses via Get-MyUser. Error: $($_.Exception.Message)"
+        }
+    }
+
     # --- Pre-format UserAuth data for better table display ---
     $FormattedUserAuth = @()
     if ($UserAuth) {
-        # Use the new private function to format the data
-        $FormattedUserAuth = ConvertTo-MyFormattedUserAuth -UserAuthData $UserAuth
+        # Use the existing private function to format the data (with optional augmentation)
+        $fmtParams = @{ UserAuthData = $UserAuth }
+        if ($RolesLookup)            { $fmtParams['RolesLookup']            = $RolesLookup }
+        if ($LicensesLookup)         { $fmtParams['LicensesLookup']         = $LicensesLookup }
+        if ($LicenseServicesLookup)  { $fmtParams['LicenseServicesLookup']  = $LicenseServicesLookup }
+        $FormattedUserAuth = ConvertTo-MyFormattedUserAuth @fmtParams
     }
 
     # --- Prepare Auth Strength Metrics ---
@@ -161,60 +220,27 @@ function Show-MyUserAuthentication {
             # --- Tab 1: User Authentication Data ---
             New-HTMLTab -Name "User Data ($($TotalUsers))" {
                 if ($FormattedUserAuth.Count -gt 0) {
-                    # Check the formatted data
-                    # Statistics Section with Pie Charts
-                    New-HTMLSection -HeaderText 'User Authentication Overview' {
-                        # Key metrics section - Extended
-                        New-HTMLSection {
-                            New-HTMLPanel {
-                                New-HTMLText -Text "Total Users" -FontSize 14pt -Color '#666666'
-                                New-HTMLText -Text $TotalUsers -FontSize 24pt -Color '#0078d4'
-                            }
-                            New-HTMLPanel {
-                                New-HTMLText -Text "MFA Capable Users" -FontSize 14pt -Color '#666666'
-                                New-HTMLText -Text $MFACapable -FontSize 24pt -Color '#0078d4'
-                                if ($TotalUsers -gt 0) {
-                                    New-HTMLText -Text "$([math]::Round(($MFACapable / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                                }
-                            }
-                            New-HTMLPanel {
-                                New-HTMLText -Text "Strong Auth Registered" -FontSize 14pt -Color '#666666'
-                                New-HTMLText -Text $StrongAuth -FontSize 24pt -Color '#0078d4'
-                                if ($TotalUsers -gt 0) {
-                                    New-HTMLText -Text "$([math]::Round(($StrongAuth / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                                }
-                            }
-                            New-HTMLPanel {
-                                New-HTMLText -Text "Passwordless Capable" -FontSize 14pt -Color '#666666'
-                                New-HTMLText -Text $PasswordlessCapable -FontSize 24pt -Color '#0078d4'
-                                if ($TotalUsers -gt 0) {
-                                    New-HTMLText -Text "$([math]::Round(($PasswordlessCapable / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                                }
-                            }
-                            New-HTMLPanel {
-                                New-HTMLText -Text "Strong + Weak Auth User" -FontSize 14pt -Color '#666666'
-                                New-HTMLText -Text $StrongWeakAuth -FontSize 24pt -Color '#0078d4'
-                                if ($TotalUsers -gt 0) {
-                                    New-HTMLText -Text "$([math]::Round(($StrongWeakAuth / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                                }
-                            }
-                            # Add new panels for Enabled/Disabled, Cloud/Synced, Zero MFA
-                            New-HTMLPanel {
-                                New-HTMLText -Text "Enabled / Disabled" -FontSize 14pt -Color '#666666'
-                                New-HTMLText -Text "$($Stats.EnabledUsers) / $($Stats.DisabledUsers)" -FontSize 24pt -Color '#0078d4'
-                            }
-                            New-HTMLPanel {
-                                New-HTMLText -Text "Cloud Only / Synced" -FontSize 14pt -Color '#666666'
-                                New-HTMLText -Text "$($Stats.CloudOnlyUsers) / $($Stats.SyncedUsers)" -FontSize 24pt -Color '#0078d4'
-                            }
-                            New-HTMLPanel {
-                                New-HTMLText -Text "Users without MFA" -FontSize 14pt -Color '#666666'
-                                New-HTMLText -Text "$($Stats.ZeroMfaUsers)" -FontSize 24pt -Color '#d13438' # Highlight in red
-                                if ($TotalUsers -gt 0) {
-                                    New-HTMLText -Text "$([math]::Round(($Stats.ZeroMfaUsers / $TotalUsers) * 100, 2))% of users" -Color '#666666'
-                                }
-                            }
-                        } -Invisible
+                    # Modern InfoCards Overview
+                    New-HTMLSection -HeaderText 'User Authentication Overview' -Density Compact {
+                        # Precompute subtitles to avoid inline if/else in parameters
+                        $SubtitleTotalUsers   = if ($TotalUsers -gt 0) { '100% of users' } else { 'No users' }
+                        $SubtitleMfaCapable   = if ($TotalUsers -gt 0) { "$( [math]::Round(($MFACapable / $TotalUsers) * 100, 2))% of users" } else { 'n/a' }
+                        $SubtitleStrongAuth   = if ($TotalUsers -gt 0) { "$( [math]::Round(($StrongAuth / $TotalUsers) * 100, 2))% of users" } else { 'n/a' }
+                        $SubtitlePwdless      = if ($TotalUsers -gt 0) { "$( [math]::Round(($PasswordlessCapable / $TotalUsers) * 100, 2))% of users" } else { 'n/a' }
+                        $SubtitleStrongWeak   = if ($TotalUsers -gt 0) { "$( [math]::Round(($StrongWeakAuth / $TotalUsers) * 100, 2))% of users" } else { 'n/a' }
+                        $SubtitleZeroMfaUsers = if ($TotalUsers -gt 0) { "$( [math]::Round(($Stats.ZeroMfaUsers / $TotalUsers) * 100, 2))% of users" } else { 'n/a' }
+                        New-HTMLSection -Invisible {
+                            New-HTMLInfoCard -Title "Total Users" -Number $TotalUsers -Subtitle $SubtitleTotalUsers -Icon "👥" -IconColor "#0078d4" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                            New-HTMLInfoCard -Title "MFA Capable Users" -Number $MFACapable -Subtitle $SubtitleMfaCapable -Icon "🔒" -IconColor "#21c87a" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                            New-HTMLInfoCard -Title "Strong Auth" -Number $StrongAuth -Subtitle $SubtitleStrongAuth -Icon "💪" -IconColor "#ffb300" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                            New-HTMLInfoCard -Title "Passwordless Capable" -Number $PasswordlessCapable -Subtitle $SubtitlePwdless -Icon "🔑" -IconColor "#d13438" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                        }
+                        New-HTMLSection -Density Compact -Invisible {
+                            New-HTMLInfoCard -Title "Strong + Weak Auth" -Number $StrongWeakAuth -Subtitle $SubtitleStrongWeak -Icon "⚖️" -IconColor "#6f42c1" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                            New-HTMLInfoCard -Title "Enabled / Disabled" -Number "$($Stats.EnabledUsers) / $($Stats.DisabledUsers)" -Subtitle "Account status split" -Icon "✅" -IconColor "#198754" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                            New-HTMLInfoCard -Title "CloudOnly / Synced" -Number "$($Stats.CloudOnlyUsers) / $($Stats.SyncedUsers)" -Subtitle "User origin split" -Icon "☁️" -IconColor "#0078d4" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                            New-HTMLInfoCard -Title "Without MFA" -Number $Stats.ZeroMfaUsers -Subtitle $SubtitleZeroMfaUsers -Icon "🚫" -IconColor "#d13438" -Style "Standard" -ShadowIntensity 'Normal' -BorderRadius 2px
+                        }
                         New-HTMLSection -Invisible {
                             New-HTMLPanel {
                                 New-HTMLChart -Title 'MFA Status' {
@@ -267,10 +293,18 @@ function Show-MyUserAuthentication {
                     # Consolidated User Details Table
                     New-HTMLSection -HeaderText 'User Authentication Details' {
                         # Use the pre-formatted data
+                        # Exclude optional columns if not requested
+                        $UserExcludedProperties = @(
+                            $ExcludedUserProperties + @(
+                                if (-not $IncludeRoles) { 'Roles' }
+                                if (-not $IncludeLicenses) { 'Licenses' }
+                                if (-not $IncludeLicenseServices) { 'LicenseServices' }
+                            )
+                        ) | Where-Object { $_ }
                         New-HTMLTable -DataTable $FormattedUserAuth { # <-- Use $FormattedUserAuth
                             # Apply conditional formatting for boolean flags
                             foreach ($Column in @('Enabled', 'MFA', 'IsMfaCapable', 'IsPasswordlessCapable', 'PasswordMethodRegistered',
-                                    'Microsoft Auth Passwordless', 'FIDO2 Security Key', 'Device Bound PushKey',
+                                    'Microsoft Auth Passwordless', 'FIDO2 Security Key', 'Device Bound PushKey', 'Device Bound Push',
                                     'Microsoft Auth Push', 'Windows Hello', 'Microsoft Auth App', 'Hardware OTP',
                                     'Software OTP', 'Temporary Pass', 'MacOS Secure Key', 'SMS', 'Email',
                                     'Security Questions Registered', 'Voice Call', 'Alternative Phone')) {
@@ -281,7 +315,7 @@ function Show-MyUserAuthentication {
                                 }
                             }
                             New-TableCondition -Name 'IsCloudOnly' -Value $true -BackgroundColor '#0078d4' -Color White -ComparisonType bool
-                        } -ScrollX -Filtering -ExcludeProperty $ExcludedUserProperties # No ArrayJoin needed
+                        } -ScrollX -Filtering -ExcludeProperty $UserExcludedProperties # No ArrayJoin needed
                     }
                 } else {
                     # Display message if no user data

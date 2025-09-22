@@ -2,7 +2,11 @@ function ConvertTo-MyFormattedUserAuth {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [array]$UserAuthData
+        [array]$UserAuthData,
+
+        [hashtable] $RolesLookup,
+        [hashtable] $LicensesLookup,
+        [hashtable] $LicenseServicesLookup
     )
 
     if (-not $UserAuthData) {
@@ -11,7 +15,7 @@ function ConvertTo-MyFormattedUserAuth {
 
     Write-Verbose "ConvertTo-MyFormattedUserAuth: Formatting $($UserAuthData.Count) user records for display."
     $FormattedData = foreach ($User in $UserAuthData) {
-        [PSCustomObject]@{ # Indentation fixed
+        $row = [ordered]@{
             UserPrincipalName                = $User.UserPrincipalName
             DisplayName                      = $User.DisplayName
             Enabled                          = $User.Enabled
@@ -27,7 +31,6 @@ function ConvertTo-MyFormattedUserAuth {
             IsPasswordlessCapable            = $User.IsPasswordlessCapable
             TotalMethodsCount                = $User.TotalMethodsCount
 
-
             'PasswordMethodRegistered'       = $User.'PasswordMethodRegistered'
             'Microsoft Auth Passwordless'    = $User.'Microsoft Auth Passwordless'
             'FIDO2 Security Key'             = $User.'FIDO2 Security Key'
@@ -38,10 +41,8 @@ function ConvertTo-MyFormattedUserAuth {
             'Hardware OTP'                   = $User.'Hardware OTP'
             'Software OTP'                   = $User.'Software OTP'
             'Temporary Pass'                 = $User.'Temporary Pass'
-            #
             'SMS'                            = $User.'SMS'
             'Email'                          = $User.'Email'
-            # Security Questions column: Use the value passed in $Details, default to false if key doesn't exist
             'Security Questions Registered'  = $User.'Security Questions Registered'
             'Voice Call'                     = $User.'Voice Call'
             'Alternative Phone'              = $User.'Alternative Phone'
@@ -55,9 +56,28 @@ function ConvertTo-MyFormattedUserAuth {
             TemporaryAccessPass              = Format-MyUserAuthProperty -PropertyData $User.TemporaryAccessPass -PropertyType 'TemporaryAccessPass'
             WindowsHelloForBusiness          = Format-MyUserAuthProperty -PropertyData $User.WindowsHelloForBusiness -PropertyType 'WindowsHelloForBusiness'
             SoftwareOathMethods              = Format-MyUserAuthProperty -PropertyData $User.SoftwareOathMethods -PropertyType 'SoftwareOathMethods'
+            HardwareOathMethods              = if ($User.PSObject.Properties.Name -contains 'HardwareOathMethods') { 
+                                                  Format-MyUserAuthProperty -PropertyData $User.HardwareOathMethods -PropertyType 'HardwareOathMethods' 
+                                              } else { 'Not Configured' }
 
             CreatedDateTime                  = $User.CreatedDateTime
         }
+
+        # Optional augmentation
+        if ($RolesLookup) {
+            $roles = if ($RolesLookup.ContainsKey($User.UserPrincipalName)) { $RolesLookup[$User.UserPrincipalName] } else { $null }
+            $row['Roles'] = $roles
+        }
+        if ($LicensesLookup) {
+            $licenses = if ($LicensesLookup.ContainsKey($User.UserPrincipalName)) { $LicensesLookup[$User.UserPrincipalName] } else { $null }
+            $row['Licenses'] = $licenses
+        }
+        if ($LicenseServicesLookup) {
+            $licenseServices = if ($LicenseServicesLookup.ContainsKey($User.UserPrincipalName)) { $LicenseServicesLookup[$User.UserPrincipalName] } else { $null }
+            $row['LicenseServices'] = $licenseServices
+        }
+
+        [PSCustomObject]$row
     }
     Write-Verbose "ConvertTo-MyFormattedUserAuth: Finished formatting."
     return $FormattedData

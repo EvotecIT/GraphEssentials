@@ -6,7 +6,7 @@ function Format-MyUserAuthProperty {
         $PropertyData,
 
         [Parameter(Mandatory)]
-        [ValidateSet('FIDO2Keys', 'PhoneMethods', 'EmailMethods', 'MicrosoftAuthenticator', 'TemporaryAccessPass', 'WindowsHelloForBusiness', 'SoftwareOathMethods', 'MethodTypesRegistered')]
+        [ValidateSet('FIDO2Keys', 'PhoneMethods', 'EmailMethods', 'MicrosoftAuthenticator', 'TemporaryAccessPass', 'WindowsHelloForBusiness', 'SoftwareOathMethods', 'HardwareOathMethods', 'MethodTypesRegistered')]
         [string]$PropertyType,
 
         [string]$NotConfigured = "Not Configured"
@@ -21,7 +21,12 @@ function Format-MyUserAuthProperty {
             foreach ($item in $PropertyData) {
                 if ($item -is [hashtable] -or $item -is [pscustomobject]) {
                     $createdDate = if($item.CreatedDateTime) { $item.CreatedDateTime.ToString('yyyy-MM-dd') } else { 'N/A' }
-                    "$($item.Model) - $($item.DisplayName) (Created: $createdDate)"
+                    $aaguid = if ($item.AAGuid) { $item.AAGuid } elseif ($item.AaGuid) { $item.AaGuid } else { $null }
+                    if ($aaguid) {
+                        "$($item.Model) - $($item.DisplayName) (AAGUID: $aaguid, Created: $createdDate)"
+                    } else {
+                        "$($item.Model) - $($item.DisplayName) (Created: $createdDate)"
+                    }
                 } else { $item } # Simple display name
             }
         }
@@ -68,18 +73,34 @@ function Format-MyUserAuthProperty {
                  } else { $item }
             }
         }
+        'HardwareOathMethods' {
+            foreach ($item in $PropertyData) {
+                 if ($item -is [hashtable] -or $item -is [pscustomobject]) {
+                    $issuer = $item.Issuer
+                    $serial = $item.SerialNumber
+                    $slot   = $item.Slot
+                    if ($issuer -or $serial -or $slot) {
+                        "Issuer: $issuer; Serial: $serial; Slot: $slot"
+                    } elseif ($item.DisplayName) {
+                        $item.DisplayName
+                    } else {
+                        'Token registered'
+                    }
+                 } else { $item }
+            }
+        }
         'MethodTypesRegistered' {
             # This expects an array of strings already
             $PropertyData -join '; '
         }
         default {
             # Should not happen with ValidateSet, but fallback
-            if ($PropertyData -is [array]) { $PropertyData -join '<br />' } else { $PropertyData }
+            if ($PropertyData -is [array]) { $PropertyData -join '<br>' } else { $PropertyData }
         }
     }
 
     if ($FormattedItems) {
-        $FormattedItems -join '<br />'
+        $FormattedItems -join '<br>'
     } else {
         $NotConfigured # Return default if loop produced no output
     }

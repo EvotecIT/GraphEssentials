@@ -4,7 +4,7 @@ $ProgressPreference = 'SilentlyContinue'
 
 Connect-MgGraph -Scopes "Policy.Read.All", "Organization.Read.All", "AuditLog.Read.All", "UserAuthenticationMethod.Read.All", "RoleAssignmentSchedule.Read.Directory", "RoleEligibilitySchedule.Read.Directory", 'User.Read.All' -NoWelcome
 
-Show-MyUserAuthentication -FilePath "$PSScriptRoot\Reports\MyUserAuthentication.html" -Online -ShowHTML -Verbose #-IncludeSecurityQuestionStatus
+Show-MyUserAuthentication -FilePath "$PSScriptRoot\Reports\MyUserAuthentication.html" -Online -ShowHTML -Verbose -IncludeRoles -IncludeLicenses -IncludeDeviceDetails -IncludeLicenseServices #-IncludeSecurityQuestionStatus
 
 return
 
