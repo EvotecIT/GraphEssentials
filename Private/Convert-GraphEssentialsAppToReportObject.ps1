@@ -148,6 +148,19 @@ function Convert-GraphEssentialsAppToReportObject {
     $KeysCount = 0
     $KeysDateOldest = $null
     $KeysDateNewest = $null
+    $Description = if ($ApplicationDetails) { $ApplicationDetails.Description } else { $null }
+    $OwnerHintFromDescription = $null
+    $OwnerHintTypeFromDescription = $null
+    if ($Description) {
+        $firstToken = ($Description -split '[\s;,]')[0]
+        if ($firstToken) {
+            $candidate = $firstToken.Trim()
+            $OwnerHintFromDescription = $candidate
+            if ($candidate -match '^[^@\s]+@[^@\s]+$') { $OwnerHintTypeFromDescription = 'upn' } elseif ($candidate -match '^[A-Za-z0-9_\.-]{2,}$') { $OwnerHintTypeFromDescription = 'sam' } else { $OwnerHintTypeFromDescription = 'unknown' }
+        }
+    }
+
+    # Ownership hints are collected only; GraphEssentials stays ILM/PUID-agnostic.
 
     # Credentials require the corresponding Application object
     if ($ApplicationDetails) {
@@ -160,6 +173,16 @@ function Convert-GraphEssentialsAppToReportObject {
             $KeysCount = $AppCredentialsDetails.Count
             $KeysTypes = $AppCredentialsDetails.Type | Sort-Object -Unique
             $KeysDescription = $AppCredentialsDetails.KeyDisplayName | Sort-Object -Unique
+            $OwnerHintsFromKeys = @()
+            foreach ($kd in $KeysDescription) {
+                if ($null -eq $kd) { continue }
+                if ($kd -match '([^@\s]+@[^@\s]+)') {
+                    $OwnerHintsFromKeys += $Matches[1]
+                } elseif ($kd -match '^[A-Za-z0-9_\.-]{2,}$') {
+                    $OwnerHintsFromKeys += $kd
+                }
+            }
+            $OwnerHintsFromKeys = $OwnerHintsFromKeys | Sort-Object -Unique
             $DaysToExpire = $AppCredentialsDetails.DaysToExpire | Where-Object { $_ -ne $null } | Sort-Object
             if ($DaysToExpire.Count -gt 0) {
                 $DaysToExpireOldest = $DaysToExpire[0]
@@ -197,6 +220,7 @@ function Convert-GraphEssentialsAppToReportObject {
         # Core Info (from Service Principal)
         ApplicationName                       = $displayName # From SP
         ApplicationId                         = $spId # SP Object ID
+        ApplicationObjectId                   = if ($ApplicationDetails) { $ApplicationDetails.Id } else { $null } # App Object ID (for updates)
         AppId                                 = $appId # App/Client ID
         Source                                = $Source
         ServicePrincipalType                  = $ServicePrincipal.ServicePrincipalType # Added SP Type
@@ -241,9 +265,13 @@ function Convert-GraphEssentialsAppToReportObject {
         KeysDateOldest                        = $KeysDateOldest
         KeysDateNewest                        = $KeysDateNewest
         KeysDescription                       = $KeysDescription # From Application credentials
+        OwnerHintsFromKeys                    = $OwnerHintsFromKeys
         DescriptionWithEmail                  = $DescriptionWithEmail # From Application credentials
         # Other (from Application, if available)
         Notes                                 = if ($ApplicationDetails) { $ApplicationDetails.Notes } else { $null }
+        Description                           = $Description
+        OwnerHintFromDescription              = $OwnerHintFromDescription
+        OwnerHintTypeFromDescription          = $OwnerHintTypeFromDescription
         CreatedDate                           = if ($ApplicationDetails) { $ApplicationDetails.CreatedDateTime } else { $null }
     }
     if ($IncludeCredentials -and $AppCredentialsDetails) {

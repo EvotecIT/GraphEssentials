@@ -57,7 +57,8 @@
         [switch] $ShowError,
         [switch] $ShowWarning,
         [switch] $Online,
-        [switch] $SplitReports
+        [switch] $SplitReports,
+        [scriptblock] $PostProcess
     )
     Reset-GraphEssentials
 
@@ -182,6 +183,15 @@
             }
         }
     }
+    # Allow external data transformation before HTML is generated
+    if ($PostProcess) {
+        try {
+            & $PostProcess $Script:Reporting
+        } catch {
+            Write-Warning "Invoke-MyGraphEssentials: PostProcess failed: $($_.Exception.Message)"
+        }
+    }
+
     if (-not $SplitReports) {
         Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report' -Color Yellow, DarkGray, Yellow
         $TimeLogHTML = Start-TimeLog

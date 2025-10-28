@@ -207,7 +207,7 @@
         # Build filter string for AppIds - handle potential large number of IDs
         $batchSize = 15 # Max IDs per filter clause recommended by MS Graph docs
         $numBatches = [Math]::Ceiling($ownedSpAppIds.Count / $batchSize)
-        $appProperties = @('Id', 'AppId', 'Notes', 'PasswordCredentials', 'KeyCredentials', 'CreatedDateTime') # Include CreatedDateTime
+        $appProperties = @('Id', 'AppId', 'Notes', 'Description', 'PasswordCredentials', 'KeyCredentials', 'CreatedDateTime') # Include Description/CreatedDateTime
         $selectClause = "`$select=$(($appProperties -join ',' ))"
 
         for ($i = 0; $i -lt $numBatches; $i++) {
