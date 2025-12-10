@@ -14,7 +14,8 @@ function Convert-GraphEssentialsAppToReportObject {
         [hashtable]$GraphAppRoles,
 
         # Options
-        [switch]$IncludeCredentials
+        [switch]$IncludeCredentials,
+        [switch]$IncludeOwners = $true
     )
 
     $spId = $ServicePrincipal.Id
@@ -51,74 +52,78 @@ function Convert-GraphEssentialsAppToReportObject {
     }
 
     # --- Get Owners (Combine SP and App Owners) ---
-    $spOwnersRaw = Get-GraphEssentialsAppOwners -ServicePrincipalObjectId $spId
-    $appOwnersRawList = [System.Collections.Generic.List[object]]::new() # Use generic list
-    $ApplicationObjectId = if ($ApplicationDetails) { $ApplicationDetails.Id } else { $null }
-    if ($ApplicationObjectId) {
-        try {
-            $rawAppOwnersResult = Get-MgApplicationOwner -ApplicationId $ApplicationObjectId -ErrorAction Stop
-            if ($rawAppOwnersResult) {
-                $rawAppOwnersResult | ForEach-Object {
-                    $ownerDetail = $_ | Select-Object Id, DeletedDateTime, @{n = 'ODataType'; e = { $_.AdditionalProperties.'@odata.type' } }, AdditionalProperties
-                    $appOwnersRawList.Add($ownerDetail) # Add to list
-                }
-            }
-        } catch {
-            Write-Warning "Convert-GraphEssentialsAppToReportObject: Failed to get owners for Application $ApplicationObjectId. Error: $($_.Exception.Message)"
-            $appOwnersRawList.Add([PSCustomObject]@{ Error = "Error fetching app owners: $($_.Exception.Message)" }) # Add to list
-        }
-    }
-
-    # Combine and format
-    $allOwnerObjects = [System.Collections.Generic.List[object]]::new()
-    # Add SP owners (handle single object vs collection)
-    if ($spOwnersRaw) {
-        if ($spOwnersRaw -is [array] -or $spOwnersRaw -is [System.Collections.Generic.List[object]]) {
-            $allOwnerObjects.AddRange($spOwnersRaw)
-        } else {
-            $allOwnerObjects.Add($spOwnersRaw) # Add single object
-        }
-    }
-    # Add App owners (already a list)
-    if ($appOwnersRawList) { $allOwnerObjects.AddRange($appOwnersRawList) }
-
     $CombinedOwners = @()
-    $processedOwnerIds = @{}
-    $allOwnerObjects | ForEach-Object {
-        $ownerObject = $_ # The richer object
-        if ($ownerObject.PSObject.Properties['Id'] -and $processedOwnerIds.ContainsKey($ownerObject.Id)) {
-            continue # Skip duplicate ID
+    if ($IncludeOwners) {
+        $spOwnersRaw = Get-GraphEssentialsAppOwners -ServicePrincipalObjectId $spId
+        $appOwnersRawList = [System.Collections.Generic.List[object]]::new() # Use generic list
+        $ApplicationObjectId = if ($ApplicationDetails) { $ApplicationDetails.Id } else { $null }
+        if ($ApplicationObjectId) {
+            try {
+                $rawAppOwnersResult = Get-MgApplicationOwner -ApplicationId $ApplicationObjectId -ErrorAction Stop
+                if ($rawAppOwnersResult) {
+                    $rawAppOwnersResult | ForEach-Object {
+                        $ownerDetail = $_ | Select-Object Id, DeletedDateTime, @{n = 'ODataType'; e = { $_.AdditionalProperties.'@odata.type' } }, AdditionalProperties
+                        $appOwnersRawList.Add($ownerDetail) # Add to list
+                    }
+                }
+            } catch {
+                Write-Warning "Convert-GraphEssentialsAppToReportObject: Failed to get owners for Application $ApplicationObjectId. Error: $($_.Exception.Message)"
+                $appOwnersRawList.Add([PSCustomObject]@{ Error = "Error fetching app owners: $($_.Exception.Message)" }) # Add to list
+            }
         }
-        if ($ownerObject.PSObject.Properties['Id']) {
-            $processedOwnerIds[$ownerObject.Id] = $true
+
+        # Combine and format
+        $allOwnerObjects = [System.Collections.Generic.List[object]]::new()
+        # Add SP owners (handle single object vs collection)
+        if ($spOwnersRaw) {
+            if ($spOwnersRaw -is [array] -or $spOwnersRaw -is [System.Collections.Generic.List[object]]) {
+                $allOwnerObjects.AddRange($spOwnersRaw)
+            } else {
+                $allOwnerObjects.Add($spOwnersRaw) # Add single object
+            }
         }
-        $ownerString = "(Processing error)" # Default
-        if ($ownerObject.PSObject.Properties['Error']) {
-            $ownerString = $ownerObject.Error # Use the error message
-        } elseif ($ownerObject) {
-            # Standard checks for AdditionalProperties hashtable
-            $dispName = if ($ownerObject.AdditionalProperties.ContainsKey('displayName')) { $ownerObject.AdditionalProperties.displayName } else { $null }
-            $upn = if ($ownerObject.AdditionalProperties.ContainsKey('userPrincipalName')) { $ownerObject.AdditionalProperties.userPrincipalName } else { $null }
-            $mail = if ($ownerObject.AdditionalProperties.ContainsKey('mail')) { $ownerObject.AdditionalProperties.mail } else { $null }
-            $oDataType = $ownerObject.ODataType
-            $ownerString = $dispName # Start with display name if available
+        # Add App owners (already a list)
+        if ($appOwnersRawList) { $allOwnerObjects.AddRange($appOwnersRawList) }
 
-            # Add UPN or Mail
-            if ($upn) { $ownerString += " <$upn>" }
-            elseif ($mail) { $ownerString += " <$mail>" }
+        $processedOwnerIds = @{}
+        $allOwnerObjects | ForEach-Object {
+            $ownerObject = $_ # The richer object
+            if ($ownerObject.PSObject.Properties['Id'] -and $processedOwnerIds.ContainsKey($ownerObject.Id)) {
+                continue # Skip duplicate ID
+            }
+            if ($ownerObject.PSObject.Properties['Id']) {
+                $processedOwnerIds[$ownerObject.Id] = $true
+            }
+            $ownerString = "(Processing error)" # Default
+            if ($ownerObject.PSObject.Properties['Error']) {
+                $ownerString = $ownerObject.Error # Use the error message
+            } elseif ($ownerObject) {
+                # Standard checks for AdditionalProperties hashtable
+                $dispName = if ($ownerObject.AdditionalProperties.ContainsKey('displayName')) { $ownerObject.AdditionalProperties.displayName } else { $null }
+                $upn = if ($ownerObject.AdditionalProperties.ContainsKey('userPrincipalName')) { $ownerObject.AdditionalProperties.userPrincipalName } else { $null }
+                $mail = if ($ownerObject.AdditionalProperties.ContainsKey('mail')) { $ownerObject.AdditionalProperties.mail } else { $null }
+                $oDataType = $ownerObject.ODataType
+                $ownerString = $dispName # Start with display name if available
 
-            # Add Type if available and name wasn't found
-            if (-not $dispName -and $oDataType) { $ownerString = $oDataType }
+                # Add UPN or Mail
+                if ($upn) { $ownerString += " <$upn>" }
+                elseif ($mail) { $ownerString += " <$mail>" }
 
-            # Fallback to ID if still nothing useful
-            if (-not $ownerString) { $ownerString = $ownerObject.Id }
+                # Add Type if available and name wasn't found
+                if (-not $dispName -and $oDataType) { $ownerString = $oDataType }
 
-            # Optionally add type in parentheses
-            if ($oDataType) { $ownerString += " ($($oDataType.Split('.')[-1]))" }
+                # Fallback to ID if still nothing useful
+                if (-not $ownerString) { $ownerString = $ownerObject.Id }
+
+                # Optionally add type in parentheses
+                if ($oDataType) { $ownerString += " ($($oDataType.Split('.')[-1]))" }
+            }
+            $CombinedOwners += $ownerString
         }
-        $CombinedOwners += $ownerString
+        $CombinedOwners = $CombinedOwners | Sort-Object -Unique
+    } else {
+        Write-Verbose "Convert-GraphEssentialsAppToReportObject: Skipping owner lookups for $displayName (IncludeOwners=false)."
     }
-    $CombinedOwners = $CombinedOwners | Sort-Object -Unique
 
     # --- Get Delegated Permissions ---
     $DelegatedScopes = if ($spId) { $AllDelegatedPermissions[$spId] } else { $null }

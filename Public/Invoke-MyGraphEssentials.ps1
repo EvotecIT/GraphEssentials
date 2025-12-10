@@ -35,6 +35,16 @@
     .PARAMETER SplitReports
     When specified, generates separate HTML files for each report type instead of a combined report.
 
+    .PARAMETER AppsDetailLevel
+    Controls how much data Apps collection gathers:
+    - Full    : current behaviour (delegated grants, owners, comprehensive activity)
+    - Light   : skips delegated permission grants and comprehensive activity (keeps owners)
+    - Minimal : skips delegated permission grants, owners and comprehensive activity (expiry-only)
+
+    .PARAMETER AppsApplicationType
+    Filters which Service Principals are processed by Get-MyApp:
+    - All (default), AppRegistrations (First Party), EnterpriseApps (Third Party), MicrosoftApps, ManagedIdentities
+
     .EXAMPLE
     Invoke-MyGraphEssentials -Type DevicesIntune, Roles, RolesUsers -FilePath "C:\Reports\GraphReport.html" -Online
     Generates a combined report for devices, roles, and role users, and opens it in the default web browser.
@@ -58,9 +68,15 @@
         [switch] $ShowWarning,
         [switch] $Online,
         [switch] $SplitReports,
-        [scriptblock] $PostProcess
+        [scriptblock] $PostProcess,
+        [ValidateSet('Full','Light','Minimal')][string] $AppsDetailLevel = 'Full',
+        [ValidateSet('All','AppRegistrations','EnterpriseApps','MicrosoftApps','ManagedIdentities')][string] $AppsApplicationType = 'All'
     )
     Reset-GraphEssentials
+
+    # Persist Apps detail preference for configuration execution
+    $Script:GraphEssentialsAppsDetailLevel = $AppsDetailLevel
+    $Script:GraphEssentialsAppsApplicationType = $AppsApplicationType
 
     #$Script:AllUsers = [ordered] @{}
     $Script:Cache = [ordered] @{}
@@ -203,6 +219,9 @@
         Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report', " [Time to execute: $TimeLogEndHTML]" -Color Yellow, DarkGray, Yellow, DarkGray
     }
     Reset-GraphEssentials
+    # Reset detail preference to avoid bleeding into subsequent calls
+    $Script:GraphEssentialsAppsDetailLevel = 'Full'
+    $Script:GraphEssentialsAppsApplicationType = 'All'
 
     if ($PassThru) {
         $Script:Reporting
