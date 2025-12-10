@@ -9,11 +9,12 @@ function Add-AppsOverviewContent {
     existing New-HTML context.
     #>
     [CmdletBinding()]
-    param(
+param(
         [Array] $Applications,
         [Array] $Credentials,
         [string] $Version,
-        [switch] $Embed
+        [switch] $Embed,
+        [switch] $IncludeOwnerDiagnostics
     )
 
     # --- Calculate Statistics ---
@@ -48,7 +49,17 @@ function Add-AppsOverviewContent {
     $FormattedApplications = @()
     if ($Applications) {
         $Today = Get-Date
-        $FormattedApplications = $Applications | Select-Object *,
+        $diag = @(
+            if ($IncludeOwnerDiagnostics) {
+                @{n = 'OwnerResolvedId'; e = { $_.OwnerResolvedId } },
+                @{n = 'OwnerResolvedSource'; e = { $_.OwnerResolvedSource } },
+                @{n = 'OwnerResolutionStatus'; e = { $_.OwnerResolutionStatus } },
+                @{n = 'OwnerResolvedEmail'; e = { $_.OwnerResolvedEmail } },
+                @{n = 'OwnerManagerEmail'; e = { $_.OwnerManagerEmail } },
+                @{n = 'OwnerResolvedActive'; e = { $_.OwnerResolvedActive } }
+            }
+        )
+        $FormattedApplications = $Applications | Select-Object *, $diag,
         @{n = 'DelegatedPermissionsList'; e = { if ($_.DelegatedPermissions) { ($_.DelegatedPermissions -join '; ') } else { 'None' } } },
         @{n = 'ApplicationPermissionsList'; e = { if ($_.ApplicationPermissions) { ($_.ApplicationPermissions -join '; ') } else { 'None' } } },
         @{n = 'OwnersList'; e = { if ($_.Owners) { ($_.Owners -join '; ') } else { 'Not collected' } } },

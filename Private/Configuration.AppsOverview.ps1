@@ -31,6 +31,6 @@ $Script:AppsOverview = [ordered] @{
     Summary    = { }
     Variables  = @{}
     Solution   = {
-        Add-AppsOverviewContent -Applications $Script:Reporting['AppsOverview']['Data'].Apps -Credentials $Script:Reporting['AppsOverview']['Data'].Credentials -Version $Script:Reporting['Version'] -Embed
+        Add-AppsOverviewContent -Applications $Script:Reporting['AppsOverview']['Data'].Apps -Credentials $Script:Reporting['AppsOverview']['Data'].Credentials -Version $Script:Reporting['Version'] -Embed -IncludeOwnerDiagnostics:$Script:GraphEssentialsIncludeOwnerDiagnostics
     }
 }

@@ -45,6 +45,10 @@
     Filters which Service Principals are processed by Get-MyApp:
     - All (default), AppRegistrations (First Party), EnterpriseApps (Third Party), MicrosoftApps, ManagedIdentities
 
+    .PARAMETER IncludeOwnerDiagnostics
+    When set, AppsOverview renders extra owner-diagnostics columns (OwnerResolvedId/Email/Status, etc.).
+    Defaults to off to keep the generic report lean.
+
     .EXAMPLE
     Invoke-MyGraphEssentials -Type DevicesIntune, Roles, RolesUsers -FilePath "C:\Reports\GraphReport.html" -Online
     Generates a combined report for devices, roles, and role users, and opens it in the default web browser.
@@ -70,13 +74,15 @@
         [switch] $SplitReports,
         [scriptblock] $PostProcess,
         [ValidateSet('Full','Light','Minimal')][string] $AppsDetailLevel = 'Full',
-        [ValidateSet('All','AppRegistrations','EnterpriseApps','MicrosoftApps','ManagedIdentities')][string] $AppsApplicationType = 'All'
+        [ValidateSet('All','AppRegistrations','EnterpriseApps','MicrosoftApps','ManagedIdentities')][string] $AppsApplicationType = 'All',
+        [switch] $IncludeOwnerDiagnostics
     )
     Reset-GraphEssentials
 
     # Persist Apps detail preference for configuration execution
     $Script:GraphEssentialsAppsDetailLevel = $AppsDetailLevel
     $Script:GraphEssentialsAppsApplicationType = $AppsApplicationType
+    $Script:GraphEssentialsIncludeOwnerDiagnostics = $IncludeOwnerDiagnostics.IsPresent
 
     #$Script:AllUsers = [ordered] @{}
     $Script:Cache = [ordered] @{}
