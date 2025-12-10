@@ -218,10 +218,10 @@
         $TimeLogEndHTML = Stop-TimeLog -Time $TimeLogHTML -Option OneLiner
         Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report', " [Time to execute: $TimeLogEndHTML]" -Color Yellow, DarkGray, Yellow, DarkGray
     }
-    Reset-GraphEssentials
-    # Reset detail preference to avoid bleeding into subsequent calls
-    $Script:GraphEssentialsAppsDetailLevel = 'Full'
-    $Script:GraphEssentialsAppsApplicationType = 'All'
+        Reset-GraphEssentials
+        # Reset detail preference to avoid bleeding into subsequent calls
+        $Script:GraphEssentialsAppsDetailLevel = 'Full'
+        $Script:GraphEssentialsAppsApplicationType = 'All'
 
     if ($PassThru) {
         $Script:Reporting

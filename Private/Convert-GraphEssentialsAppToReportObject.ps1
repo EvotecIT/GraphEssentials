@@ -59,10 +59,16 @@ function Convert-GraphEssentialsAppToReportObject {
         $ApplicationObjectId = if ($ApplicationDetails) { $ApplicationDetails.Id } else { $null }
         if ($ApplicationObjectId) {
             try {
-                $rawAppOwnersResult = Get-MgApplicationOwner -ApplicationId $ApplicationObjectId -ErrorAction Stop
+                $rawAppOwnersResult = Get-MgApplicationOwner -ApplicationId $ApplicationObjectId -Property "id,displayName,userPrincipalName,mail" -All -ErrorAction Stop
                 if ($rawAppOwnersResult) {
                     $rawAppOwnersResult | ForEach-Object {
-                        $ownerDetail = $_ | Select-Object Id, DeletedDateTime, @{n = 'ODataType'; e = { $_.AdditionalProperties.'@odata.type' } }, AdditionalProperties
+                        $ownerDetail = $_ | Select-Object Id,
+                        DeletedDateTime,
+                        @{n = 'ODataType'; e = { $_.AdditionalProperties.'@odata.type' } },
+                        AdditionalProperties,
+                        DisplayName,
+                        UserPrincipalName,
+                        Mail
                         $appOwnersRawList.Add($ownerDetail) # Add to list
                     }
                 }
@@ -88,36 +94,20 @@ function Convert-GraphEssentialsAppToReportObject {
         $processedOwnerIds = @{}
         $allOwnerObjects | ForEach-Object {
             $ownerObject = $_ # The richer object
-            if ($ownerObject.PSObject.Properties['Id'] -and $processedOwnerIds.ContainsKey($ownerObject.Id)) {
-                continue # Skip duplicate ID
+            $ownerId = $null
+            if ($ownerObject.PSObject.Properties['Id']) { $ownerId = $ownerObject.Id }
+            if ($ownerId -and $processedOwnerIds.ContainsKey($ownerId)) {
+                return
             }
-            if ($ownerObject.PSObject.Properties['Id']) {
-                $processedOwnerIds[$ownerObject.Id] = $true
-            }
-            $ownerString = "(Processing error)" # Default
+            if ($ownerId) { $processedOwnerIds[$ownerId] = $true }
+
             if ($ownerObject.PSObject.Properties['Error']) {
-                $ownerString = $ownerObject.Error # Use the error message
-            } elseif ($ownerObject) {
-                # Standard checks for AdditionalProperties hashtable
-                $dispName = if ($ownerObject.AdditionalProperties.ContainsKey('displayName')) { $ownerObject.AdditionalProperties.displayName } else { $null }
-                $upn = if ($ownerObject.AdditionalProperties.ContainsKey('userPrincipalName')) { $ownerObject.AdditionalProperties.userPrincipalName } else { $null }
-                $mail = if ($ownerObject.AdditionalProperties.ContainsKey('mail')) { $ownerObject.AdditionalProperties.mail } else { $null }
-                $oDataType = $ownerObject.ODataType
-                $ownerString = $dispName # Start with display name if available
-
-                # Add UPN or Mail
-                if ($upn) { $ownerString += " <$upn>" }
-                elseif ($mail) { $ownerString += " <$mail>" }
-
-                # Add Type if available and name wasn't found
-                if (-not $dispName -and $oDataType) { $ownerString = $oDataType }
-
-                # Fallback to ID if still nothing useful
-                if (-not $ownerString) { $ownerString = $ownerObject.Id }
-
-                # Optionally add type in parentheses
-                if ($oDataType) { $ownerString += " ($($oDataType.Split('.')[-1]))" }
+                $CombinedOwners += $ownerObject.Error
+                return
             }
+
+            $resolved = Resolve-GraphEssentialsOwner -OwnerObject $ownerObject
+            $ownerString = Format-GraphEssentialsOwnerString -OwnerResolved $resolved
             $CombinedOwners += $ownerString
         }
         $CombinedOwners = $CombinedOwners | Sort-Object -Unique
@@ -286,3 +276,5 @@ function Convert-GraphEssentialsAppToReportObject {
     Write-Verbose "Convert-GraphEssentialsAppToReportObject: Finished processing SP $displayName."
     [PSCustomObject] $OutputObject
 }
+# Cache for owner lookups to avoid repeated Graph calls (used by Resolve-GraphEssentialsOwner)
+if (-not $Script:GraphEssentialsOwnerCache) { $Script:GraphEssentialsOwnerCache = @{} }

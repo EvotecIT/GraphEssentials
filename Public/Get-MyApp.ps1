@@ -122,7 +122,24 @@
     }
 
     # --- Pre-fetch Service Principals with expanded assignments ---
-    $allServicePrincipals = Get-GraphEssentialsSpDetailsAndAppRoles -GraphSpId $graphSpId -GraphAppRoles $graphAppRoles
+    $allServicePrincipals = $null
+
+    # Fast path: when ApplicationName is provided, try filtered SP query first to avoid full tenant scan
+    if ($ApplicationName) {
+        $escapedName = $ApplicationName.Replace("'", "''")
+        $filter = "displayName eq '$escapedName'"
+        try {
+            $allServicePrincipals = Get-MgServicePrincipal -Filter $filter -All -Property id,appId,displayName,appOwnerOrganizationId,servicePrincipalType,appRoleAssignments -ExpandProperty appRoleAssignments -ErrorAction Stop
+            Write-Verbose "Get-MyApp: Fast-path found $($allServicePrincipals.Count) service principals by name filter."
+        } catch {
+            Write-Verbose "Get-MyApp: Fast-path SP query failed ($($_.Exception.Message)). Falling back to full enumeration."
+            $allServicePrincipals = $null
+        }
+    }
+
+    if (-not $allServicePrincipals) {
+        $allServicePrincipals = Get-GraphEssentialsSpDetailsAndAppRoles -GraphSpId $graphSpId -GraphAppRoles $graphAppRoles
+    }
 
     # Build SP->AppId map for correlating audit logs to AppId
     $spIdToAppId = @{}

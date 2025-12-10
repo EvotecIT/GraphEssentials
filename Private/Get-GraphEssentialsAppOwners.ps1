@@ -10,12 +10,18 @@ function Get-GraphEssentialsAppOwners {
     }
 
     try {
-        $rawOwners = Get-MgServicePrincipalOwner -ServicePrincipalId $ServicePrincipalObjectId -ErrorAction Stop
+        $rawOwners = Get-MgServicePrincipalOwner -ServicePrincipalId $ServicePrincipalObjectId -Property "id,displayName,userPrincipalName,mail" -All -ErrorAction Stop
 
         if ($rawOwners) {
             $rawOwners | ForEach-Object {
-                # Return a richer object for debugging
-                $ownerDetail = $_ | Select-Object Id, DeletedDateTime, @{n = 'ODataType'; e = { $_.AdditionalProperties.'@odata.type' } }, AdditionalProperties
+                # Return a richer object for display
+                $ownerDetail = $_ | Select-Object Id,
+                    DeletedDateTime,
+                    @{n = 'ODataType'; e = { $_.AdditionalProperties.'@odata.type' } },
+                    AdditionalProperties,
+                    DisplayName,
+                    UserPrincipalName,
+                    Mail
                 $OwnersInfo.Add($ownerDetail)
             }
             Write-Verbose "Get-GraphEssentialsAppOwners: Found $($OwnersInfo.Count) owners (raw) for Service Principal $ServicePrincipalObjectId."
