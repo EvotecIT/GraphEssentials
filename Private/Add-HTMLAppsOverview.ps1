@@ -49,27 +49,51 @@ param(
     $FormattedApplications = @()
     if ($Applications) {
         $Today = Get-Date
-        $diag = @(
-            if ($IncludeOwnerDiagnostics) {
-                @{n = 'OwnerResolvedId'; e = { $_.OwnerResolvedId } },
-                @{n = 'OwnerResolvedSource'; e = { $_.OwnerResolvedSource } },
-                @{n = 'OwnerResolutionStatus'; e = { $_.OwnerResolutionStatus } },
-                @{n = 'OwnerResolvedEmail'; e = { $_.OwnerResolvedEmail } },
-                @{n = 'OwnerManagerEmail'; e = { $_.OwnerManagerEmail } },
-                @{n = 'OwnerResolvedActive'; e = { $_.OwnerResolvedActive } }
-            }
+        $diagNames = @(
+            'OwnerResolvedId',
+            'OwnerResolvedSource',
+            'OwnerResolutionStatus',
+            'OwnerResolvedEmail',
+            'OwnerManagerEmail',
+            'OwnerResolvedActive'
         )
-        $FormattedApplications = $Applications | Select-Object *, $diag,
-        @{n = 'DelegatedPermissionsList'; e = { if ($_.DelegatedPermissions) { ($_.DelegatedPermissions -join '; ') } else { 'None' } } },
-        @{n = 'ApplicationPermissionsList'; e = { if ($_.ApplicationPermissions) { ($_.ApplicationPermissions -join '; ') } else { 'None' } } },
-        @{n = 'OwnersList'; e = { if ($_.Owners) { ($_.Owners -join '; ') } else { 'Not collected' } } },
-        @{n = 'KeysTypesList'; e = { if ($_.KeysTypes) { ($_.KeysTypes -join ', ') } else { 'None' } } },
-        @{n = 'DelegatedSignInDate'; e = { if ($_.DelegatedLastSignIn) { Get-Date ($_.DelegatedLastSignIn) -Format 'yyyy-MM-dd HH:mm' } else { 'No activity' } } },
-        @{n = 'DelegatedSignInDaysAgo'; e = { if ($_.DelegatedLastSignIn) { (New-TimeSpan -Start ($_.DelegatedLastSignIn) -End $Today).Days } else { $null } } },
-        @{n = 'ApplicationSignInDate'; e = { if ($_.ApplicationLastSignIn) { Get-Date ($_.ApplicationLastSignIn) -Format 'yyyy-MM-dd HH:mm' } else { 'No activity' } } },
-        @{n = 'ApplicationSignInDaysAgo'; e = { if ($_.ApplicationLastSignIn) { (New-TimeSpan -Start ($_.ApplicationLastSignIn) -End $Today).Days } else { $null } } },
-        @{n = 'CreatedDateDisplay'; e = { if ($_.CreatedDate) { Get-Date ($_.CreatedDate) -Format 'yyyy-MM-dd' } else { '' } } },
-        @{n = 'CreatedDateDaysAgo'; e = { if ($_.CreatedDate) { (New-TimeSpan -Start ($_.CreatedDate) -End $Today).Days } else { $null } } }
+
+        # Base properties from the first app (apps objects are uniform).
+        $sampleApp = $Applications | Select-Object -First 1
+        $baseProps = @()
+        if ($sampleApp) {
+            $baseProps = @($sampleApp.PSObject.Properties.Name)
+        }
+        # Ensure diagnostics are opt-in and ordered consistently
+        $baseProps = $baseProps | Where-Object { $_ -notin $diagNames }
+
+        $formattedList = [System.Collections.Generic.List[object]]::new()
+        foreach ($app in $Applications) {
+            $o = [ordered]@{}
+            foreach ($p in $baseProps) {
+                $o[$p] = $app.$p
+            }
+            if ($IncludeOwnerDiagnostics) {
+                foreach ($dn in $diagNames) {
+                    $o[$dn] = $app.$dn
+                }
+            }
+
+            $o['DelegatedPermissionsList'] = if ($app.DelegatedPermissions) { ($app.DelegatedPermissions -join '; ') } else { 'None' }
+            $o['ApplicationPermissionsList'] = if ($app.ApplicationPermissions) { ($app.ApplicationPermissions -join '; ') } else { 'None' }
+            $o['OwnersList'] = if ($app.Owners) { ($app.Owners -join '; ') } else { 'Not collected' }
+            $o['KeysTypesList'] = if ($app.KeysTypes) { ($app.KeysTypes -join ', ') } else { 'None' }
+            $o['DelegatedSignInDate'] = if ($app.DelegatedLastSignIn) { Get-Date ($app.DelegatedLastSignIn) -Format 'yyyy-MM-dd HH:mm' } else { 'No activity' }
+            $o['DelegatedSignInDaysAgo'] = if ($app.DelegatedLastSignIn) { (New-TimeSpan -Start ($app.DelegatedLastSignIn) -End $Today).Days } else { $null }
+            $o['ApplicationSignInDate'] = if ($app.ApplicationLastSignIn) { Get-Date ($app.ApplicationLastSignIn) -Format 'yyyy-MM-dd HH:mm' } else { 'No activity' }
+            $o['ApplicationSignInDaysAgo'] = if ($app.ApplicationLastSignIn) { (New-TimeSpan -Start ($app.ApplicationLastSignIn) -End $Today).Days } else { $null }
+            $o['CreatedDateDisplay'] = if ($app.CreatedDate) { Get-Date ($app.CreatedDate) -Format 'yyyy-MM-dd' } else { '' }
+            $o['CreatedDateDaysAgo'] = if ($app.CreatedDate) { (New-TimeSpan -Start ($app.CreatedDate) -End $Today).Days } else { $null }
+
+            $formattedList.Add([pscustomobject]$o)
+        }
+
+        $FormattedApplications = $formattedList
     }
 
     $ExcludedAppProperties = @(
