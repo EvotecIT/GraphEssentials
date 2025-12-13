@@ -2,7 +2,9 @@
     Name       = 'Azure Active Directory Apps'
     Enabled    = $true
     Execute    = {
-        Get-MyApp
+        $appsDetail = if ($Script:GraphEssentialsAppsDetailLevel) { $Script:GraphEssentialsAppsDetailLevel } else { 'Full' }
+        $appsType   = if ($Script:GraphEssentialsAppsApplicationType) { $Script:GraphEssentialsAppsApplicationType } else { 'All' }
+        Get-MyApp -DetailLevel $appsDetail -ApplicationType $appsType
     }
     Processing = {
 

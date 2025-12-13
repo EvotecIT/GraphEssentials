@@ -14,7 +14,7 @@ foreach ($Credentials in $GraphData.AppsCredentials.Data) {
 }
 
 foreach ($App in $ExpiringAplications) {
-    $AppCredentials = $CachedCredentials[$App.ObjectID]
+    $AppCredentials = $CachedCredentials[$App.ApplicationObjectId]
     $EmailBody = EmailBody {
         EmailText -Text "Hello Service Desk," -LineBreak
         EmailText -LineBreak

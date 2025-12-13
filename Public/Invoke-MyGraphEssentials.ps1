@@ -35,6 +35,20 @@
     .PARAMETER SplitReports
     When specified, generates separate HTML files for each report type instead of a combined report.
 
+    .PARAMETER AppsDetailLevel
+    Controls how much data Apps collection gathers:
+    - Full    : current behaviour (delegated grants, owners, comprehensive activity)
+    - Light   : skips delegated permission grants and comprehensive activity (keeps owners)
+    - Minimal : skips delegated permission grants, owners and comprehensive activity (expiry-only)
+
+    .PARAMETER AppsApplicationType
+    Filters which Service Principals are processed by Get-MyApp:
+    - All (default), AppRegistrations (First Party), EnterpriseApps (Third Party), MicrosoftApps, ManagedIdentities
+
+    .PARAMETER IncludeOwnerDiagnostics
+    When set, AppsOverview renders extra owner-diagnostics columns (OwnerResolvedId/Email/Status, etc.).
+    Defaults to off to keep the generic report lean.
+
     .EXAMPLE
     Invoke-MyGraphEssentials -Type DevicesIntune, Roles, RolesUsers -FilePath "C:\Reports\GraphReport.html" -Online
     Generates a combined report for devices, roles, and role users, and opens it in the default web browser.
@@ -57,9 +71,18 @@
         [switch] $ShowError,
         [switch] $ShowWarning,
         [switch] $Online,
-        [switch] $SplitReports
+        [switch] $SplitReports,
+        [scriptblock] $PostProcess,
+        [ValidateSet('Full','Light','Minimal')][string] $AppsDetailLevel = 'Full',
+        [ValidateSet('All','AppRegistrations','EnterpriseApps','MicrosoftApps','ManagedIdentities')][string] $AppsApplicationType = 'All',
+        [switch] $IncludeOwnerDiagnostics
     )
     Reset-GraphEssentials
+
+    # Persist Apps detail preference for configuration execution
+    $Script:GraphEssentialsAppsDetailLevel = $AppsDetailLevel
+    $Script:GraphEssentialsAppsApplicationType = $AppsApplicationType
+    $Script:GraphEssentialsIncludeOwnerDiagnostics = $IncludeOwnerDiagnostics.IsPresent
 
     #$Script:AllUsers = [ordered] @{}
     $Script:Cache = [ordered] @{}
@@ -182,6 +205,15 @@
             }
         }
     }
+    # Allow external data transformation before HTML is generated
+    if ($PostProcess) {
+        try {
+            & $PostProcess $Script:Reporting
+        } catch {
+            Write-Warning "Invoke-MyGraphEssentials: PostProcess failed: $($_.Exception.Message)"
+        }
+    }
+
     if (-not $SplitReports) {
         Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report' -Color Yellow, DarkGray, Yellow
         $TimeLogHTML = Start-TimeLog
@@ -192,7 +224,10 @@
         $TimeLogEndHTML = Stop-TimeLog -Time $TimeLogHTML -Option OneLiner
         Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report', " [Time to execute: $TimeLogEndHTML]" -Color Yellow, DarkGray, Yellow, DarkGray
     }
-    Reset-GraphEssentials
+        Reset-GraphEssentials
+        # Reset detail preference to avoid bleeding into subsequent calls
+        $Script:GraphEssentialsAppsDetailLevel = 'Full'
+        $Script:GraphEssentialsAppsApplicationType = 'All'
 
     if ($PassThru) {
         $Script:Reporting

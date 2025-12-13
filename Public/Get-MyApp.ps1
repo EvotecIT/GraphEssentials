@@ -36,6 +36,21 @@
     The aggregated data (default) is usually sufficient for security assessment and is much faster.
     Only use this for small tenants or when you need the most current sign-in data.
 
+    .PARAMETER DetailLevel
+    Controls how much supporting data is collected:
+    - Full    : current behaviour (delegated perms, owners, comprehensive activity) – requires broad Graph permissions
+    - Light   : skips delegated permission grants and comprehensive activity; still collects owners
+    - Minimal : skips delegated permission grants, owners and comprehensive activity (suitable for expiry-only monitoring)
+
+    .PARAMETER SkipDelegatedPermissions
+    Forces delegated permission grants to be skipped regardless of DetailLevel.
+
+    .PARAMETER SkipActivity
+    Forces comprehensive activity analysis to be skipped regardless of DetailLevel.
+
+    .PARAMETER SkipOwners
+    Forces owner lookups to be skipped regardless of DetailLevel.
+
     .EXAMPLE
     Get-MyApp
     Returns all Azure AD Service Principals (Enterprise Apps) with enhanced information.
@@ -73,10 +88,27 @@
         [ValidateSet('All', 'AppRegistrations', 'EnterpriseApps', 'MicrosoftApps', 'ManagedIdentities')]
         [string]$ApplicationType = 'All',
         [switch] $IncludeDetailedSignInLogs,
-        [switch] $IncludeRealtimeSignIns
+        [switch] $IncludeRealtimeSignIns,
+        [ValidateSet('Full','Light','Minimal')][string] $DetailLevel = 'Full',
+        [switch] $SkipDelegatedPermissions,
+        [switch] $SkipActivity,
+        [switch] $SkipOwners
     )
 
     Write-Verbose "Get-MyApp: Starting data retrieval (ApplicationType: $ApplicationType)..."
+
+    # Resolve detail toggles
+    $includeDelegatedPermissions = $true
+    $includeActivity = $true
+    $includeOwners = $true
+
+    switch ($DetailLevel) {
+        'Light'   { $includeDelegatedPermissions = $false; $includeActivity = $false }
+        'Minimal' { $includeDelegatedPermissions = $false; $includeActivity = $false; $includeOwners = $false }
+    }
+    if ($SkipDelegatedPermissions) { $includeDelegatedPermissions = $false }
+    if ($SkipActivity)            { $includeActivity = $false }
+    if ($SkipOwners)              { $includeOwners = $false }
 
     # --- Pre-fetch common data using Private functions ---
     $TenantId = Get-GraphEssentialsTenantId
@@ -85,12 +117,29 @@
     $graphAppRoles = if ($graphSpInfo) { $graphSpInfo.AppRoles } else { $null }
 
     $AllDelegatedPermissions = @{}
-    if ($graphSpId) {
+    if ($graphSpId -and $includeDelegatedPermissions) {
         $AllDelegatedPermissions = Get-GraphEssentialsDelegatedPermissions -GraphSpId $graphSpId
     }
 
     # --- Pre-fetch Service Principals with expanded assignments ---
-    $allServicePrincipals = Get-GraphEssentialsSpDetailsAndAppRoles -GraphSpId $graphSpId -GraphAppRoles $graphAppRoles
+    $allServicePrincipals = $null
+
+    # Fast path: when ApplicationName is provided, try filtered SP query first to avoid full tenant scan
+    if ($ApplicationName) {
+        $escapedName = $ApplicationName.Replace("'", "''")
+        $filter = "displayName eq '$escapedName'"
+        try {
+            $allServicePrincipals = Get-MgServicePrincipal -Filter $filter -All -Property id,appId,displayName,appOwnerOrganizationId,servicePrincipalType,appRoleAssignments -ExpandProperty appRoleAssignments -ErrorAction Stop
+            Write-Verbose "Get-MyApp: Fast-path found $($allServicePrincipals.Count) service principals by name filter."
+        } catch {
+            Write-Verbose "Get-MyApp: Fast-path SP query failed ($($_.Exception.Message)). Falling back to full enumeration."
+            $allServicePrincipals = $null
+        }
+    }
+
+    if (-not $allServicePrincipals) {
+        $allServicePrincipals = Get-GraphEssentialsSpDetailsAndAppRoles -GraphSpId $graphSpId -GraphAppRoles $graphAppRoles
+    }
 
     # Build SP->AppId map for correlating audit logs to AppId
     $spIdToAppId = @{}
@@ -102,7 +151,12 @@
 
     # Get comprehensive activity tracking across all sources for security assessment
     # For performance reasons, we use aggregated data only by default unless specifically requested
-    $SignInActivityReport = Get-GraphEssentialsComprehensiveActivityReport -Days 90 -IncludeRealtimeSignIns $IncludeRealtimeSignIns.IsPresent -SpIdToAppId $spIdToAppId
+    $SignInActivityReport = @{}
+    if ($includeActivity) {
+        $SignInActivityReport = Get-GraphEssentialsComprehensiveActivityReport -Days 90 -IncludeRealtimeSignIns $IncludeRealtimeSignIns.IsPresent -SpIdToAppId $spIdToAppId
+    } else {
+        Write-Verbose "Get-MyApp: Skipping comprehensive activity analysis (DetailLevel=$DetailLevel)."
+    }
     # Fetch detailed authentication method logs only if explicitly requested (for performance)
     $LastSignInMethodReport = if ($IncludeDetailedSignInLogs) {
         Get-GraphEssentialsSignInLogsReport -IncludeAuthenticationMethods $true
@@ -207,7 +261,7 @@
         # Build filter string for AppIds - handle potential large number of IDs
         $batchSize = 15 # Max IDs per filter clause recommended by MS Graph docs
         $numBatches = [Math]::Ceiling($ownedSpAppIds.Count / $batchSize)
-        $appProperties = @('Id', 'AppId', 'Notes', 'PasswordCredentials', 'KeyCredentials', 'CreatedDateTime') # Include CreatedDateTime
+        $appProperties = @('Id', 'AppId', 'Notes', 'Description', 'PasswordCredentials', 'KeyCredentials', 'CreatedDateTime') # Include Description/CreatedDateTime
         $selectClause = "`$select=$(($appProperties -join ',' ))"
 
         for ($i = 0; $i -lt $numBatches; $i++) {
@@ -254,6 +308,7 @@
             GraphSpId               = $graphSpId
             GraphAppRoles           = $graphAppRoles
             IncludeCredentials      = $IncludeCredentials
+            IncludeOwners           = $includeOwners
         }
 
         Convert-GraphEssentialsAppToReportObject @convertGraphEssentialsAppToReportObjectSplat
