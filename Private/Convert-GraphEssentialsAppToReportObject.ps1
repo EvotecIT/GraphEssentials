@@ -22,6 +22,7 @@ function Convert-GraphEssentialsAppToReportObject {
     $appId = $ServicePrincipal.AppId
     $displayName = $ServicePrincipal.DisplayName
     $appOwnerOrganizationId = $ServicePrincipal.AppOwnerOrganizationId
+    $SamAccountNameLikePattern = '^[A-Za-z0-9_](?:[A-Za-z0-9_]|[.-](?=[A-Za-z0-9_]))+$'
 
     Write-Verbose "Convert-GraphEssentialsAppToReportObject: Processing SP: $displayName ($appId - $spId)"
 
@@ -151,7 +152,13 @@ function Convert-GraphEssentialsAppToReportObject {
         if ($firstToken) {
             $candidate = $firstToken.Trim()
             $OwnerHintFromDescription = $candidate
-            if ($candidate -match '^[^@\s]+@[^@\s]+$') { $OwnerHintTypeFromDescription = 'upn' } elseif ($candidate -match '^[A-Za-z0-9_\.-]{2,}$') { $OwnerHintTypeFromDescription = 'sam' } else { $OwnerHintTypeFromDescription = 'unknown' }
+            if ($candidate -match '^[^@\s]+@[^@\s]+$') {
+                $OwnerHintTypeFromDescription = 'upn'
+            } elseif ($candidate -match $SamAccountNameLikePattern) {
+                $OwnerHintTypeFromDescription = 'sam'
+            } else {
+                $OwnerHintTypeFromDescription = 'unknown'
+            }
         }
     }
 
@@ -168,13 +175,12 @@ function Convert-GraphEssentialsAppToReportObject {
             $KeysCount = $AppCredentialsDetails.Count
             $KeysTypes = $AppCredentialsDetails.Type | Sort-Object -Unique
             $KeysDescription = $AppCredentialsDetails.KeyDisplayName | Sort-Object -Unique
-            $OwnerHintsFromKeys = @()
-            foreach ($kd in $KeysDescription) {
+            [Array] $OwnerHintsFromKeys = foreach ($kd in $KeysDescription) {
                 if ($null -eq $kd) { continue }
                 if ($kd -match '([^@\s]+@[^@\s]+)') {
-                    $OwnerHintsFromKeys += $Matches[1]
-                } elseif ($kd -match '^[A-Za-z0-9_\.-]{2,}$') {
-                    $OwnerHintsFromKeys += $kd
+                    $Matches[1]
+                } elseif ($kd -match $SamAccountNameLikePattern) {
+                    $kd
                 }
             }
             $OwnerHintsFromKeys = $OwnerHintsFromKeys | Sort-Object -Unique
@@ -276,5 +282,3 @@ function Convert-GraphEssentialsAppToReportObject {
     Write-Verbose "Convert-GraphEssentialsAppToReportObject: Finished processing SP $displayName."
     [PSCustomObject] $OutputObject
 }
-# Cache for owner lookups to avoid repeated Graph calls (used by Resolve-GraphEssentialsOwner)
-if (-not $Script:GraphEssentialsOwnerCache) { $Script:GraphEssentialsOwnerCache = @{} }

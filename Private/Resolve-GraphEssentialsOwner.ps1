@@ -53,8 +53,14 @@ function Resolve-GraphEssentialsOwner {
                     if (-not $oDataType) { $oDataType = '#microsoft.graph.user' }
                 }
             } catch {
-                # note permission issue so we can surface a hint
-                if ($_.Exception.Message -like '*Insufficient privileges*' -or $_.Exception.Message -like '*Permission*insufficient*' -or $_.Exception.HResult -eq -2146233088) {
+                # Note permission issue so we can surface a hint.
+                $exceptionText = $_.Exception.ToString()
+                if ($exceptionText -like '*Authorization_RequestDenied*' -or
+                    $exceptionText -like '*Insufficient privileges*' -or
+                    $exceptionText -like '*insufficient*permission*' -or
+                    $exceptionText -like '*permission*denied*' -or
+                    $exceptionText -like '*accessDenied*' -or
+                    $exceptionText -like '*Forbidden*') {
                     $permDenied = $true
                 }
             }
@@ -78,8 +84,9 @@ function Resolve-GraphEssentialsOwner {
     }
 
     if ($permDenied -and (-not $dispName) -and (-not $upn) -and (-not $mail)) {
-        $dispName = 'Permission missing: add User.Read.All or Directory.Read.All'
+        $dispName = '(Permission Denied)'
         $oDataType = '#microsoft.graph.user'
+        Write-Verbose 'Resolve-GraphEssentialsOwner: Permission missing: add User.Read.All or Directory.Read.All.'
     }
 
     [pscustomobject]@{

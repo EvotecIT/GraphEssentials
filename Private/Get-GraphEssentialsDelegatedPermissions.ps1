@@ -50,7 +50,13 @@ function Get-GraphEssentialsDelegatedPermissions {
         }
     } catch {
         Write-Warning "Get-GraphEssentialsDelegatedPermissions: Failed to retrieve OAuth2 Permission Grants. Delegated permissions will be unavailable. Error: $($_.Exception.Message)"
-        if ($_.Exception.ToString() -like '*Authorization_RequestDenied*' -or $_.Exception.ToString() -like '*Permission*' -or $_.Exception.Message -like '*Forbidden*') {
+        $exceptionText = $_.Exception.ToString()
+        if ($exceptionText -like '*Authorization_RequestDenied*' -or
+            $exceptionText -like '*Forbidden*' -or
+            $exceptionText -like '*Insufficient privileges*' -or
+            $exceptionText -like '*insufficient*permission*' -or
+            $exceptionText -like '*permission*denied*' -or
+            $exceptionText -like '*accessDenied*') {
             Write-Warning "Get-GraphEssentialsDelegatedPermissions: Missing Policy.Read.PermissionGrant (or equivalent) permission."
         }
     }
