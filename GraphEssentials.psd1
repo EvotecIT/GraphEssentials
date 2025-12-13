@@ -12,13 +12,14 @@
     PowerShellVersion    = '5.1'
     PrivateData          = @{
         PSData = @{
-            Tags = @('Windows')
+            RequireLicenseAcceptance = $false
+            Tags                     = @('Windows')
         }
     }
     RequiredModules      = @(@{
             Guid          = 'ee272aa8-baaa-4edf-9f45-b6d6f7d844fe'
             ModuleName    = 'PSSharedGoods'
-            ModuleVersion = '0.0.310'
+            ModuleVersion = '0.0.312'
         }, @{
             Guid          = '0b0ba5c5-ec85-4c2b-a718-874e55a8bc3f'
             ModuleName    = 'PSWriteColor'
