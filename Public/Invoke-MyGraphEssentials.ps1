@@ -35,6 +35,10 @@
     .PARAMETER SplitReports
     When specified, generates separate HTML files for each report type instead of a combined report.
 
+    .PARAMETER PostProcess
+    Optional scriptblock invoked after data collection and before HTML generation.
+    The scriptblock receives $Script:Reporting as its only argument and can modify it to affect output.
+
     .PARAMETER AppsDetailLevel
     Controls how much data Apps collection gathers:
     - Full    : current behaviour (delegated grants, owners, comprehensive activity)
@@ -195,14 +199,6 @@
             $TimeEndGraphEssentials = Stop-TimeLog -Time $TimeLogGraphEssentials -Option OneLiner
             $Script:Reporting[$T]['Time'] = $TimeEndGraphEssentials
             Write-Color -Text '[i]', '[End  ] ', $($Script:GraphEssentialsConfiguration[$T]['Name']), " [Time to execute: $TimeEndGraphEssentials]" -Color Yellow, DarkGray, Yellow, DarkGray
-
-            if ($SplitReports) {
-                Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report for ', $T -Color Yellow, DarkGray, Yellow
-                $TimeLogHTML = Start-TimeLog
-                New-HTMLReportGraphEssentialsWithSplit -FilePath $FilePath -Online:$Online -HideHTML:$HideHTML -CurrentReport $T
-                $TimeLogEndHTML = Stop-TimeLog -Time $TimeLogHTML -Option OneLiner
-                Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report for ', $T, " [Time to execute: $TimeLogEndHTML]" -Color Yellow, DarkGray, Yellow, DarkGray
-            }
         }
     }
     # Allow external data transformation before HTML is generated
@@ -214,20 +210,33 @@
         }
     }
 
-    if (-not $SplitReports) {
+    if (-not $FilePath) {
+        $FilePath = Get-FileName -Extension 'html' -Temporary
+    }
+
+    if ($SplitReports) {
+        foreach ($T in $Script:GraphEssentialsConfiguration.Keys) {
+            if ($Script:GraphEssentialsConfiguration[$T].Enabled -eq $true) {
+                Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report for ', $T -Color Yellow, DarkGray, Yellow
+                $TimeLogHTML = Start-TimeLog
+                New-HTMLReportGraphEssentialsWithSplit -FilePath $FilePath -Online:$Online -HideHTML:$HideHTML -CurrentReport $T
+                $TimeLogEndHTML = Stop-TimeLog -Time $TimeLogHTML -Option OneLiner
+                Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report for ', $T, " [Time to execute: $TimeLogEndHTML]" -Color Yellow, DarkGray, Yellow, DarkGray
+            }
+        }
+    } else {
         Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report' -Color Yellow, DarkGray, Yellow
         $TimeLogHTML = Start-TimeLog
-        if (-not $FilePath) {
-            $FilePath = Get-FileName -Extension 'html' -Temporary
-        }
         New-HTMLReportGraphEssentials -Type $Type -Online:$Online.IsPresent -HideHTML:$HideHTML.IsPresent -FilePath $FilePath
         $TimeLogEndHTML = Stop-TimeLog -Time $TimeLogHTML -Option OneLiner
         Write-Color -Text '[i]', '[HTML ] ', 'Generating HTML report', " [Time to execute: $TimeLogEndHTML]" -Color Yellow, DarkGray, Yellow, DarkGray
     }
-        Reset-GraphEssentials
-        # Reset detail preference to avoid bleeding into subsequent calls
-        $Script:GraphEssentialsAppsDetailLevel = 'Full'
-        $Script:GraphEssentialsAppsApplicationType = 'All'
+
+    Reset-GraphEssentials
+    # Reset detail preference to avoid bleeding into subsequent calls
+    $Script:GraphEssentialsAppsDetailLevel = 'Full'
+    $Script:GraphEssentialsAppsApplicationType = 'All'
+    $Script:GraphEssentialsIncludeOwnerDiagnostics = $false
 
     if ($PassThru) {
         $Script:Reporting

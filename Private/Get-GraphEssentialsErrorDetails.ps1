@@ -96,8 +96,13 @@ function Get-GraphEssentialsErrorDetails {
         }
 
         # Check specifically for permission errors in the exception string
-        if ($ErrorRecord.Exception.ToString() -like '*Authorization_RequestDenied*' -or
-            $ErrorRecord.Exception.ToString() -like '*Permission*') {
+        $exceptionText = $ErrorRecord.Exception.ToString()
+        if ($exceptionText -like '*Authorization_RequestDenied*' -or
+            $exceptionText -like '*Forbidden*' -or
+            $exceptionText -like '*Insufficient privileges*' -or
+            $exceptionText -like '*insufficient*permission*' -or
+            $exceptionText -like '*permission*denied*' -or
+            $exceptionText -like '*accessDenied*') {
             $errorDetails.FullMessage += "`n$($FunctionName): This often indicates insufficient permissions."
         }
     }
