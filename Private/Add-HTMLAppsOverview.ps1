@@ -51,10 +51,12 @@ param(
         $Today = Get-Date
         $diagNames = @(
             'OwnerResolvedId',
+            'OwnerResolvedDisplayName',
             'OwnerResolvedSource',
             'OwnerResolutionStatus',
             'OwnerResolvedEmail',
             'OwnerManagerEmail',
+            'OwnerManagerDisplayName',
             'OwnerResolvedActive'
         )
 
