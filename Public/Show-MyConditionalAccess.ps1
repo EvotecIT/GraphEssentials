@@ -60,7 +60,13 @@
         'ExcludedUsersGuid',
         'IncludedGroupsGuid',
         'ExcludedGroupsGuid',
+        'UsersInclude',
+        'UsersExclude',
         'ApplicationsGuid',
+        'ApplicationsExcludedGuid',
+        'AuthContextGuid',
+        'LocationsGuid',
+        'LocationsExcludedGuid',
         'AuthStrengthGuid'
     )
 
@@ -68,6 +74,11 @@
     $ExcludedAuthProperties = @(
         'RawAllowedCombinations'
     )
+
+    $CAPivot = @()
+    if ($CAData.Policies.All -and $CAData.Policies.All.Count -gt 0) {
+        $CAPivot = ConvertTo-MyConditionalAccessPivot -Policies $CAData.Policies.All
+    }
 
     Write-Verbose -Message "Show-MyConditionalAccess - Preparing HTML report"
     New-HTML {
@@ -149,11 +160,31 @@
                                     New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                                     New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                                     New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                                } -DataStore JavaScript -DataTableID "TableCAPoliciesAll" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                                } -DataStore JavaScript -DataTableID "TableCAPoliciesAll" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                             }
                         }
                     }
 
+                }
+
+                New-HTMLTab -Name "Policy Matrix ($($CAData.Policies.All.Count))" {
+                    New-HTMLSection -HeaderText "Conditional Access Policy Matrix" {
+                        New-HTMLPanel -Invisible {
+                            New-HTMLContainer {
+                                New-HTMLText -FontSize 11pt -TextBlock {
+                                    "This matrix pivots conditional access data so each policy is a column and each row represents a single policy attribute. "
+                                    "Use this view to compare policies side-by-side for auditing and historical review."
+                                }
+                            }
+                            New-HTMLContainer {
+                                if ($CAPivot -and $CAPivot.Count -gt 0) {
+                                    New-HTMLTable -DataTable $CAPivot -Filtering -DataStore JavaScript -DataTableID "TableCAPivot" -PagingLength 25 -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
+                                } else {
+                                    New-HTMLText -Text "No conditional access policies found to pivot." -Color Orange -FontSize 11pt
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if ($AuthStrengths) {
@@ -176,7 +207,7 @@
                                     New-HTMLTable -DataTable $AuthStrengths -Filtering {
                                         New-HTMLTableCondition -Name 'PolicyType' -Value 'Built-in' -BackgroundColor LightBlue -ComparisonType string
                                         New-HTMLTableCondition -Name 'PolicyType' -Value 'Custom' -BackgroundColor LightGreen -ComparisonType string
-                                    } -DataStore JavaScript -DataTableID "TableAuthStrengths" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedAuthProperties -WarningAction SilentlyContinue
+                                    } -DataStore JavaScript -DataTableID "TableAuthStrengths" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedAuthProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                                 }
                             }
                         }
@@ -206,7 +237,7 @@
                                     New-HTMLTable -DataTable $AuthMethodsTable -Filtering {
                                         New-HTMLTableCondition -Name 'PolicyType' -Value 'Built-in' -BackgroundColor LightBlue -ComparisonType string
                                         New-HTMLTableCondition -Name 'PolicyType' -Value 'Custom' -BackgroundColor LightGreen -ComparisonType string
-                                    } -DataStore JavaScript -DataTableID "TableAuthMethods" -PagingLength 10 -ScrollX -WarningAction SilentlyContinue
+                                    } -DataStore JavaScript -DataTableID "TableAuthMethods" -PagingLength 10 -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                 }
                             }
                         }
@@ -228,7 +259,7 @@
                                     New-HTMLTable -DataTable ([PSCustomObject]@{
                                             LastModified = $AuthMethods.LastModifiedDateTime
                                             Description  = $AuthMethods.Description
-                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsGeneral" -ScrollX -WarningAction SilentlyContinue
+                                        }) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethodsGeneral" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                 }
 
                                 # Authentication Methods Summary Table
@@ -236,7 +267,7 @@
                                     New-HTMLTable -DataTable $AuthMethods.Summary -Filtering {
                                         New-HTMLTableCondition -Name 'State' -Value 'enabled' -BackgroundColor LightGreen -ComparisonType string
                                         New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGray -ComparisonType string
-                                    } -DataStore JavaScript -DataTableID "TableAuthMethodsSummary" -ScrollX -WarningAction SilentlyContinue
+                                    } -DataStore JavaScript -DataTableID "TableAuthMethodsSummary" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                 }
 
                                 # Detailed Method Settings Sections
@@ -246,7 +277,7 @@
                                         New-HTMLSection -HeaderText $Method -CanCollapse {
                                             switch ($Method) {
                                                 'X509' {
-                                                    New-HTMLTable -DataTable $MethodConfig.CertificateUserBindings -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Bindings" -ScrollX -WarningAction SilentlyContinue
+                                                    New-HTMLTable -DataTable $MethodConfig.CertificateUserBindings -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Bindings" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                 }
                                                 'FIDO2' {
                                                     New-HTMLTable -DataTable $(
@@ -272,7 +303,7 @@
                                                                 Value   = $MethodConfig.KeyRestrictions.IsEnforced
                                                             }
                                                         }
-                                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Settings" -ScrollX -WarningAction SilentlyContinue
+                                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Settings" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                 }
                                                 default {
                                                     New-HTMLTable -DataTable $(
@@ -284,12 +315,12 @@
                                                                 }
                                                             }
                                                         }
-                                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Settings" -ScrollX -WarningAction SilentlyContinue
+                                                    ) -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Settings" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                 }
                                             }
                                             if ($MethodConfig.ExcludeTargets -and $MethodConfig.ExcludeTargets.Count -gt 0) {
                                                 New-HTMLSection -HeaderText "Excluded Targets" {
-                                                    New-HTMLTable -DataTable $MethodConfig.ExcludeTargets -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Excludes" -ScrollX -WarningAction SilentlyContinue
+                                                    New-HTMLTable -DataTable $MethodConfig.ExcludeTargets -Filtering -DataStore JavaScript -DataTableID "TableAuthMethod$($Method)Excludes" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                 }
                                             }
                                         }
@@ -307,7 +338,7 @@
                                 if ($AuthContexts) {
                                     New-HTMLTable -DataTable $AuthContexts -Filtering {
                                         New-HTMLTableCondition -Name 'IsAvailable' -Value $true -BackgroundColor LightGreen -ComparisonType boolean
-                                    } -DataStore JavaScript -DataTableID "TableAuthContexts" -ScrollX -WarningAction SilentlyContinue
+                                    } -DataStore JavaScript -DataTableID "TableAuthContexts" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                 } else {
                                     New-HTMLContainer {
                                         New-HTMLText -Text "No authentication contexts found." -Color Orange -FontSize 11pt
@@ -330,7 +361,7 @@
                                 $TermsOfUse = Get-MyTermsOfUse
                                 if ($TermsOfUse) {
                                     New-HTMLSection -HeaderText "Terms of Use Summary" {
-                                        New-HTMLTable -DataTable $($TermsOfUse.Summary) -Filtering -DataStore JavaScript -DataTableID "TableToUSummary" -ScrollX -WarningAction SilentlyContinue
+                                        New-HTMLTable -DataTable $($TermsOfUse.Summary) -Filtering -DataStore JavaScript -DataTableID "TableToUSummary" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                     }
 
                                     # Detailed Agreement Information
@@ -338,17 +369,17 @@
                                         foreach ($Agreement in $TermsOfUse) {
                                             New-HTMLSection -HeaderText $Agreement.Summary.DisplayName -CanCollapse {
                                                 New-HTMLSection -HeaderText "Settings" {
-                                                    New-HTMLTable -DataTable $Agreement.Detailed.Settings -DataStore JavaScript -DataTableID "TableToUDetails$($Agreement.Detailed.Settings.Id)" -ScrollX -WarningAction SilentlyContinue
+                                                    New-HTMLTable -DataTable $Agreement.Detailed.Settings -DataStore JavaScript -DataTableID "TableToUDetails$($Agreement.Detailed.Settings.Id)" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                 }
 
                                                 if ($Agreement.Detailed.Files) {
                                                     New-HTMLSection -HeaderText "Files & Languages" {
-                                                        New-HTMLTable -DataTable $Agreement.Detailed.Files -DataStore JavaScript -DataTableID "TableToUFiles$($Agreement.Detailed.Settings.Id)" -ScrollX -WarningAction SilentlyContinue
+                                                        New-HTMLTable -DataTable $Agreement.Detailed.Files -DataStore JavaScript -DataTableID "TableToUFiles$($Agreement.Detailed.Settings.Id)" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                     }
                                                 }
 
                                                 New-HTMLSection -HeaderText "Required Acceptance By" {
-                                                    New-HTMLTable -DataTable $Agreement.Detailed.AcceptanceRequiredBy -DataStore JavaScript -DataTableID "TableToUAcceptance$($Agreement.Detailed.Settings.Id)" -ScrollX -WarningAction SilentlyContinue
+                                                    New-HTMLTable -DataTable $Agreement.Detailed.AcceptanceRequiredBy -DataStore JavaScript -DataTableID "TableToUAcceptance$($Agreement.Detailed.Settings.Id)" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                 }
                                             }
                                         }
@@ -375,28 +406,28 @@
                                                         'MFA Accepted'                           = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsMfaAccepted
                                                         'Compliant Device Accepted'              = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsCompliantDeviceAccepted
                                                         'Hybrid Azure AD Joined Device Accepted' = $CrossTenantAccess.DefaultPolicy.InboundTrust.IsHybridAzureADJoinedDeviceAccepted
-                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultInboundTrust" -ScrollX -WarningAction SilentlyContinue
+                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultInboundTrust" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                             }
 
                                             New-HTMLSection -HeaderText "Default Configuration - Inbound/Outbound Access" {
                                                 New-HTMLTable -DataTable $([PSCustomObject]@{
                                                         'Inbound Access Allowed'  = $CrossTenantAccess.DefaultPolicy.InboundAllowed
                                                         'Outbound Access Allowed' = $CrossTenantAccess.DefaultPolicy.OutboundAllowed
-                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultAccess" -ScrollX -WarningAction SilentlyContinue
+                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultAccess" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                             }
 
                                             New-HTMLSection -HeaderText "Default Configuration - B2B Direct Connect Settings" {
                                                 New-HTMLTable -DataTable $([PSCustomObject]@{
                                                         'Applications Enabled' = $CrossTenantAccess.DefaultPolicy.B2BDirectConnect.ApplicationsEnabled
                                                         'Users Enabled'        = $CrossTenantAccess.DefaultPolicy.B2BDirectConnect.UsersEnabled
-                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BDirect" -ScrollX -WarningAction SilentlyContinue
+                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BDirect" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                             }
 
                                             New-HTMLSection -HeaderText "Default Configuration - B2B Collaboration Settings" {
                                                 New-HTMLTable -DataTable $([PSCustomObject]@{
                                                         'Applications Enabled' = $CrossTenantAccess.DefaultPolicy.B2BCollaboration.ApplicationsEnabled
                                                         'Users Enabled'        = $CrossTenantAccess.DefaultPolicy.B2BCollaboration.UsersEnabled
-                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BCollab" -ScrollX -WarningAction SilentlyContinue
+                                                    }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantDefaultB2BCollab" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                             }
 
                                             if ($CrossTenantAccess.TenantPolicies) {
@@ -409,7 +440,7 @@
                                                                             'MFA Accepted'                           = $TenantPolicy.InboundTrust.IsMfaAccepted
                                                                             'Compliant Device Accepted'              = $TenantPolicy.InboundTrust.IsCompliantDeviceAccepted
                                                                             'Hybrid Azure AD Joined Device Accepted' = $TenantPolicy.InboundTrust.IsHybridAzureADJoinedDeviceAccepted
-                                                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Trust" -ScrollX -WarningAction SilentlyContinue
+                                                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Trust" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                                 }
 
                                                                 New-HTMLSection -HeaderText "Access Settings" {
@@ -418,7 +449,7 @@
                                                                             'Outbound Access Allowed' = $TenantPolicy.OutboundAllowed
                                                                             'Created'                 = $TenantPolicy.CreatedDateTime
                                                                             'Modified'                = $TenantPolicy.ModifiedDateTime
-                                                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Access" -ScrollX -WarningAction SilentlyContinue
+                                                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)Access" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                                 }
 
                                                                 New-HTMLSection -HeaderText "B2B Settings" {
@@ -427,7 +458,7 @@
                                                                             'Direct Connect - Users'        = $TenantPolicy.B2BDirectConnect.UsersEnabled
                                                                             'Collaboration - Applications'  = $TenantPolicy.B2BCollaboration.ApplicationsEnabled
                                                                             'Collaboration - Users'         = $TenantPolicy.B2BCollaboration.UsersEnabled
-                                                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)B2B" -ScrollX -WarningAction SilentlyContinue
+                                                                        }) -Filtering -DataStore JavaScript -DataTableID "TableCrossTenantPolicy$($TenantPolicy.TenantId)B2B" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                                                 }
                                                             }
                                                         }
@@ -463,7 +494,7 @@
                                     New-HTMLTable -DataTable $NamedLocations -Filtering {
                                         New-HTMLTableCondition -Name 'Type' -Value 'IP' -BackgroundColor LightBlue -ComparisonType string
                                         New-HTMLTableCondition -Name 'Type' -Value 'CountryRegion' -BackgroundColor LightGreen -ComparisonType string
-                                    } -DataStore JavaScript -DataTableID "TableNamedLocations" -ScrollX -WarningAction SilentlyContinue
+                                    } -DataStore JavaScript -DataTableID "TableNamedLocations" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                                 }
                             } else {
                                 New-HTMLContainer {
@@ -494,7 +525,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableMFAAdmins" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableMFAAdmins" -PagingLength 10 -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }
@@ -521,7 +552,7 @@
                         New-HTMLContainer {
                             New-HTMLTable -DataTable $CAData.Policies.AdminRoleAnalysis -Filtering {
                                 # You could add conditions here if needed
-                            } -DataStore JavaScript -DataTableID "TableAdminRoleAnalysis" -PagingLength 10 -ScrollX -WarningAction SilentlyContinue
+                            } -DataStore JavaScript -DataTableID "TableAdminRoleAnalysis" -PagingLength 10 -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
                         }
                     }
                 }
@@ -546,7 +577,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableMFAUsers" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableMFAUsers" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }
@@ -570,7 +601,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableBlockLegacy" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableBlockLegacy" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }
@@ -594,7 +625,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableDeviceCompliance" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableDeviceCompliance" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }
@@ -618,7 +649,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableRisk" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableRisk" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }
@@ -641,7 +672,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableAppProtection" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableAppProtection" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }
@@ -664,7 +695,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableLocations" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableLocations" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }
@@ -688,7 +719,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableAdminPortal" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableAdminPortal" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }
@@ -711,7 +742,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableDeviceJoin" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableDeviceJoin" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }
@@ -735,7 +766,7 @@
                             New-HTMLTableCondition -Name 'State' -Value 'disabled' -BackgroundColor LightGrey -ComparisonType string
                             New-HTMLTableCondition -Name 'CreatedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
                             New-HTMLTableCondition -Name 'ModifiedDays' -Value 7 -Operator le -BackgroundColor LightBlue -ComparisonType number
-                        } -DataStore JavaScript -DataTableID "TableUncategorized" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue
+                        } -DataStore JavaScript -DataTableID "TableUncategorized" -ScrollX -ExcludeProperty $ExcludedProperties -WarningAction SilentlyContinue -InvokeHTMLTags
                     }
                 }
             }

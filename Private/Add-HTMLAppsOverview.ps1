@@ -51,13 +51,39 @@ param(
         $Today = Get-Date
         $diagNames = @(
             'OwnerResolvedId',
+            'OwnerResolvedIds',
+            'OwnerResolvedEmail',
+            'OwnerResolvedEmails',
             'OwnerResolvedDisplayName',
             'OwnerResolvedSource',
             'OwnerResolutionStatus',
-            'OwnerResolvedEmail',
+            'OwnerResolvedActive',
+            'OwnerHintEmails',
+            'OwnerPuidResolved',
+            'OwnerPuidResolvedList',
+            'OwnerPuidSource',
+            'OwnerIsLeaver',
             'OwnerManagerEmail',
             'OwnerManagerDisplayName',
-            'OwnerResolvedActive'
+            'ILMResolveStatus',
+            'ILMOwnerPuid',
+            'ILMOwnerEmail',
+            'ILMOwnerActive',
+            'ILMOwnerDisplayName',
+            'ILMOwnerEmailList',
+            'ILMOwnerPuidList',
+            'ILMOwnerDisplayNameList',
+            'ILMOwnerActiveList',
+            'ILMOwnerEndDate',
+            'ILMOwnerEndDateDays',
+            'ILMOwnerEndDateList',
+            'ILMOwnerEndDateDaysList',
+            'ILMManagerPuid',
+            'ILMManagerEmail',
+            'ILMManagerDisplayName',
+            'ILMManagerEmailList',
+            'ILMManagerPuidList',
+            'ILMManagerDisplayNameList'
         )
 
         # Base properties from the first app (apps objects are uniform).
