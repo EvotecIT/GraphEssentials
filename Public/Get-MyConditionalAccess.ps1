@@ -110,9 +110,12 @@
         Write-Warning -Message "Get-MyConditionalAccess - Failed to get authentication strength information. Using predefined values only. Error: $($_.Exception.Message)"
     }
 
-    # Extract all user, group IDs from policies for targeted lookup
+    # Extract all user, group, application, location, and authentication context IDs from policies for targeted lookup
     $userIdsToLookup = [System.Collections.Generic.HashSet[string]]::new()
     $groupIdsToLookup = [System.Collections.Generic.HashSet[string]]::new()
+    $appIdsToLookup = [System.Collections.Generic.HashSet[string]]::new()
+    $locationIdsToLookup = [System.Collections.Generic.HashSet[string]]::new()
+    $authContextIdsToLookup = [System.Collections.Generic.HashSet[string]]::new()
 
     foreach ($CAPolicy in $ConditionalAccessPolicyArray) {
         # Collect user IDs
@@ -144,9 +147,57 @@
                 [void]$groupIdsToLookup.Add($groupId)
             }
         }
+
+        # Collect application IDs for include/exclude lists
+        if ($CAPolicy.Conditions.Applications.IncludeApplications) {
+            foreach ($appId in $CAPolicy.Conditions.Applications.IncludeApplications) {
+                $parsedGuid = [guid]::Empty
+                if ([guid]::TryParse($appId, [ref] $parsedGuid)) {
+                    [void]$appIdsToLookup.Add($appId)
+                }
+            }
+        }
+
+        if ($CAPolicy.Conditions.Applications.ExcludeApplications) {
+            foreach ($appId in $CAPolicy.Conditions.Applications.ExcludeApplications) {
+                $parsedGuid = [guid]::Empty
+                if ([guid]::TryParse($appId, [ref] $parsedGuid)) {
+                    [void]$appIdsToLookup.Add($appId)
+                }
+            }
+        }
+
+        # Collect named location IDs for include/exclude lists
+        if ($CAPolicy.Conditions.Locations.IncludeLocations) {
+            foreach ($locationId in $CAPolicy.Conditions.Locations.IncludeLocations) {
+                $parsedGuid = [guid]::Empty
+                if ([guid]::TryParse($locationId, [ref] $parsedGuid)) {
+                    [void]$locationIdsToLookup.Add($locationId)
+                }
+            }
+        }
+
+        if ($CAPolicy.Conditions.Locations.ExcludeLocations) {
+            foreach ($locationId in $CAPolicy.Conditions.Locations.ExcludeLocations) {
+                $parsedGuid = [guid]::Empty
+                if ([guid]::TryParse($locationId, [ref] $parsedGuid)) {
+                    [void]$locationIdsToLookup.Add($locationId)
+                }
+            }
+        }
+
+        # Collect authentication context references
+        if ($CAPolicy.Conditions.Applications.IncludeAuthenticationContextClassReferences) {
+            foreach ($contextId in $CAPolicy.Conditions.Applications.IncludeAuthenticationContextClassReferences) {
+                if ($contextId) {
+                    [void]$authContextIdsToLookup.Add($contextId)
+                }
+            }
+        }
     }
 
     Write-Verbose -Message "Get-MyConditionalAccess - Found $($userIdsToLookup.Count) unique user IDs and $($groupIdsToLookup.Count) unique group IDs to resolve"
+    Write-Verbose -Message "Get-MyConditionalAccess - Found $($appIdsToLookup.Count) unique application IDs and $($locationIdsToLookup.Count) unique location IDs to resolve"
 
     # Lookup users by ID in batches
     if ($userIdsToLookup.Count -gt 0) {
@@ -209,6 +260,82 @@
                 }
             } catch {
                 Write-Warning -Message "Get-MyConditionalAccess - Failed to resolve some group IDs. Error: $($_.Exception.Message)"
+            }
+        }
+    }
+
+    # Lookup service principals to resolve application IDs not found in app registrations
+    if ($appIdsToLookup.Count -gt 0) {
+        $servicePrincipalIdsToLookup = [System.Collections.Generic.List[string]]::new()
+        foreach ($appId in $appIdsToLookup) {
+            if (-not $ApplicationsHashTable.ContainsKey($appId)) {
+                $servicePrincipalIdsToLookup.Add($appId)
+            }
+        }
+
+        if ($servicePrincipalIdsToLookup.Count -gt 0) {
+            Write-Verbose -Message "Get-MyConditionalAccess - Resolving $($servicePrincipalIdsToLookup.Count) application IDs via service principals"
+            $batchSize = 10
+            $servicePrincipalBatches = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
+            $currentBatch = [System.Collections.Generic.List[string]]::new()
+
+            foreach ($appId in $servicePrincipalIdsToLookup) {
+                if ($currentBatch.Count -eq $batchSize) {
+                    $servicePrincipalBatches.Add($currentBatch)
+                    $currentBatch = [System.Collections.Generic.List[string]]::new()
+                }
+                $currentBatch.Add($appId)
+            }
+
+            if ($currentBatch.Count -gt 0) {
+                $servicePrincipalBatches.Add($currentBatch)
+            }
+
+            foreach ($batch in $servicePrincipalBatches) {
+                try {
+                    $filterParts = [System.Collections.Generic.List[string]]::new()
+                    foreach ($appId in $batch) {
+                        $filterParts.Add("appId eq '$appId'")
+                    }
+                    $filter = $filterParts -join ' or '
+                    Write-Verbose -Message "Get-MyConditionalAccess - Looking up service principals with filter: $filter"
+                    $servicePrincipals = Get-MgServicePrincipal -Filter $filter -Property AppId, DisplayName -ErrorAction Stop
+                    foreach ($servicePrincipal in $servicePrincipals) {
+                        if ($servicePrincipal.AppId -and $servicePrincipal.DisplayName) {
+                            $ApplicationsHashTable[$servicePrincipal.AppId] = $servicePrincipal.DisplayName
+                        }
+                    }
+                } catch {
+                    Write-Warning -Message "Get-MyConditionalAccess - Failed to resolve some application IDs via service principals. Error: $($_.Exception.Message)"
+                }
+            }
+        }
+    }
+
+    # Lookup named locations for ID resolution
+    $NamedLocationsHashTable = @{}
+    if ($locationIdsToLookup.Count -gt 0) {
+        Write-Verbose -Message "Get-MyConditionalAccess - Getting named locations for ID resolution"
+        $NamedLocations = Get-MyNamedLocation
+        if ($NamedLocations) {
+            foreach ($Location in $NamedLocations) {
+                if ($Location.Id -and $Location.DisplayName -and (-not $NamedLocationsHashTable.ContainsKey($Location.Id))) {
+                    $NamedLocationsHashTable[$Location.Id] = $Location.DisplayName
+                }
+            }
+        }
+    }
+
+    # Lookup authentication contexts for ID resolution
+    $AuthContextHashTable = @{}
+    if ($authContextIdsToLookup.Count -gt 0) {
+        Write-Verbose -Message "Get-MyConditionalAccess - Getting authentication contexts for ID resolution"
+        $AuthContexts = Get-MyAuthenticationContext
+        if ($AuthContexts) {
+            foreach ($AuthContext in $AuthContexts) {
+                if ($AuthContext.Id -and $AuthContext.DisplayName -and (-not $AuthContextHashTable.ContainsKey($AuthContext.Id))) {
+                    $AuthContextHashTable[$AuthContext.Id] = $AuthContext.DisplayName
+                }
             }
         }
     }
@@ -340,6 +467,154 @@
             }
         }
 
+        $ApplicationExcludedNames = [System.Collections.Generic.List[string]]::new()
+        if ($CAPolicy.Conditions.Applications.ExcludeApplications) {
+            foreach ($AppId in $CAPolicy.Conditions.Applications.ExcludeApplications) {
+                if ($ApplicationsHashTable.ContainsKey($AppId)) {
+                    $ApplicationExcludedNames.Add($ApplicationsHashTable[$AppId])
+                } else {
+                    $ApplicationExcludedNames.Add($AppId)
+                }
+            }
+        }
+
+        # Convert location IDs to readable names
+        $LocationsIncludedNames = [System.Collections.Generic.List[string]]::new()
+        $LocationsExcludedNames = [System.Collections.Generic.List[string]]::new()
+
+        if ($CAPolicy.Conditions.Locations.IncludeLocations) {
+            foreach ($LocationId in $CAPolicy.Conditions.Locations.IncludeLocations) {
+                if ($NamedLocationsHashTable.ContainsKey($LocationId)) {
+                    $LocationsIncludedNames.Add($NamedLocationsHashTable[$LocationId])
+                } else {
+                    $LocationsIncludedNames.Add($LocationId)
+                }
+            }
+        }
+
+        if ($CAPolicy.Conditions.Locations.ExcludeLocations) {
+            foreach ($LocationId in $CAPolicy.Conditions.Locations.ExcludeLocations) {
+                if ($NamedLocationsHashTable.ContainsKey($LocationId)) {
+                    $LocationsExcludedNames.Add($NamedLocationsHashTable[$LocationId])
+                } else {
+                    $LocationsExcludedNames.Add($LocationId)
+                }
+            }
+        }
+
+        # Convert authentication context IDs to readable names
+        $AuthContextNames = [System.Collections.Generic.List[string]]::new()
+        if ($CAPolicy.Conditions.Applications.IncludeAuthenticationContextClassReferences) {
+            foreach ($ContextId in $CAPolicy.Conditions.Applications.IncludeAuthenticationContextClassReferences) {
+                if ($AuthContextHashTable.ContainsKey($ContextId)) {
+                    $AuthContextNames.Add($AuthContextHashTable[$ContextId])
+                } else {
+                    $AuthContextNames.Add($ContextId)
+                }
+            }
+        }
+
+        # Extract platform, device, and filter data
+        $PlatformsExcluded = [System.Collections.Generic.List[string]]::new()
+        if ($CAPolicy.Conditions.Platforms.ExcludePlatforms) {
+            foreach ($Platform in $CAPolicy.Conditions.Platforms.ExcludePlatforms) {
+                $PlatformsExcluded.Add($Platform)
+            }
+        }
+
+        $DevicesIncluded = [System.Collections.Generic.List[string]]::new()
+        $DevicesExcluded = [System.Collections.Generic.List[string]]::new()
+        $DeviceFilterRule = $null
+        $DeviceFilterMode = $null
+
+        if ($CAPolicy.Conditions.Devices) {
+            if ($CAPolicy.Conditions.Devices.IncludeDevices) {
+                foreach ($Device in $CAPolicy.Conditions.Devices.IncludeDevices) {
+                    $DevicesIncluded.Add($Device)
+                }
+            }
+            if ($CAPolicy.Conditions.Devices.ExcludeDevices) {
+                foreach ($Device in $CAPolicy.Conditions.Devices.ExcludeDevices) {
+                    $DevicesExcluded.Add($Device)
+                }
+            }
+            if ($CAPolicy.Conditions.Devices.DeviceFilter) {
+                $DeviceFilterRule = $CAPolicy.Conditions.Devices.DeviceFilter.Rule
+                $DeviceFilterMode = $CAPolicy.Conditions.Devices.DeviceFilter.Mode
+            }
+        }
+
+        # Extract session control details
+        $SessionControlsAdditionalProperties = $null
+        $ApplicationEnforcedRestrictionsIsEnabled = $null
+        $ApplicationEnforcedRestrictionsAdditionalProperties = $null
+        $CloudAppSecurityType = $null
+        $CloudAppSecurityIsEnabled = $null
+        $CloudAppSecurityAdditionalProperties = $null
+        $DisableResilienceDefaults = $null
+        $PersistentBrowserIsEnabled = $null
+        $PersistentBrowserMode = $null
+        $PersistentBrowserAdditionalProperties = $null
+        $SignInFrequencyAuthenticationType = $null
+        $SignInFrequencyInterval = $null
+        $SignInFrequencyIsEnabled = $null
+        $SignInFrequencyType = $null
+        $SignInFrequencyValue = $null
+        $SignInFrequencyAdditionalProperties = $null
+
+        $SessionControlsAdditionalPropertiesDisplay = $null
+        $ApplicationEnforcedRestrictionsAdditionalPropertiesDisplay = $null
+        $CloudAppSecurityAdditionalPropertiesDisplay = $null
+        $PersistentBrowserAdditionalPropertiesDisplay = $null
+        $SignInFrequencyAdditionalPropertiesDisplay = $null
+
+        if ($CAPolicy.SessionControls) {
+            $SessionControlsAdditionalProperties = $CAPolicy.SessionControls.AdditionalProperties
+            $DisableResilienceDefaults = $CAPolicy.SessionControls.DisableResilienceDefaults
+
+            if ($CAPolicy.SessionControls.ApplicationEnforcedRestrictions) {
+                $ApplicationEnforcedRestrictionsIsEnabled = $CAPolicy.SessionControls.ApplicationEnforcedRestrictions.IsEnabled
+                $ApplicationEnforcedRestrictionsAdditionalProperties = $CAPolicy.SessionControls.ApplicationEnforcedRestrictions.AdditionalProperties
+            }
+
+            if ($CAPolicy.SessionControls.CloudAppSecurity) {
+                $CloudAppSecurityType = $CAPolicy.SessionControls.CloudAppSecurity.CloudAppSecurityType
+                $CloudAppSecurityIsEnabled = $CAPolicy.SessionControls.CloudAppSecurity.IsEnabled
+                $CloudAppSecurityAdditionalProperties = $CAPolicy.SessionControls.CloudAppSecurity.AdditionalProperties
+            }
+
+            if ($CAPolicy.SessionControls.PersistentBrowser) {
+                $PersistentBrowserIsEnabled = $CAPolicy.SessionControls.PersistentBrowser.IsEnabled
+                $PersistentBrowserMode = $CAPolicy.SessionControls.PersistentBrowser.Mode
+                $PersistentBrowserAdditionalProperties = $CAPolicy.SessionControls.PersistentBrowser.AdditionalProperties
+            }
+
+            if ($CAPolicy.SessionControls.SignInFrequency) {
+                $SignInFrequencyAuthenticationType = $CAPolicy.SessionControls.SignInFrequency.AuthenticationType
+                $SignInFrequencyInterval = $CAPolicy.SessionControls.SignInFrequency.FrequencyInterval
+                $SignInFrequencyIsEnabled = $CAPolicy.SessionControls.SignInFrequency.IsEnabled
+                $SignInFrequencyType = $CAPolicy.SessionControls.SignInFrequency.Type
+                $SignInFrequencyValue = $CAPolicy.SessionControls.SignInFrequency.Value
+                $SignInFrequencyAdditionalProperties = $CAPolicy.SessionControls.SignInFrequency.AdditionalProperties
+            }
+        }
+
+        $SessionControlsAdditionalPropertiesDisplay = ConvertTo-MyDisplayString -Value $SessionControlsAdditionalProperties
+        $ApplicationEnforcedRestrictionsAdditionalPropertiesDisplay = ConvertTo-MyDisplayString -Value $ApplicationEnforcedRestrictionsAdditionalProperties
+        $CloudAppSecurityAdditionalPropertiesDisplay = ConvertTo-MyDisplayString -Value $CloudAppSecurityAdditionalProperties
+        $PersistentBrowserAdditionalPropertiesDisplay = ConvertTo-MyDisplayString -Value $PersistentBrowserAdditionalProperties
+        $SignInFrequencyAdditionalPropertiesDisplay = ConvertTo-MyDisplayString -Value $SignInFrequencyAdditionalProperties
+
+        # Extract grant control details
+        $GrantControlsTermsOfUse = $null
+        $GrantControlsCustomControls = $null
+        $GrantControlsOperator = $null
+        if ($CAPolicy.GrantControls) {
+            $GrantControlsTermsOfUse = $CAPolicy.GrantControls.TermsOfUse
+            $GrantControlsCustomControls = $CAPolicy.GrantControls.CustomAuthenticationFactors
+            $GrantControlsOperator = $CAPolicy.GrantControls.Operator
+        }
+
         # Calculate creation and modification days
         $CreatedDays = $null
         $ModifiedDays = $null
@@ -360,6 +635,28 @@
             } else {
                 $AuthStrengthName = "Unknown strength ($($CAPolicy.GrantControls.AuthenticationStrength.Id))"
             }
+        }
+
+        $UsersInclude = [System.Collections.Generic.List[string]]::new()
+        foreach ($Value in $IncludedUserNames) {
+            $UsersInclude.Add($Value)
+        }
+        foreach ($Value in $IncludedGroupNames) {
+            $UsersInclude.Add($Value)
+        }
+        foreach ($Value in $IncludedRoleNames) {
+            $UsersInclude.Add($Value)
+        }
+
+        $UsersExclude = [System.Collections.Generic.List[string]]::new()
+        foreach ($Value in $ExcludedUserNames) {
+            $UsersExclude.Add($Value)
+        }
+        foreach ($Value in $ExcludedGroupNames) {
+            $UsersExclude.Add($Value)
+        }
+        foreach ($Value in $ExcludedRoleNames) {
+            $UsersExclude.Add($Value)
         }
 
         # Convert to PSCustomObject for consistent output
@@ -384,17 +681,50 @@
             ExcludedGroups     = $ExcludedGroupNames
             IncludedRoles      = $IncludedRoleNames
             ExcludedRoles      = $ExcludedRoleNames
+            UsersInclude       = $UsersInclude
+            UsersExclude       = $UsersExclude
             ClientAppTypes     = $CAPolicy.Conditions.ClientAppTypes
             ApplicationsGuid   = $CAPolicy.Conditions.Applications.IncludeApplications
             Applications       = $ApplicationNames
+            ApplicationsExcludedGuid = $CAPolicy.Conditions.Applications.ExcludeApplications
+            ApplicationsExcluded     = $ApplicationExcludedNames
             UserActions        = $CAPolicy.Conditions.Applications.IncludeUserActions
+            AuthContextGuid    = $CAPolicy.Conditions.Applications.IncludeAuthenticationContextClassReferences
+            AuthContext        = $AuthContextNames
             Platforms          = $CAPolicy.Conditions.Platforms.IncludePlatforms
-            Locations          = $CAPolicy.Conditions.Locations.IncludeLocations
+            PlatformsExcluded  = $PlatformsExcluded
+            LocationsGuid      = $CAPolicy.Conditions.Locations.IncludeLocations
+            Locations          = $LocationsIncludedNames
+            LocationsExcludedGuid = $CAPolicy.Conditions.Locations.ExcludeLocations
+            LocationsExcluded     = $LocationsExcludedNames
             SignInRiskLevels   = $CAPolicy.Conditions.SignInRiskLevels
             UserRiskLevels     = $CAPolicy.Conditions.UserRiskLevels
+            DevicesIncluded    = $DevicesIncluded
+            DevicesExcluded    = $DevicesExcluded
+            DeviceFilterRule   = $DeviceFilterRule
+            DeviceFilterMode   = $DeviceFilterMode
             GrantControls      = $CAPolicy.GrantControls.BuiltInControls
+            GrantControlsTermsOfUse     = $GrantControlsTermsOfUse
+            GrantControlsCustomControls = $GrantControlsCustomControls
+            GrantControlsOperator       = $GrantControlsOperator
             AuthStrengthGuid   = $CAPolicy.GrantControls.AuthenticationStrength.Id
             AuthStrength       = $AuthStrengthName
+            SessionControlsAdditionalProperties                 = $SessionControlsAdditionalPropertiesDisplay
+            ApplicationEnforcedRestrictionsIsEnabled            = $ApplicationEnforcedRestrictionsIsEnabled
+            ApplicationEnforcedRestrictionsAdditionalProperties = $ApplicationEnforcedRestrictionsAdditionalPropertiesDisplay
+            CloudAppSecurityType                                = $CloudAppSecurityType
+            CloudAppSecurityIsEnabled                           = $CloudAppSecurityIsEnabled
+            CloudAppSecurityAdditionalProperties                = $CloudAppSecurityAdditionalPropertiesDisplay
+            DisableResilienceDefaults                           = $DisableResilienceDefaults
+            PersistentBrowserIsEnabled                          = $PersistentBrowserIsEnabled
+            PersistentBrowserMode                               = $PersistentBrowserMode
+            PersistentBrowserAdditionalProperties               = $PersistentBrowserAdditionalPropertiesDisplay
+            SignInFrequencyAuthenticationType                   = $SignInFrequencyAuthenticationType
+            SignInFrequencyInterval                             = $SignInFrequencyInterval
+            SignInFrequencyIsEnabled                            = $SignInFrequencyIsEnabled
+            SignInFrequencyType                                 = $SignInFrequencyType
+            SignInFrequencyValue                                = $SignInFrequencyValue
+            SignInFrequencyAdditionalProperties                 = $SignInFrequencyAdditionalPropertiesDisplay
         }
 
         # Add to All collection
@@ -499,10 +829,10 @@
             'e8611ab8-c189-46e8-94e1-60213ab1f814'  # Cloud Application Administrator
         )
 
-        $default14RoleNames = @()
+        $default14RoleNames = [System.Collections.Generic.List[string]]::new()
         foreach ($roleId in $default14Roles) {
             if ($RolesHashTable.ContainsKey($roleId)) {
-                $default14RoleNames += $RolesHashTable[$roleId]
+                $default14RoleNames.Add($RolesHashTable[$roleId])
             }
         }
 
