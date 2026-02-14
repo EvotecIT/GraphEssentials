@@ -1,6 +1,6 @@
 ﻿<p align="center">
   <a href="https://www.powershellgallery.com/packages/GraphEssentials"><img src="https://img.shields.io/powershellgallery/v/GraphEssentials.svg"></a>
-  <a href="https://www.powershellgallery.com/packages/GraphEssentials"><img src="https://img.shields.io/powershellgallery/vpre/GraphEssentials.svg?label=powershell%20gallery%20preview&colorB=yellow"></a>
+  <a href="https://www.powershellgallery.com/packages/GraphEssentials"><img src="https://img.shields.io/powershellgallery/v/GraphEssentials.svg?label=powershell%20gallery%20preview&colorB=yellow&include_prereleases"></a>
   <a href="https://github.com/EvotecIT/GraphEssentials"><img src="https://img.shields.io/github/license/EvotecIT/GraphEssentials.svg"></a>
 </p>
 
