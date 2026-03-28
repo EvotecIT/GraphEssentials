@@ -16,6 +16,11 @@
     .PARAMETER Force
     Forces the function to retrieve Azure devices even if they are already cached by using Get-MyDevice cmdlet.
 
+    .PARAMETER IncludeDetailedInventory
+    When specified, fetches selected non-default managedDevice properties per device so fields such as
+    ActivationLockBypassCode, ICCID, UDID, Notes, EthernetMacAddress, and PhysicalMemoryInBytes contain
+    authoritative values instead of relying on list-response defaults.
+
     .EXAMPLE
     Get-MyDeviceIntune
     Returns all Intune managed devices with their properties.
@@ -34,7 +39,8 @@
         [ValidateSet('Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', 'Not available')][string[]] $Type,
         [switch] $Synchronized,
         [int] $CacheMinutes = 30,
-        [switch] $Force
+        [switch] $Force,
+        [switch] $IncludeDetailedInventory
     )
     $CachedAzure = [ordered] @{}
     $Today = Get-Date
@@ -49,7 +55,7 @@
         # We only need to get Azure devices if we are filtering by type
         try {
             if (-not $Script:Devices -or $Force -or $Script:DevicesDate -lt (Get-Date).AddMinutes(-$CacheMinutes)) {
-                $DevicesAzure = Get-MgDevice -All -ErrorAction Stop
+                $DevicesAzure = Get-MgDevice -All -Property 'deviceId,onPremisesSyncEnabled,trustType' -ErrorAction Stop
             } else {
                 $DevicesAzure = $Script:Devices
             }
@@ -72,7 +78,7 @@
 
     foreach ($DeviceI in $DevicesIntune) {
         if ($DeviceI.LastSyncDateTime) {
-            $LastSynchronizedDays = $( - $($DeviceI.LastSyncDateTime - $Today).Days)
+            $LastSynchronizedDays = [math]::Floor((New-TimeSpan -Start $DeviceI.LastSyncDateTime -End $Today).TotalDays)
         } else {
             $LastSynchronizedDays = $null
         }
@@ -105,6 +111,28 @@
             }
         }
 
+        $DetailedInventoryLoaded = $false
+        $ActivationLockBypassCode = $null
+        $Iccid = $null
+        $Udid = $null
+        $Notes = $null
+        $EthernetMacAddress = $null
+        $PhysicalMemoryInBytes = $null
+        if ($IncludeDetailedInventory) {
+            try {
+                $DetailedDevice = Get-MgDeviceManagementManagedDevice -ManagedDeviceId $DeviceI.Id -Property 'activationLockBypassCode,iccid,udid,notes,ethernetMacAddress,physicalMemoryInBytes' -ErrorAction Stop
+                $ActivationLockBypassCode = $DetailedDevice.ActivationLockBypassCode
+                $Iccid = $DetailedDevice.Iccid
+                $Udid = $DetailedDevice.Udid
+                $Notes = $DetailedDevice.Notes
+                $EthernetMacAddress = $DetailedDevice.EthernetMacAddress
+                $PhysicalMemoryInBytes = $DetailedDevice.PhysicalMemoryInBytes
+                $DetailedInventoryLoaded = $true
+            } catch {
+                Write-Warning -Message "Get-MyDeviceIntune - Failed to get detailed inventory for $($DeviceI.DeviceName). Error: $($_.Exception.Message)"
+            }
+        }
+
         $DeviceInformation = [ordered] @{
             Name                                    = $DeviceI.DeviceName                                # : EVOMONSTER
             Id                                      = $DeviceI.Id                                        # : 83fe122f-c51c-49dc-a0f3-cc11d9e7d045
@@ -122,8 +150,6 @@
             ManagedDeviceOwnerType                  = $DeviceI.ManagedDeviceOwnerType                    # : company
             ManagementAgent                         = $DeviceI.ManagementAgent                           # : mdm
             ManagementCertificateExpirationDate     = $DeviceI.ManagementCertificateExpirationDate       # : 2024-01-27 17:58:15
-
-            ActivationLockBypassCode                = $DeviceI.ActivationLockBypassCode                  # :
             AndroidSecurityPatchLevel               = $DeviceI.AndroidSecurityPatchLevel                 # :
             AzureAdDeviceId                         = $DeviceI.AzureAdDeviceId                           # : aee87706-674b-40be-8120-74e7c469329b
             AzureAdRegistered                       = $DeviceI.AzureAdRegistered                         # : True
@@ -141,12 +167,10 @@
             EasActivated                            = $DeviceI.EasActivated                              # : True
             EasActivationDateTime                   = $DeviceI.EasActivationDateTime                     # : 0001-01-01 00:00:00
             EasDeviceId                             = $DeviceI.EasDeviceId                               # : E88398D87BD859566D129F86E2FD722C
-            EthernetMacAddress                      = $DeviceI.EthernetMacAddress                        # :
             ExchangeAccessState                     = $DeviceI.ExchangeAccessState                       # : none
             ExchangeAccessStateReason               = $DeviceI.ExchangeAccessStateReason                 # : none
             ExchangeLastSuccessfulSyncDateTime      = $DeviceI.ExchangeLastSuccessfulSyncDateTime        # : 0001-01-01 00:00:00
             FreeStorageSpaceInBytes                 = $DeviceI.FreeStorageSpaceInBytes                   # : 1392111517696
-            Iccid                                   = $DeviceI.Iccid                                     # :
             Imei                                    = $DeviceI.Imei                                      # :
             IsEncrypted                             = $DeviceI.IsEncrypted                               # : True
             IsSupervised                            = $DeviceI.IsSupervised                              # : False
@@ -154,19 +178,23 @@
             Manufacturer                            = $DeviceI.Manufacturer                              # : ASUS
             Meid                                    = $DeviceI.Meid                                      # :
             Model                                   = $DeviceI.Model                                     # : System Product Name
-            Notes                                   = $DeviceI.Notes                                     # :
             PartnerReportedThreatState              = $DeviceI.PartnerReportedThreatState                # : unknown
             PhoneNumber                             = $DeviceI.PhoneNumber                               # :
-            PhysicalMemoryInBytes                   = $DeviceI.PhysicalMemoryInBytes                     # : 0
             SerialNumber                            = $DeviceI.SerialNumber                              # : SystemSerialNumber
             SubscriberCarrier                       = $DeviceI.SubscriberCarrier                         # :
             TotalStorageSpaceInBytes                = $DeviceI.TotalStorageSpaceInBytes                  # : 1999609266176
-            Udid                                    = $DeviceI.Udid                                      # :
             Users                                   = $DeviceI.Users                                     # :
             WiFiMacAddress                          = $DeviceI.WiFiMacAddress                            # : 8C1D96F0937B
             RemoteAssistanceSessionErrorDetails     = $DeviceI.RemoteAssistanceSessionErrorDetails       # :
             RemoteAssistanceSessionUrl              = $DeviceI.RemoteAssistanceSessionUrl                # :
             RequireUserEnrollmentApproval           = $DeviceI.RequireUserEnrollmentApproval             # :
+            DetailedInventoryLoaded                 = $DetailedInventoryLoaded
+            ActivationLockBypassCode                = $ActivationLockBypassCode
+            EthernetMacAddress                      = $EthernetMacAddress
+            Iccid                                   = $Iccid
+            Notes                                   = $Notes
+            PhysicalMemoryInBytes                   = $PhysicalMemoryInBytes
+            Udid                                    = $Udid
             #AdditionalProperties                      = $DeviceI.AdditionalProperties                      # : {}
         }
         if ($Type -or $Synchronized) {

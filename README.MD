@@ -75,6 +75,7 @@ Complete list of commands available in GraphEssentials module.
 | Function    | Get-MyDefenderSummary            |
 | Function    | Get-MyDevice                     |
 | Function    | Get-MyDeviceIntune               |
+| Function    | Get-MyGuest                      |
 | Function    | Get-MyLicense                    |
 | Function    | Get-MyRole                       |
 | Function    | Get-MyRoleHistory                |
