@@ -240,7 +240,7 @@ $Script:UsersPerServicePlan = [ordered] @{
                                 New-HTMLInfoCard -Title 'Deleted Plans' -Number $overview.UsersWithDeletedPlans -Subtitle 'Users with removed plan references' -Icon '🗑️' -IconColor '#fd7e14' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Never Signed In' -Number $overview.NeverSignedInUsers -Subtitle 'Accounts without interactive sign-in' -Icon '🚪' -IconColor '#ffc107' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Inactive 90+ Days' -Number $overview.InactiveUsers -Subtitle 'Potential stale account review' -Icon '⏱️' -IconColor '#dc3545' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                                New-HTMLInfoCard -Title 'Plans Covered' -Number $overview.DistinctServicePlans -Subtitle 'Distinct service plans represented in this view' -Icon '📚' -IconColor '#6c757d' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Plans Covered' -Number $overview.DistinctServicePlans -Subtitle 'Distinct service plans in scope for this review' -Icon '📚' -IconColor '#6c757d' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             }
                             New-HTMLSection -Invisible {
                                 New-HTMLPanel {

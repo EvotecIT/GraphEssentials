@@ -310,12 +310,12 @@ $Script:UsersPerLicense = [ordered] @{
                 New-HTMLTab -Name "Overview ($userCount)" {
                     if ($usersPerLicenseSummary -and $usersPerLicenseSummary.Overview) {
                         $overview = $usersPerLicenseSummary.Overview[0]
-                        New-HTMLSection -HeaderText 'Users Per License Overview' -Density Compact {
+                        New-HTMLSection -HeaderText 'License Coverage Overview' -Density Compact {
                             New-HTMLSection -Invisible {
-                                New-HTMLInfoCard -Title 'Total Users' -Number $overview.TotalUsers -Subtitle 'Users in the assignment matrix' -Icon '👤' -IconColor '#0078d4' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Total Users' -Number $overview.TotalUsers -Subtitle 'Users represented in this license review' -Icon '👤' -IconColor '#0078d4' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Enabled / Disabled' -Number "$($overview.EnabledUsers) / $($overview.DisabledUsers)" -Subtitle 'Account state split' -Icon '✅' -IconColor '#198754' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Members / Guests' -Number "$($overview.MemberUsers) / $($overview.GuestUsers)" -Subtitle 'Identity type split' -Icon '🪪' -IconColor '#6f42c1' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                                New-HTMLInfoCard -Title 'With / Without Assignments' -Number "$($overview.UsersWithAssignments) / $($overview.UsersWithoutAssignments)" -Subtitle 'License matrix coverage' -Icon '🎫' -IconColor '#20c997' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'With / Without Assignments' -Number "$($overview.UsersWithAssignments) / $($overview.UsersWithoutAssignments)" -Subtitle 'License coverage across reviewed users' -Icon '🎫' -IconColor '#20c997' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             }
                             New-HTMLSection -Invisible {
                                 New-HTMLInfoCard -Title 'Direct Assignments' -Number $overview.UsersWithDirectAssignments -Subtitle 'Users with direct license grants' -Icon '📌' -IconColor '#fd7e14' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
@@ -342,7 +342,7 @@ $Script:UsersPerLicense = [ordered] @{
                             if (@($usersPerLicenseSummary.LicenseAssignmentSummary).Count -gt 0) {
                                 New-HTMLSection -HeaderText 'Top Assigned Licenses' -Invisible {
                                     New-HTMLPanel {
-                                        New-HTMLChart -Title 'Users Per License' {
+                                        New-HTMLChart -Title 'License Coverage By User Count' {
                                             foreach ($item in ($usersPerLicenseSummary.LicenseAssignmentSummary | Select-Object -First 10)) {
                                                 New-ChartBar -Name $item.License -Value $item.AnyUsers
                                             }
@@ -357,10 +357,10 @@ $Script:UsersPerLicense = [ordered] @{
                     }
                 }
 
-                New-HTMLTab -Name "Assignment Matrix ($userCount)" {
+                New-HTMLTab -Name "License Coverage ($userCount)" {
                     New-HTMLTabPanel {
                         New-HTMLTab -Name "All Users ($userCount)" {
-                            New-HTMLSection -HeaderText 'Users Per License Matrix' {
+                            New-HTMLSection -HeaderText 'License Coverage By User' {
                                 New-HTMLTable -DataTable $userData -Filtering $userPerLicenseConditions -ScrollX
                             }
                         }

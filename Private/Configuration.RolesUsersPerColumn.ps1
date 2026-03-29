@@ -249,7 +249,7 @@ $Script:RolesUsersPerColumn = [ordered] @{
                         New-HTMLSection -HeaderText 'Role Coverage Overview' -Density Compact {
                             New-HTMLSection -Invisible {
                                 New-HTMLInfoCard -Title 'Total Holders' -Number $overview.TotalRoleHolders -Subtitle 'Identities represented in this role review' -Icon '🧮' -IconColor '#0078d4' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                                New-HTMLInfoCard -Title 'Roles Covered' -Number $overview.DistinctRoles -Subtitle 'Distinct roles represented in this view' -Icon '📚' -IconColor '#198754' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Roles Covered' -Number $overview.DistinctRoles -Subtitle 'Distinct roles in scope for this review' -Icon '📚' -IconColor '#198754' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Disabled / Guests' -Number "$($overview.DisabledHolders) / $($overview.GuestHolders)" -Subtitle 'High-review holder groups' -Icon '🚩' -IconColor '#dc3545' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Inherited Through Groups' -Number $overview.GroupBasedHolders -Subtitle 'Holders with role access coming from groups' -Icon '👥' -IconColor '#6f42c1' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             }
@@ -336,7 +336,7 @@ $Script:RolesUsersPerColumn = [ordered] @{
                                 }
                             } else {
                                 New-HTMLSection -HeaderText 'Role Coverage Summary' {
-                                    New-HTMLText -Text 'No role matrix summary data was generated.' -Color Orange
+                                    New-HTMLText -Text 'No role coverage summary data was generated.' -Color Orange
                                 }
                             }
                         }
