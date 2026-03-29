@@ -3,6 +3,7 @@
     AppsCredentials     = $Script:AppsCredentials
     Devices             = $Script:Devices
     DevicesIntune       = $Script:DevicesIntune
+    Guests              = $Script:Guests
     Licenses            = $Script:Licenses
     Roles               = $Script:Roles
     RolesUsers          = $Script:RolesUsers

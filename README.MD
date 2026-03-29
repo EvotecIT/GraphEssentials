@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <a href="https://www.powershellgallery.com/packages/GraphEssentials"><img src="https://img.shields.io/powershellgallery/v/GraphEssentials.svg"></a>
   <a href="https://www.powershellgallery.com/packages/GraphEssentials"><img src="https://img.shields.io/powershellgallery/v/GraphEssentials.svg?label=powershell%20gallery%20preview&colorB=yellow&include_prereleases"></a>
   <a href="https://github.com/EvotecIT/GraphEssentials"><img src="https://img.shields.io/github/license/EvotecIT/GraphEssentials.svg"></a>
@@ -75,6 +75,7 @@ Complete list of commands available in GraphEssentials module.
 | Function    | Get-MyDefenderSummary            |
 | Function    | Get-MyDevice                     |
 | Function    | Get-MyDeviceIntune               |
+| Function    | Get-MyGuest                      |
 | Function    | Get-MyLicense                    |
 | Function    | Get-MyRole                       |
 | Function    | Get-MyRoleHistory                |
