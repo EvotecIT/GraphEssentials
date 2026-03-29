@@ -14,4 +14,8 @@ Get-MyGuest | Format-Table DisplayName, GuestDomain, Enabled, ExternalUserState,
 
 Get-MyLicense | Format-Table Name, LicensesUsedPercent, LicensesUsedCount, LicenseCountEnabled, UtilizationBand
 
-Invoke-MyGraphEssentials -Type Devices, DevicesIntune, Users, UsersPerLicense, Guests, Licenses, Apps -FilePath "$PWD\Reports\DevicesAndGuests.html" -Online
+Get-MyAppCredentials | Select-Object -First 10 | Format-Table ApplicationName, Type, KeyDisplayName, DaysToExpire, Expired
+
+Get-MyRoleUsers -OnlyWithRoles | Select-Object -First 10 | Format-Table Name, Type, Enabled, DirectCount, EligibleCount, GroupDirectCount, GroupEligibleCount, AllRolesCount
+
+Invoke-MyGraphEssentials -Type Devices, DevicesIntune, Users, UsersPerLicense, UsersPerServicePlan, Guests, Licenses, Apps, AppsCredentials, RolesUsers, RolesUsersPerColumn, Roles, Teams -FilePath "$PWD\Reports\GraphEssentialsReports.html" -Online

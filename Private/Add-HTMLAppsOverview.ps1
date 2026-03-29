@@ -112,11 +112,11 @@ param(
             $o['OwnersList'] = if ($app.Owners) { ($app.Owners -join '; ') } else { 'Not collected' }
             $o['KeysTypesList'] = if ($app.KeysTypes) { ($app.KeysTypes -join ', ') } else { 'None' }
             $o['DelegatedSignInDate'] = if ($app.DelegatedLastSignIn) { Get-Date ($app.DelegatedLastSignIn) -Format 'yyyy-MM-dd HH:mm' } else { 'No activity' }
-            $o['DelegatedSignInDaysAgo'] = if ($app.DelegatedLastSignIn) { (New-TimeSpan -Start ($app.DelegatedLastSignIn) -End $Today).Days } else { $null }
+            $o['DelegatedSignInDaysAgo'] = if ($app.DelegatedLastSignIn) { [math]::Floor((New-TimeSpan -Start $app.DelegatedLastSignIn -End $Today).TotalDays) } else { $null }
             $o['ApplicationSignInDate'] = if ($app.ApplicationLastSignIn) { Get-Date ($app.ApplicationLastSignIn) -Format 'yyyy-MM-dd HH:mm' } else { 'No activity' }
-            $o['ApplicationSignInDaysAgo'] = if ($app.ApplicationLastSignIn) { (New-TimeSpan -Start ($app.ApplicationLastSignIn) -End $Today).Days } else { $null }
+            $o['ApplicationSignInDaysAgo'] = if ($app.ApplicationLastSignIn) { [math]::Floor((New-TimeSpan -Start $app.ApplicationLastSignIn -End $Today).TotalDays) } else { $null }
             $o['CreatedDateDisplay'] = if ($app.CreatedDate) { Get-Date ($app.CreatedDate) -Format 'yyyy-MM-dd' } else { '' }
-            $o['CreatedDateDaysAgo'] = if ($app.CreatedDate) { (New-TimeSpan -Start ($app.CreatedDate) -End $Today).Days } else { $null }
+            $o['CreatedDateDaysAgo'] = if ($app.CreatedDate) { [math]::Floor((New-TimeSpan -Start $app.CreatedDate -End $Today).TotalDays) } else { $null }
 
             $formattedList.Add([pscustomobject]$o)
         }
