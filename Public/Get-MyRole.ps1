@@ -1,4 +1,4 @@
-﻿function Get-MyRole {
+function Get-MyRole {
     <#
     .SYNOPSIS
     Retrieves Azure AD directory roles and their assignments.
@@ -27,14 +27,16 @@
     param(
         [switch] $OnlyWithMembers
     )
-    # $Users = Get-MgUser -All
-    # #$Apps = Get-MgApplication -All
-    # $Groups = Get-MgGroup -All -Filter "IsAssignableToRole eq true"
-    # $ServicePrincipals = Get-MgServicePrincipal -All
-    # #$DirectoryRole = Get-MgDirectoryRole -All
-    # $Roles = Get-MgRoleManagementDirectoryRoleDefinition -All
-    # $RolesAssignement = Get-MgRoleManagementDirectoryRoleAssignment -All #-ExpandProperty "principal"
-    # $EligibilityAssignement = Get-MgRoleManagementDirectoryRoleEligibilitySchedule -All
+
+    $HighPrivilegeRoles = @(
+        'Global Administrator',
+        'Privileged Role Administrator',
+        'Security Administrator',
+        'Global Reader',
+        'Directory Writers',
+        'Application Administrator',
+        'Cloud Application Administrator'
+    )
 
     $ErrorsCount = 0
     try {
@@ -49,14 +51,12 @@
         Write-Warning -Message "Get-MyRoleUsers - Failed to get groups. Error: $($_.Exception.Message)"
         $ErrorsCount++
     }
-    #$Apps = Get-MgApplication -All
     try {
         $ServicePrincipals = Get-MgServicePrincipal -ErrorAction Stop -All -Property CreatedDateTime, 'ServicePrincipalType', 'DisplayName', 'AccountEnabled', 'Id', 'AppID'
     } catch {
         Write-Warning -Message "Get-MyRoleUsers - Failed to get service principals. Error: $($_.Exception.Message)"
         $ErrorsCount++
     }
-    #$DirectoryRole = Get-MgDirectoryRole -All
     try {
         $Roles = Get-MgRoleManagementDirectoryRoleDefinition -ErrorAction Stop -All
     } catch {
@@ -64,7 +64,7 @@
         $ErrorsCount++
     }
     try {
-        $RolesAssignement = Get-MgRoleManagementDirectoryRoleAssignment -ErrorAction Stop -All #-ExpandProperty "principal"
+        $RolesAssignement = Get-MgRoleManagementDirectoryRoleAssignment -ErrorAction Stop -All
     } catch {
         Write-Warning -Message "Get-MyRoleUsers - Failed to get roles assignement. Error: $($_.Exception.Message)"
         $ErrorsCount++
@@ -79,7 +79,6 @@
         return
     }
 
-
     $CacheUsersAndApps = [ordered] @{}
     foreach ($User in $Users) {
         $CacheUsersAndApps[$User.Id] = $User
@@ -90,7 +89,6 @@
     foreach ($Group in $Groups) {
         $CacheUsersAndApps[$Group.Id] = $Group
     }
-
 
     $CacheRoles = [ordered] @{}
     foreach ($Role in $Roles) {
@@ -116,7 +114,6 @@
             } else {
                 Write-Warning -Message "Unknown type for principal id $($Role.PrincipalId) - not supported yet!"
             }
-            # MicrosoftGraphServicePrincipal, MicrosoftGraphUser,MicrosoftGraphGroup
         } else {
             try {
                 $TemporaryRole = Get-MgRoleManagementDirectoryRoleDefinition -UnifiedRoleDefinitionId $Role.RoleDefinitionId -ErrorAction Stop
@@ -163,14 +160,14 @@
             Write-Warning -Message $Role
         }
     }
-    # lets get group members of groups we have members in and roles are there too
+
     $CacheGroupMembers = [ordered] @{}
     foreach ($Role in $CacheRoles.Keys) {
         if ($CacheRoles[$Role].Groups.Count -gt 0) {
             foreach ($Group in $CacheRoles[$Role].Groups) {
                 if (-not $CacheGroupMembers[$Group.DisplayName]) {
                     $CacheGroupMembers[$Group.DisplayName] = [System.Collections.Generic.List[object]]::new()
-                    $GroupMembers = Get-MgGroupMember -GroupId $Group.Id -All #-ErrorAction Stop
+                    $GroupMembers = Get-MgGroupMember -GroupId $Group.Id -All
                     foreach ($GroupMember in $GroupMembers) {
                         $CacheGroupMembers[$Group.DisplayName].Add($CacheUsersAndApps[$GroupMember.Id])
                     }
@@ -185,24 +182,35 @@
                 continue
             }
         }
+
         $GroupMembersTotal = 0
         foreach ($Group in $CacheRoles[$Role].Groups) {
-            $GroupMembersTotal = + $CacheGroupMembers[$Group.DisplayName].Count
+            $GroupMembersTotal += $CacheGroupMembers[$Group.DisplayName].Count
         }
+
+        $UniqueUsers = @($CacheRoles[$Role].Users | Sort-Object Id -Unique)
+        $UniqueServicePrincipals = @($CacheRoles[$Role].ServicePrincipals | Sort-Object Id -Unique)
+        $UniqueGroups = @($CacheRoles[$Role].Groups | Sort-Object Id -Unique)
+        $RoleName = $CacheRoles[$Role].Role.DisplayName
+
         [PSCustomObject] @{
-            Name                   = $CacheRoles[$Role].Role.DisplayName
+            Name                   = $RoleName
             Description            = $CacheRoles[$Role].Role.Description
             IsBuiltin              = $CacheRoles[$Role].Role.IsBuiltIn
             IsEnabled              = $CacheRoles[$Role].Role.IsEnabled
+            IsHighPrivilege        = $RoleName -in $HighPrivilegeRoles
             AllowedResourceActions = $CacheRoles[$Role].Role.RolePermissions[0].AllowedResourceActions.Count
             TotalMembers           = $CacheRoles[$Role].Direct.Count + $CacheRoles[$Role].Eligible.Count + $GroupMembersTotal
             DirectMembers          = $CacheRoles[$Role].Direct.Count
             EligibleMembers        = $CacheRoles[$Role].Eligible.Count
             GroupsMembers          = $GroupMembersTotal
-            # here's a split by numbers
-            Users                  = $CacheRoles[$Role].Users.Count
-            ServicePrincipals      = $CacheRoles[$Role].ServicePrincipals.Count
-            Groups                 = $CacheRoles[$Role].Groups.Count
+            HasDirectAssignments   = $CacheRoles[$Role].Direct.Count -gt 0
+            HasEligibleAssignments = $CacheRoles[$Role].Eligible.Count -gt 0
+            HasGroupAssignments    = $UniqueGroups.Count -gt 0
+            HasServicePrincipals   = $UniqueServicePrincipals.Count -gt 0
+            Users                  = $UniqueUsers.Count
+            ServicePrincipals      = $UniqueServicePrincipals.Count
+            Groups                 = $UniqueGroups.Count
         }
     }
 }

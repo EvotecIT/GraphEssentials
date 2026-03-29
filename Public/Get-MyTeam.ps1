@@ -1,4 +1,4 @@
-﻿function Get-MyTeam {
+function Get-MyTeam {
     <#
     .SYNOPSIS
     Retrieves Teams information from Microsoft Graph API.
@@ -28,28 +28,14 @@
     .NOTES
     This function requires the Microsoft.Graph.Teams module and appropriate permissions.
     #>
-    [cmdletbinding()]
+    [CmdletBinding()]
     param(
         [switch] $PerOwner,
         [switch] $AsHashtable
     )
 
+    $Today = Get-Date
     $OwnerShip = [ordered] @{}
-    # try {
-    #     $Url = "https://graph.microsoft.com/beta/teams"
-    #     $Teams1 = Do {
-    #         $TeamsRaw = Invoke-MgGraphRequest -Method GET -Uri $Url -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
-    #         if ($TeamsRaw.value) {
-    #             $TeamsRaw.value
-    #         }
-    #         if ($TeamsRaw."@odata.nextLink") {
-    #             $Url = $TeamsRaw."@odata.nextLink"
-    #         }
-    #     } While ($null -ne $TeamsRaw."@odata.nextLink")
-    # } catch {
-    #     Write-Warning -Message "Get-MyTeam - Couldn't get list of teams. Error: $($_.Exception.Message)"
-    #     return
-    # }
 
     try {
         $Teams = Get-MgTeam -All -ErrorAction Stop
@@ -57,61 +43,77 @@
         Write-Warning -Message "Get-MyTeam - Couldn't get list of teams. Error: $($_.Exception.Message)"
         return
     }
+
     foreach ($Team in $Teams) {
         try {
-            $TeamDetails = Get-MgTeam -TeamId $Team.Id -Property DisplayName, Description, CreatedDateTime, GuestSettings, MemberSettings -ExpandProperty "Summary" -ErrorAction Stop
+            $TeamDetails = Get-MgTeam -TeamId $Team.Id -Property DisplayName, Description, CreatedDateTime, GuestSettings, MemberSettings -ExpandProperty Summary -ErrorAction Stop
             $Owner = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/teams/$($Team.Id)/owners" -ContentType 'application/json; charset=UTF-8' -ErrorAction Stop
         } catch {
-            Write-Warning -Message "Get-MyTeam - Error (extended) on team $($Team.DisplayName) / $($Team.id): $($_.Exception.Message)"
+            Write-Warning -Message "Get-MyTeam - Error (extended) on team $($Team.DisplayName) / $($Team.Id): $($_.Exception.Message)"
             continue
         }
 
+        if ($TeamDetails.CreatedDateTime) {
+            $CreatedDaysAgo = [math]::Floor((New-TimeSpan -Start $TeamDetails.CreatedDateTime -End $Today).TotalDays)
+        } else {
+            $CreatedDaysAgo = $null
+        }
+
+        $HasOwners = $Owner.value.Count -gt 0
+        $HasMultipleOwners = $Owner.value.Count -gt 1
+        $HasGuests = $TeamDetails.Summary.GuestsCount -gt 0
+        $GuestControlsEnabled = $TeamDetails.GuestSettings.AllowCreateUpdateChannels -or $TeamDetails.GuestSettings.AllowDeleteChannels
+
         $TeamInformation = [ordered] @{
-            Id                                = $Team.id
-            CreatedDateTime                   = $TeamDetails.createdDateTime
-            Team                              = $Team.displayName
-            Visibility                        = $Team.visibility
+            Id                                = $Team.Id
+            CreatedDateTime                   = $TeamDetails.CreatedDateTime
+            CreatedDaysAgo                    = $CreatedDaysAgo
+            Team                              = $Team.DisplayName
+            Visibility                        = $Team.Visibility
+            IsPublic                          = $Team.Visibility -eq 'Public'
+            IsPrivate                         = $Team.Visibility -eq 'Private'
             OwnerCount                        = $Owner.value.Count
+            HasOwners                         = $HasOwners
+            HasMultipleOwners                 = $HasMultipleOwners
             MembersCount                      = $TeamDetails.Summary.MembersCount
             GuestsCount                       = $TeamDetails.Summary.GuestsCount
-
-            Description                       = $Team.description
-            OwnerDisplayName                  = $Owner.value.displayName
-            OwnerMail                         = $Owner.value.mail
-            OwnerUserPrincipalName            = $Owner.value.userPrincipalName
-            OwnerId                           = $Owner.value.id
-            #IsArchived                        = $Team.isArchived
-
+            HasGuests                         = $HasGuests
+            Description                       = $Team.Description
+            OwnerDisplayName                  = $Owner.value.DisplayName
+            OwnerMail                         = $Owner.value.Mail
+            OwnerUserPrincipalName            = $Owner.value.UserPrincipalName
+            OwnerId                           = $Owner.value.Id
             GuestAllowCreateUpdateChannels    = $TeamDetails.GuestSettings.AllowCreateUpdateChannels
             GuestAllowDeleteChannels          = $TeamDetails.GuestSettings.AllowDeleteChannels
-
+            GuestControlsEnabled              = $GuestControlsEnabled
             AllowAddRemoveApps                = $TeamDetails.MemberSettings.AllowAddRemoveApps
             AllowCreatePrivateChannels        = $TeamDetails.MemberSettings.AllowCreatePrivateChannels
             AllowCreateUpdateChannels         = $TeamDetails.MemberSettings.AllowCreateUpdateChannels
             AllowCreateUpdateRemoveConnectors = $TeamDetails.MemberSettings.AllowCreateUpdateRemoveConnectors
             AllowCreateUpdateRemoveTabs       = $TeamDetails.MemberSettings.AllowCreateUpdateRemoveTabs
             AllowDeleteChannels               = $TeamDetails.MemberSettings.AllowDeleteChannels
-            #IsMembershipLimitedToOwners       = $TeamDetails.MemberSettings.isMembershipLimitedToOwners
         }
+
         if ($PerOwner) {
             foreach ($O in $Owner.value) {
-                if (-not $OwnerShip[$O.userPrincipalName]) {
-                    $OwnerShip[$O.userPrincipalName] = [System.Collections.Generic.List[PSCustomObject]]::new()
+                if (-not $OwnerShip[$O.UserPrincipalName]) {
+                    $OwnerShip[$O.UserPrincipalName] = [System.Collections.Generic.List[PSCustomObject]]::new()
                 }
                 if ($AsHashtable) {
-                    $OwnerShip[$O.userPrincipalName].Add($TeamInformation)
+                    $OwnerShip[$O.UserPrincipalName].Add($TeamInformation)
                 } else {
-                    $OwnerShip[$O.userPrincipalName].Add([PSCustomObject]$TeamInformation)
+                    $OwnerShip[$O.UserPrincipalName].Add([PSCustomObject] $TeamInformation)
                 }
             }
         } else {
             if ($AsHashtable) {
                 $TeamInformation
             } else {
-                [PSCustomObject]$TeamInformation
+                [PSCustomObject] $TeamInformation
             }
         }
     }
+
     if ($PerOwner) {
         $OwnerShip
     }
