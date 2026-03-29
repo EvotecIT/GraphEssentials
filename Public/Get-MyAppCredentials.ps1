@@ -79,7 +79,7 @@
     $ApplicationsWithCredentials = foreach ($App in $ApplicationList) {
         if ($App.PasswordCredentials) {
             foreach ($Credentials in $App.PasswordCredentials) {
-                if ($Credentials.EndDateTime -lt [DateTime]::Now) {
+                if ($Credentials.EndDateTime -lt $DateTimeNow) {
                     $IsExpired = $true
                 } else {
                     $IsExpired = $false
@@ -133,13 +133,13 @@
                     #ClientSecret        = $Credentials.SecretTex
                     Hint            = $Credentials.Hint
                     Expired         = $IsExpired
-                    DaysToExpire    = ($Credentials.EndDateTime - $DateTimeNow).Days
+                    DaysToExpire    = if ($Credentials.EndDateTime) { [math]::Floor((New-TimeSpan -Start $DateTimeNow -End $Credentials.EndDateTime).TotalDays) } else { $null }
                     StartDateTime   = $Credentials.StartDateTime
                     EndDateTime     = $Credentials.EndDateTime
                     #CustomKeyIdentifier = $Credentials.CustomKeyIdentifier
                 }
                 if ($PSBoundParameters.ContainsKey('DisplayNameCredentials')) {
-                    if ($Creds.DisplayName -notlike $DisplayNameCredentials) {
+                    if ($Creds.KeyDisplayName -notlike $DisplayNameCredentials) {
                         continue
                     }
                 }
@@ -162,7 +162,7 @@
         }
         if ($App.KeyCredentials) {
             foreach ($Credentials in $App.KeyCredentials) {
-                if ($Credentials.EndDateTime -lt [DateTime]::Now) {
+                if ($Credentials.EndDateTime -lt $DateTimeNow) {
                     $IsExpired = $true
                 } else {
                     $IsExpired = $false
@@ -216,7 +216,7 @@
                     #ClientSecret        = $Credentials.SecretTex
                     Hint            = $Credentials.Hint
                     Expired         = $IsExpired
-                    DaysToExpire    = ($Credentials.EndDateTime - [DateTime]::Now).Days
+                    DaysToExpire    = if ($Credentials.EndDateTime) { [math]::Floor((New-TimeSpan -Start $DateTimeNow -End $Credentials.EndDateTime).TotalDays) } else { $null }
                     StartDateTime   = $Credentials.StartDateTime
                     EndDateTime     = $Credentials.EndDateTime
                     #CustomKeyIdentifier = $Credentials.CustomKeyIdentifier

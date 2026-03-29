@@ -19,6 +19,7 @@
         $Output
     } else {
         foreach ($SKU in $Skus) {
+            $HasCapacity = $SKU.PrepaidUnits.Enabled -gt 0
             if ($SKU.PrepaidUnits.Enabled -gt 0) {
                 $LicensesUsedPercent = [math]::Round(($SKU.ConsumedUnits / $SKU.PrepaidUnits.Enabled) * 100, 0)
             } else {
@@ -28,14 +29,33 @@
                     $LicensesUsedPercent = 0
                 }
             }
+            $LicensesAvailableCount = $SKU.PrepaidUnits.Enabled - $SKU.ConsumedUnits
+            if ($LicensesUsedPercent -gt 100) {
+                $UtilizationBand = 'Oversubscribed'
+            } elseif ($LicensesUsedPercent -eq 100) {
+                $UtilizationBand = 'Full'
+            } elseif ($LicensesUsedPercent -ge 70) {
+                $UtilizationBand = 'High'
+            } elseif ($LicensesUsedPercent -ge 40) {
+                $UtilizationBand = 'Moderate'
+            } elseif ($LicensesUsedPercent -gt 0) {
+                $UtilizationBand = 'Low'
+            } else {
+                $UtilizationBand = 'Unused'
+            }
             [PSCustomObject] @{
                 Name                  = Convert-Office365License -License $SKU.SkuPartNumber
                 SkuId                 = $SKU.SkuId                # : 26124093 - 3d78-432b-b5dc-48bf992543d5
                 SkuPartNumber         = $SKU.SkuPartNumber        # : IDENTITY_THREAT_PROTECTION
                 AppliesTo             = $SKU.AppliesTo            # : User
                 CapabilityStatus      = $SKU.CapabilityStatus     # : Enabled
+                HasCapacity           = $HasCapacity
                 LicensesUsedPercent   = $LicensesUsedPercent
                 LicensesUsedCount     = $SKU.ConsumedUnits        # : 1
+                LicensesAvailableCount = $LicensesAvailableCount
+                IsOversubscribed      = $LicensesUsedPercent -gt 100
+                IsAtCapacity          = $LicensesUsedPercent -eq 100
+                UtilizationBand       = $UtilizationBand
                 #Id                   = $SKU.Id                   # : ceb371f6 - 8745 - 4876-a040 - 69f2d10a9d1a_26124093-3d78-432b-b5dc-48bf992543d5
                 LicenseCountEnabled   = $SKU.PrepaidUnits.Enabled
                 LicenseCountWarning   = $SKU.PrepaidUnits.Warning

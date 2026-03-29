@@ -1,4 +1,4 @@
-﻿function Get-MyUser {
+function Get-MyUser {
     <#
     .SYNOPSIS
     Retrieves detailed information about users from Microsoft Graph API.
@@ -6,7 +6,7 @@
     .DESCRIPTION
     Gets comprehensive user information from Microsoft Graph API with options to organize
     by license or service plan. Provides detailed user properties including account status,
-    authentication methods, licenses, and on-premises synchronization details.
+    sign-in activity, licenses, user type, managers, and on-premises synchronization details.
 
     .PARAMETER PerLicense
     When specified, organizes user information by license instead of by user.
@@ -29,20 +29,23 @@
     .NOTES
     This function requires the Microsoft.Graph.Users and Microsoft.Graph.Identity modules
     with appropriate permissions. Typically requires User.Read.All permissions.
+    Sign-in activity fields may require additional audit-related permissions.
     #>
     [CmdletBinding(DefaultParameterSetName = 'Default')]
     param(
         [Parameter(ParameterSetName = 'PerLicense')][switch] $PerLicense,
         [Parameter(ParameterSetName = 'PerServicePlan')][switch] $PerServicePlan
     )
+
     $Today = Get-Date
     $Properties = @(
-        'LicenseAssignmentStates', 'AccountEnabled', 'AssignedLicenses', 'AssignedPlans', 'DisplayName',
-        'Id', 'GivenName', 'SurName', 'JobTitle', 'LastPasswordChangeDateTime', 'Mail', 'Manager'
+        'LicenseAssignmentStates', 'AccountEnabled', 'AssignedLicenses', 'AssignedPlans', 'CreatedDateTime',
+        'DisplayName', 'Id', 'GivenName', 'SurName', 'JobTitle', 'LastPasswordChangeDateTime', 'Mail',
         'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesDistinguishedName',
-        'UserPrincipalName'
+        'SignInActivity', 'UserPrincipalName', 'UserType'
     )
-    Write-Verbose -Message "Get-MyUser - Getting list of licenses"
+
+    Write-Verbose -Message 'Get-MyUser - Getting list of licenses'
     $AllLicenses = Get-MyLicense -Internal
     $AllLicensesValues = $AllLicenses['Licenses'].Values | Sort-Object
     $AllServicePlansValues = $AllLicenses['ServicePlans'].Values | Sort-Object
@@ -51,11 +54,12 @@
         All      = $true
         Property = $Properties
     }
-    Write-Verbose -Message "Get-MyUser - Getting list of all users"
+
+    Write-Verbose -Message 'Get-MyUser - Getting list of all users'
     $StartTime = [System.Diagnostics.Stopwatch]::StartNew()
     $AllUsers = Get-MgUser @getMgUserSplat -ExpandProperty Manager
     $EndTime = Stop-TimeLog -Time $StartTime -Option OneLiner
-    Write-Verbose -Message "Get-MyUser - Got $($AllUsers.Count) users in $($EndTime). Now processing them."
+    Write-Verbose -Message "Get-MyUser - Got $($AllUsers.Count) users in $EndTime. Now processing them."
 
     $StartTime = [System.Diagnostics.Stopwatch]::StartNew()
     $Count = 0
@@ -63,44 +67,87 @@
         $Count++
         Write-Verbose -Message "Get-MyUser - Processing $($User.DisplayName) - $Count/$($AllUsers.Count)"
 
+        if ($User.CreatedDateTime) {
+            $CreatedDaysAgo = [math]::Floor((New-TimeSpan -Start $User.CreatedDateTime -End $Today).TotalDays)
+        } else {
+            $CreatedDaysAgo = $null
+        }
+
         if ($User.LastPasswordChangeDateTime) {
-            $LastPasswordChangeDays = $( - $($User.LastPasswordChangeDateTime - $Today).Days)
+            $LastPasswordChangeDays = [math]::Floor((New-TimeSpan -Start $User.LastPasswordChangeDateTime -End $Today).TotalDays)
         } else {
             $LastPasswordChangeDays = $null
         }
 
         if ($User.OnPremisesLastSyncDateTime) {
-            $LastSynchronizedDays = $( - $($User.OnPremisesLastSyncDateTime - $Today).Days)
+            $LastSynchronizedDays = [math]::Floor((New-TimeSpan -Start $User.OnPremisesLastSyncDateTime -End $Today).TotalDays)
         } else {
             $LastSynchronizedDays = $null
         }
 
-        $OutputUser = [ordered] @{
-            'DisplayName'                 = $User.DisplayName
-            'Id'                          = $User.Id
-            'UserPrincipalName'           = $User.UserPrincipalName
-            'GivenName'                   = $User.GivenName
-            'SurName'                     = $User.SurName
-            'Enabled'                     = $User.AccountEnabled
-            'JobTitle'                    = $User.JobTitle
-            'Mail'                        = $User.Mail
-            'Manager'                     = if ($User.Manager.Id) { $User.Manager.Id } else { $null }
-            'ManagerDisplayName'          = if ($User.Manager.Id) { $User.Manager.AdditionalProperties.displayName } else { $null }
-            'ManagerUserPrincipalName'    = if ($User.Manager.Id) { $User.Manager.AdditionalProperties.userPrincipalName } else { $null }
-            'ManagerIsSynchronized'       = if ($User.Manager.Id) { if ($User.Manager.AdditionalProperties.onPremisesSyncEnabled) { $User.Manager.AdditionalProperties.onPremisesSyncEnabled } else { $false } } else { $null }
-            'LastPasswordChangeDateTime'  = $User.LastPasswordChangeDateTime
-            'LastPasswordChangeDays'      = $LastPasswordChangeDays
-            'IsSynchronized'              = if ($User.OnPremisesSyncEnabled) { $User.OnPremisesSyncEnabled } else { $null }
-            'LastSynchronized'            = $User.OnPremisesLastSyncDateTime
-            'LastSynchronizedDays'        = $LastSynchronizedDays
-            'OnPremisesDistinguishedName' = $User.OnPremisesDistinguishedName
+        if ($User.SignInActivity -and $User.SignInActivity.LastSignInDateTime) {
+            $LastSignInDaysAgo = [math]::Floor((New-TimeSpan -Start $User.SignInActivity.LastSignInDateTime -End $Today).TotalDays)
+        } else {
+            $LastSignInDaysAgo = $null
         }
+
+        if ($User.SignInActivity -and $User.SignInActivity.LastNonInteractiveSignInDateTime) {
+            $LastNonInteractiveSignInDaysAgo = [math]::Floor((New-TimeSpan -Start $User.SignInActivity.LastNonInteractiveSignInDateTime -End $Today).TotalDays)
+        } else {
+            $LastNonInteractiveSignInDaysAgo = $null
+        }
+
+        if ($null -ne $User.SignInActivity) {
+            $NeverSignedIn = ($null -eq $LastSignInDaysAgo -and $null -eq $LastNonInteractiveSignInDaysAgo)
+        } else {
+            $NeverSignedIn = $null
+        }
+
+        $UserDomain = $null
+        if ($User.UserPrincipalName -and $User.UserPrincipalName -like '*@*') {
+            $UserDomain = ($User.UserPrincipalName -split '@', 2)[1]
+        } elseif ($User.Mail -and $User.Mail -like '*@*') {
+            $UserDomain = ($User.Mail -split '@', 2)[1]
+        }
+
+        $OutputUser = [ordered] @{
+            DisplayName                      = $User.DisplayName
+            Id                               = $User.Id
+            UserPrincipalName                = $User.UserPrincipalName
+            UserDomain                       = $UserDomain
+            GivenName                        = $User.GivenName
+            SurName                          = $User.SurName
+            UserType                         = $User.UserType
+            Enabled                          = $User.AccountEnabled
+            JobTitle                         = $User.JobTitle
+            Mail                             = $User.Mail
+            CreatedDateTime                  = $User.CreatedDateTime
+            CreatedDaysAgo                   = $CreatedDaysAgo
+            Manager                          = if ($User.Manager.Id) { $User.Manager.Id } else { $null }
+            ManagerDisplayName               = if ($User.Manager.Id) { $User.Manager.AdditionalProperties.displayName } else { $null }
+            ManagerUserPrincipalName         = if ($User.Manager.Id) { $User.Manager.AdditionalProperties.userPrincipalName } else { $null }
+            ManagerIsSynchronized            = if ($User.Manager.Id) { $User.Manager.AdditionalProperties.onPremisesSyncEnabled } else { $null }
+            HasManager                       = [bool] $User.Manager.Id
+            LastPasswordChangeDateTime       = $User.LastPasswordChangeDateTime
+            LastPasswordChangeDays           = $LastPasswordChangeDays
+            IsSynchronized                   = if ($null -ne $User.OnPremisesSyncEnabled) { [bool] $User.OnPremisesSyncEnabled } else { $null }
+            LastSynchronized                 = $User.OnPremisesLastSyncDateTime
+            LastSynchronizedDays             = $LastSynchronizedDays
+            OnPremisesDistinguishedName      = $User.OnPremisesDistinguishedName
+            LastSignInDateTime               = if ($User.SignInActivity) { $User.SignInActivity.LastSignInDateTime } else { $null }
+            LastSignInDaysAgo                = $LastSignInDaysAgo
+            LastNonInteractiveSignInDateTime = if ($User.SignInActivity) { $User.SignInActivity.LastNonInteractiveSignInDateTime } else { $null }
+            LastNonInteractiveSignInDaysAgo  = $LastNonInteractiveSignInDaysAgo
+            NeverSignedIn                    = $NeverSignedIn
+        }
+
         if ($PerLicense) {
             $LicensesErrors = [System.Collections.Generic.List[string]]::new()
-            $OutputUser['NotMatched'] = [System.Collections.Generic.List[string]]::new()
+            $OutputUser['DifferentLicense'] = [System.Collections.Generic.List[string]]::new()
             foreach ($License in $AllLicensesValues) {
                 $OutputUser[$License] = [System.Collections.Generic.List[string]]::new()
             }
+
             foreach ($License in $User.LicenseAssignmentStates) {
                 try {
                     $LicenseFound = $AllLicenses['Licenses'][$License.SkuId]
@@ -144,36 +191,50 @@
             $LicensesList = [System.Collections.Generic.List[string]]::new()
             $LicensesStatus = [System.Collections.Generic.List[string]]::new()
             $LicensesErrors = [System.Collections.Generic.List[string]]::new()
-            $User.LicenseAssignmentStates | ForEach-Object {
-                if ($LicensesList -notcontains $AllLicenses['Licenses'][$_.SkuId]) {
-                    $LicensesList.Add($AllLicenses['Licenses'][$_.SkuId])
-                    if ($_.State -eq 'Active' -and $_.AssignedByGroup.Count -gt 0) {
+            foreach ($License in $User.LicenseAssignmentStates) {
+                $LicenseFound = $AllLicenses['Licenses'][$License.SkuId]
+                if ($LicenseFound -and $LicensesList -notcontains $LicenseFound) {
+                    $LicensesList.Add($LicenseFound)
+                    if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
                         $LicensesStatus.Add('Group')
-                    } elseif ($_.State -eq 'Active' -and $_.AssignedByGroup.Count -eq 0) {
+                    } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
                         $LicensesStatus.Add('Direct')
                     } else {
-                        $LicensesStatus.Add($_.State)
-                        if ($LicensesErrors -notcontains $_.Error) {
-                            $LicensesErrors.Add($_.Error)
+                        $LicensesStatus.Add($License.State)
+                        if ($License.Error -and $LicensesErrors -notcontains $License.Error) {
+                            $LicensesErrors.Add($License.Error)
                         }
                     }
+                } elseif (-not $LicenseFound) {
+                    if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
+                        $LicensesStatus.Add('Group')
+                    } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
+                        $LicensesStatus.Add('Direct')
+                    }
+                    $LicensesErrors.Add("License ID $($License.SkuId) not found in All Licenses")
+                    Write-Warning -Message "Get-MyUser - License ID $($License.SkuId) not found in AllLicenses for $($User.DisplayName)"
                 } else {
-                    $LicensesStatus.Add("Duplicate")
+                    $LicensesStatus.Add('Duplicate')
                 }
             }
+
             $Plans = foreach ($Object in $User.AssignedPlans) {
                 if ($Object.CapabilityStatus -ne 'Deleted') {
                     $AllLicenses['ServicePlans'][$Object.ServicePlanId]
                 }
             }
 
+            $OutputUser['HasLicenses'] = $LicensesList.Count -gt 0
+            $OutputUser['LicenseCount'] = $LicensesList.Count
             $OutputUser['LicensesStatus'] = $LicensesStatus | Sort-Object -Unique
             $OutputUser['LicensesErrors'] = $LicensesErrors
             $OutputUser['Licenses'] = $LicensesList
             $OutputUser['Plans'] = $Plans
         }
+
         [PSCustomObject] $OutputUser
     }
+
     $EndTime = Stop-TimeLog -Time $StartTime -Option OneLiner
-    Write-Verbose -Message "Get-MyUser - Processed all users in $($EndTime)."
+    Write-Verbose -Message "Get-MyUser - Processed all users in $EndTime."
 }
