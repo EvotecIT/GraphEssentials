@@ -155,7 +155,7 @@ $Script:UsersPerServicePlan = [ordered] @{
                 UsersWithDeletedPlans = $usersWithDeletedPlans
                 NeverSignedInUsers    = $neverSignedInUsers
                 InactiveUsers         = $inactiveUsers
-                ServicePlanColumns    = $servicePlanColumns.Count
+                DistinctServicePlans  = $servicePlanColumns.Count
             }
         )
 
@@ -229,9 +229,9 @@ $Script:UsersPerServicePlan = [ordered] @{
                 New-HTMLTab -Name "Overview ($userCount)" {
                     if ($servicePlanSummary -and $servicePlanSummary.Overview) {
                         $overview = $servicePlanSummary.Overview[0]
-                        New-HTMLSection -HeaderText 'Users Per Service Plan Overview' -Density Compact {
+                        New-HTMLSection -HeaderText 'Service Plan Coverage Overview' -Density Compact {
                             New-HTMLSection -Invisible {
-                                New-HTMLInfoCard -Title 'Total Users' -Number $overview.TotalUsers -Subtitle 'Users in the service-plan matrix' -Icon '👤' -IconColor '#0078d4' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Total Users' -Number $overview.TotalUsers -Subtitle 'Users represented in this service plan review' -Icon '👤' -IconColor '#0078d4' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Enabled / Disabled' -Number "$($overview.EnabledUsers) / $($overview.DisabledUsers)" -Subtitle 'Account state split' -Icon '✅' -IconColor '#198754' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Members / Guests' -Number "$($overview.MemberUsers) / $($overview.GuestUsers)" -Subtitle 'Identity type split' -Icon '🌐' -IconColor '#6f42c1' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'With / Without Plans' -Number "$($overview.UsersWithPlans) / $($overview.UsersWithoutPlans)" -Subtitle 'Service plan coverage' -Icon '🧩' -IconColor '#20c997' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
@@ -240,7 +240,7 @@ $Script:UsersPerServicePlan = [ordered] @{
                                 New-HTMLInfoCard -Title 'Deleted Plans' -Number $overview.UsersWithDeletedPlans -Subtitle 'Users with removed plan references' -Icon '🗑️' -IconColor '#fd7e14' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Never Signed In' -Number $overview.NeverSignedInUsers -Subtitle 'Accounts without interactive sign-in' -Icon '🚪' -IconColor '#ffc107' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Inactive 90+ Days' -Number $overview.InactiveUsers -Subtitle 'Potential stale account review' -Icon '⏱️' -IconColor '#dc3545' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                                New-HTMLInfoCard -Title 'Service Plan Columns' -Number $overview.ServicePlanColumns -Subtitle 'Distinct plans represented in the matrix' -Icon '📚' -IconColor '#6c757d' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Plans Covered' -Number $overview.DistinctServicePlans -Subtitle 'Distinct service plans represented in this view' -Icon '📚' -IconColor '#6c757d' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             }
                             New-HTMLSection -Invisible {
                                 New-HTMLPanel {
@@ -275,7 +275,7 @@ $Script:UsersPerServicePlan = [ordered] @{
                         } -Wrap wrap
                     }
                 }
-                New-HTMLTab -Name "Service Plan Matrix ($userCount)" {
+                New-HTMLTab -Name "Service Plan Coverage ($userCount)" {
                     New-HTMLTabPanel {
                         New-HTMLTab -Name "All Users ($userCount)" {
                             New-HTMLSection -HeaderText 'Users Per Service Plan Matrix' {

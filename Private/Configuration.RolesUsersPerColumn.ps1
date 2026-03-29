@@ -161,13 +161,13 @@ $Script:RolesUsersPerColumn = [ordered] @{
 
         $overview = @(
             [PSCustomObject]@{
-                TotalRoleHolders    = $totalHolders
-                RoleColumns         = $roleColumns.Count
-                DisabledHolders     = $disabledHolders
-                GuestHolders        = $guestHolders
-                DirectHolders       = $directHolders
-                EligibleHolders     = $eligibleHolders
-                GroupBasedHolders   = $groupBasedHolders
+                TotalRoleHolders  = $totalHolders
+                DistinctRoles     = $roleColumns.Count
+                DisabledHolders   = $disabledHolders
+                GuestHolders      = $guestHolders
+                DirectHolders     = $directHolders
+                EligibleHolders   = $eligibleHolders
+                GroupBasedHolders = $groupBasedHolders
             }
         )
 
@@ -246,26 +246,26 @@ $Script:RolesUsersPerColumn = [ordered] @{
                 New-HTMLTab -Name "Overview ($matrixCount)" {
                     if ($matrixSummary -and $matrixSummary.Overview) {
                         $overview = $matrixSummary.Overview[0]
-                        New-HTMLSection -HeaderText 'Role Matrix Overview' -Density Compact {
+                        New-HTMLSection -HeaderText 'Role Coverage Overview' -Density Compact {
                             New-HTMLSection -Invisible {
-                                New-HTMLInfoCard -Title 'Total Holders' -Number $overview.TotalRoleHolders -Subtitle 'Identities represented in the matrix' -Icon '🧮' -IconColor '#0078d4' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                                New-HTMLInfoCard -Title 'Role Columns' -Number $overview.RoleColumns -Subtitle 'Distinct roles represented as columns' -Icon '📚' -IconColor '#198754' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Total Holders' -Number $overview.TotalRoleHolders -Subtitle 'Identities represented in this role review' -Icon '🧮' -IconColor '#0078d4' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Roles Covered' -Number $overview.DistinctRoles -Subtitle 'Distinct roles represented in this view' -Icon '📚' -IconColor '#198754' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Disabled / Guests' -Number "$($overview.DisabledHolders) / $($overview.GuestHolders)" -Subtitle 'High-review holder groups' -Icon '🚩' -IconColor '#dc3545' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                                New-HTMLInfoCard -Title 'Group-Based Holders' -Number $overview.GroupBasedHolders -Subtitle 'Roles inherited through groups' -Icon '👥' -IconColor '#6f42c1' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Inherited Through Groups' -Number $overview.GroupBasedHolders -Subtitle 'Holders with role access coming from groups' -Icon '👥' -IconColor '#6f42c1' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             }
                             New-HTMLSection -Invisible {
-                                New-HTMLInfoCard -Title 'Direct / Eligible' -Number "$($overview.DirectHolders) / $($overview.EligibleHolders)" -Subtitle 'Assignment mode split' -Icon '📌' -IconColor '#fd7e14' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Direct / Eligible' -Number "$($overview.DirectHolders) / $($overview.EligibleHolders)" -Subtitle 'How holders receive role access' -Icon '📌' -IconColor '#fd7e14' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             }
                             New-HTMLSection -Invisible {
                                 New-HTMLPanel {
-                                    New-HTMLChart -Title 'Assignment Distribution' {
+                                    New-HTMLChart -Title 'Assignment Paths' {
                                         foreach ($item in $matrixSummary.AssignmentDistribution) {
                                             New-ChartPie -Name $item.Name -Value $item.Count
                                         }
                                     }
                                 }
                                 New-HTMLPanel {
-                                    New-HTMLChart -Title 'Holder Type Distribution' {
+                                    New-HTMLChart -Title 'Identity Types' {
                                         foreach ($item in $matrixSummary.TypeDistribution) {
                                             New-ChartPie -Name $item.Name -Value $item.Count
                                         }
@@ -273,9 +273,9 @@ $Script:RolesUsersPerColumn = [ordered] @{
                                 }
                             }
                             if (@($matrixSummary.RoleSummary).Count -gt 0) {
-                                New-HTMLSection -HeaderText 'Top Roles In The Matrix' -Invisible {
+                                New-HTMLSection -HeaderText 'Most Common Roles In Scope' -Invisible {
                                     New-HTMLPanel {
-                                        New-HTMLChart -Title 'Top Roles By Holder Count' {
+                                        New-HTMLChart -Title 'Role Coverage By Holder Count' {
                                             foreach ($item in ($matrixSummary.RoleSummary | Select-Object -First 10)) {
                                                 New-ChartBar -Name $item.Role -Value $item.Holders
                                             }
@@ -289,10 +289,10 @@ $Script:RolesUsersPerColumn = [ordered] @{
                         } -Wrap wrap
                     }
                 }
-                New-HTMLTab -Name "Role Matrix ($matrixCount)" {
+                New-HTMLTab -Name "Role Coverage ($matrixCount)" {
                     New-HTMLTabPanel {
                         New-HTMLTab -Name "All Holders ($matrixCount)" {
-                            New-HTMLSection -HeaderText 'Role Holder Matrix' {
+                            New-HTMLSection -HeaderText 'Role Exposure Matrix' {
                                 New-HTMLTable -DataTable $matrixData -Filtering $matrixConditions -ScrollX
                             }
                         }
@@ -318,35 +318,35 @@ $Script:RolesUsersPerColumn = [ordered] @{
                                 }
                             }
                         }
-                        New-HTMLTab -Name "Group Based ($(@($matrixSummary.GroupBased).Count))" {
+                        New-HTMLTab -Name "Inherited Through Groups ($(@($matrixSummary.GroupBased).Count))" {
                             if (@($matrixSummary.GroupBased).Count -gt 0) {
-                                New-HTMLSection -HeaderText 'Group-Based Role Holders' {
+                                New-HTMLSection -HeaderText 'Role Holders Inheriting Access Through Groups' {
                                     New-HTMLTable -DataTable $matrixSummary.GroupBased -Filtering $matrixConditions -ScrollX
                                 }
                             } else {
-                                New-HTMLSection -HeaderText 'Group-Based Role Holders' {
+                                New-HTMLSection -HeaderText 'Role Holders Inheriting Access Through Groups' {
                                     New-HTMLText -Text 'No group-based role holders were found.' -Color Orange
                                 }
                             }
                         }
-                        New-HTMLTab -Name "Role Summary ($(@($matrixSummary.RoleSummary).Count))" {
+                        New-HTMLTab -Name "Role Coverage Summary ($(@($matrixSummary.RoleSummary).Count))" {
                             if (@($matrixSummary.RoleSummary).Count -gt 0) {
-                                New-HTMLSection -HeaderText 'Role Matrix Summary' {
+                                New-HTMLSection -HeaderText 'Role Coverage Summary' {
                                     New-HTMLTable -DataTable $matrixSummary.RoleSummary -Filtering -ScrollX
                                 }
                             } else {
-                                New-HTMLSection -HeaderText 'Role Matrix Summary' {
+                                New-HTMLSection -HeaderText 'Role Coverage Summary' {
                                     New-HTMLText -Text 'No role matrix summary data was generated.' -Color Orange
                                 }
                             }
                         }
                         New-HTMLTab -Name "Review Queue ($(@($matrixSummary.ReviewCandidates).Count))" {
                             if (@($matrixSummary.ReviewCandidates).Count -gt 0) {
-                                New-HTMLSection -HeaderText 'Role Matrix Review Queue' {
+                                New-HTMLSection -HeaderText 'Role Coverage Review Queue' {
                                     New-HTMLTable -DataTable $matrixSummary.ReviewCandidates -Filtering $matrixConditions -ScrollX
                                 }
                             } else {
-                                New-HTMLSection -HeaderText 'Role Matrix Review Queue' {
+                                New-HTMLSection -HeaderText 'Role Coverage Review Queue' {
                                     New-HTMLText -Text 'No role holders matched the current review criteria.' -Color Orange
                                 }
                             }
