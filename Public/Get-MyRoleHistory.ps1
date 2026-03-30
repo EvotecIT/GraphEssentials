@@ -53,7 +53,9 @@
 
     .NOTES
     This function requires the Microsoft.Graph.Identity.Governance module and appropriate permissions.
-    Typically requires RoleManagement.Read.Directory or Directory.Read.All permissions.
+    Reading PIM history requests currently requires RoleAssignmentSchedule.ReadWrite.Directory and
+    RoleEligibilitySchedule.ReadWrite.Directory, or the broader RoleManagement.ReadWrite.Directory
+    permission, with admin consent.
     #>
     [CmdletBinding()]
     param(
@@ -67,13 +69,33 @@
 
     $ErrorsCount = 0
     $StartDate = (Get-Date).AddDays(-$DaysBack).ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $PermissionIssues = [System.Collections.Generic.List[string]]::new()
+
+    function Write-RoleHistoryWarning {
+        param(
+            [string] $Operation,
+            [System.Management.Automation.ErrorRecord] $ErrorRecord,
+            [string[]] $RequiredApplicationPermissions
+        )
+
+        $errorInfo = $ErrorRecord | Get-GraphEssentialsErrorDetails -FunctionName 'Get-MyRoleHistory'
+
+        if ($RequiredApplicationPermissions -and $errorInfo.IsPermissionDenied) {
+            $permissions = $RequiredApplicationPermissions -join ' or '
+            $PermissionIssues.Add("$Operation requires application permission $permissions with admin consent.") | Out-Null
+            Write-Warning -Message "Get-MyRoleHistory - Missing Microsoft Graph application permission for $Operation. Add $permissions and grant admin consent."
+            return
+        }
+
+        Write-Warning -Message "Get-MyRoleHistory - Failed to get $Operation. Error: $($errorInfo.Message)"
+    }
 
     # Get all required data with error handling
     try {
         Write-Verbose "Getting users..."
         $Users = Get-MgUser -ErrorAction Stop -All -Property DisplayName, CreatedDateTime, 'AccountEnabled', 'Mail', 'UserPrincipalName', 'Id', 'UserType', 'OnPremisesDistinguishedName', 'OnPremisesSamAccountName'
     } catch {
-        Write-Warning -Message "Get-MyRoleHistory - Failed to get users. Error: $($_.Exception.Message)"
+        Write-RoleHistoryWarning -Operation 'users' -ErrorRecord $_
         $ErrorsCount++
     }
 
@@ -81,7 +103,7 @@
         Write-Verbose "Getting groups..."
         $Groups = Get-MgGroup -ErrorAction Stop -All -Filter "IsAssignableToRole eq true" -Property CreatedDateTime, Id, DisplayName, Mail, SecurityEnabled
     } catch {
-        Write-Warning -Message "Get-MyRoleHistory - Failed to get groups. Error: $($_.Exception.Message)"
+        Write-RoleHistoryWarning -Operation 'groups' -ErrorRecord $_
         $ErrorsCount++
     }
 
@@ -89,7 +111,7 @@
         Write-Verbose "Getting service principals..."
         $ServicePrincipals = Get-MgServicePrincipal -ErrorAction Stop -All -Property CreatedDateTime, 'ServicePrincipalType', 'DisplayName', 'AccountEnabled', 'Id', 'AppId'
     } catch {
-        Write-Warning -Message "Get-MyRoleHistory - Failed to get service principals. Error: $($_.Exception.Message)"
+        Write-RoleHistoryWarning -Operation 'service principals' -ErrorRecord $_
         $ErrorsCount++
     }
 
@@ -97,7 +119,7 @@
         Write-Verbose "Getting role definitions..."
         $Roles = Get-MgRoleManagementDirectoryRoleDefinition -ErrorAction Stop -All
     } catch {
-        Write-Warning -Message "Get-MyRoleHistory - Failed to get roles. Error: $($_.Exception.Message)"
+        Write-RoleHistoryWarning -Operation 'role definitions' -ErrorRecord $_
         $ErrorsCount++
     }
 
@@ -106,7 +128,10 @@
         $Filter = "createdDateTime ge $StartDate"
         $RoleAssignmentRequests = Get-MgRoleManagementDirectoryRoleAssignmentScheduleRequest -ErrorAction Stop -All -Filter $Filter
     } catch {
-        Write-Warning -Message "Get-MyRoleHistory - Failed to get role assignment schedule requests. Error: $($_.Exception.Message)"
+        Write-RoleHistoryWarning -Operation 'role assignment schedule requests' -ErrorRecord $_ -RequiredApplicationPermissions @(
+            'RoleAssignmentSchedule.ReadWrite.Directory',
+            'RoleManagement.ReadWrite.Directory'
+        )
         $ErrorsCount++
     }
 
@@ -115,12 +140,19 @@
         $Filter = "createdDateTime ge $StartDate"
         $RoleEligibilityRequests = Get-MgRoleManagementDirectoryRoleEligibilityScheduleRequest -ErrorAction Stop -All -Filter $Filter
     } catch {
-        Write-Warning -Message "Get-MyRoleHistory - Failed to get role eligibility schedule requests. Error: $($_.Exception.Message)"
+        Write-RoleHistoryWarning -Operation 'role eligibility schedule requests' -ErrorRecord $_ -RequiredApplicationPermissions @(
+            'RoleEligibilitySchedule.ReadWrite.Directory',
+            'RoleManagement.ReadWrite.Directory'
+        )
         $ErrorsCount++
     }
 
     if ($ErrorsCount -gt 0) {
-        Write-Error "Failed to retrieve required data. Cannot continue."
+        if ($PermissionIssues.Count -gt 0) {
+            Write-Error "Get-MyRoleHistory - Missing Microsoft Graph application permissions for PIM history. $($PermissionIssues -join ' ')"
+        } else {
+            Write-Error "Get-MyRoleHistory - Failed to retrieve required data. Cannot continue."
+        }
         return
     }
 

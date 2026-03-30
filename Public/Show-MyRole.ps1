@@ -562,7 +562,7 @@ function Show-MyRole {
                             } -FontSize 11pt
 
                             New-HTMLText -FontSize 11pt -TextBlock {
-                                "Required permissions for PIM history: RoleManagement.Read.Directory, RoleAssignmentSchedule.Read.Directory"
+                                "Required permissions for PIM history: RoleAssignmentSchedule.ReadWrite.Directory and RoleEligibilitySchedule.ReadWrite.Directory, or the broader RoleManagement.ReadWrite.Directory"
                             }
                         }
                     }

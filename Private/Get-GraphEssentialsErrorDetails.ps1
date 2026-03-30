@@ -102,6 +102,16 @@ function Get-GraphEssentialsErrorDetails {
             $errorDetails.FullMessage = "$($FunctionName): $($ErrorRecord.Exception.Message)"
         }
 
+        if (($errorDetails.Code -eq 'Unknown' -or $errorDetails.Code -eq 'UnknownError') -and
+            $exceptionText -match '"errorCode"\s*:\s*"([^"]+)"') {
+            $errorDetails.Code = $Matches[1]
+        }
+
+        if (($errorDetails.Message -eq 'Unknown error' -or $errorDetails.Message -eq $ErrorRecord.Exception.Message) -and
+            $exceptionText -match '"message"\s*:\s*"([^"]+)"') {
+            $errorDetails.Message = $Matches[1]
+        }
+
         if (-not $errorDetails.StatusCode -and $exceptionText -match 'Status:\s*(\d{3})') {
             $errorDetails.StatusCode = [int] $Matches[1]
         }
@@ -125,7 +135,8 @@ function Get-GraphEssentialsErrorDetails {
             $exceptionText -like '*Insufficient privileges*' -or
             $exceptionText -like '*insufficient*permission*' -or
             $exceptionText -like '*permission*denied*' -or
-            $exceptionText -like '*accessDenied*') {
+            $exceptionText -like '*accessDenied*' -or
+            $exceptionText -like '*PermissionScopeNotGranted*') {
             $errorDetails.IsPermissionDenied = $true
         }
 
