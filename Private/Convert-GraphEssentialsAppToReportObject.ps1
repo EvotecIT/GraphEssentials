@@ -74,8 +74,12 @@ function Convert-GraphEssentialsAppToReportObject {
                     }
                 }
             } catch {
-                Write-Warning "Convert-GraphEssentialsAppToReportObject: Failed to get owners for Application $ApplicationObjectId. Error: $($_.Exception.Message)"
-                $appOwnersRawList.Add([PSCustomObject]@{ Error = "Error fetching app owners: $($_.Exception.Message)" }) # Add to list
+                $errorInfo = $_ | Get-GraphEssentialsErrorDetails -FunctionName 'Convert-GraphEssentialsAppToReportObject'
+                if ($errorInfo.IsNotFound) {
+                    Write-Verbose "Convert-GraphEssentialsAppToReportObject: Application owner references for $ApplicationObjectId could not be resolved."
+                } else {
+                    Write-Warning $errorInfo.FullMessage
+                }
             }
         }
 

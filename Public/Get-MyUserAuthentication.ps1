@@ -93,6 +93,7 @@ function Get-MyUserAuthentication {
         # 5. Assemble Final Results
         Write-Verbose "Get-MyUserAuthentication - Assembling final results..."
         $FinalResults = [System.Collections.Generic.List[object]]::new()
+        $SkippedUsers = [System.Collections.Generic.List[string]]::new()
 
         foreach ($UserId in $intermediateResults.Keys) {
             $intermediate = $intermediateResults[$UserId]
@@ -102,7 +103,11 @@ function Get-MyUserAuthentication {
 
             # If summary fetch failed for this user, skip assembly
             if ($null -eq $AuthMethods) {
-                Write-Warning "Get-MyUserAuthentication: Skipping result assembly for $($user.UserPrincipalName) as summary fetch failed."
+                if ($User -and $User.UserPrincipalName) {
+                    $SkippedUsers.Add($User.UserPrincipalName) | Out-Null
+                } elseif ($UserId) {
+                    $SkippedUsers.Add($UserId) | Out-Null
+                }
                 continue
             }
 
@@ -235,6 +240,17 @@ function Get-MyUserAuthentication {
             $FinalResults.Add($resultObject)
 
         } # End foreach ($UserId in $intermediateResults.Keys)
+
+        if ($SkippedUsers.Count -gt 0) {
+            $exampleSkippedUsers = $SkippedUsers | Select-Object -First 5
+            $exampleSuffix = if ($exampleSkippedUsers.Count -gt 0) {
+                " Examples: $($exampleSkippedUsers -join ', ')."
+            } else {
+                ''
+            }
+
+            Write-Warning "Get-MyUserAuthentication: Skipped $($SkippedUsers.Count) user(s) because authentication summary retrieval failed or was throttled.$exampleSuffix"
+        }
 
         Write-Verbose "Get-MyUserAuthentication: Finished assembling results. Returning $($FinalResults.Count) objects."
         return $FinalResults

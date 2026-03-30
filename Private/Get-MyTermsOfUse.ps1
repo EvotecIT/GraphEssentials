@@ -28,7 +28,8 @@
             return
         }
     } catch {
-        Write-Warning -Message "Get-MyTermsOfUse - Failed to get Terms of Use agreements. Error: $($_.Exception.Message)"
+        $errorInfo = $_ | Get-GraphEssentialsErrorDetails -FunctionName 'Get-MyTermsOfUse'
+        Write-Warning -Message $errorInfo.FullMessage
         return
     }
 

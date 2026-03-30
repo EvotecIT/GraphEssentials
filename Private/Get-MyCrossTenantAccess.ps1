@@ -73,7 +73,8 @@
 
         $Results
     } catch {
-        Write-Warning -Message "Get-MyCrossTenantAccess - Failed to get cross-tenant access policies. Error: $($_.Exception.Message)"
+        $errorInfo = $_ | Get-GraphEssentialsErrorDetails -FunctionName 'Get-MyCrossTenantAccess'
+        Write-Warning -Message $errorInfo.FullMessage
         return
     }
 }

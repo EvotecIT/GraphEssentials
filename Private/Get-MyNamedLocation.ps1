@@ -39,7 +39,8 @@
             Write-Verbose -Message "Get-MyNamedLocation - Retrieved $($NamedLocations.Count) named locations"
         }
     } catch {
-        Write-Warning -Message "Get-MyNamedLocation - Failed to get named locations. Error: $($_.Exception.Message)"
+        $errorInfo = $_ | Get-GraphEssentialsErrorDetails -FunctionName 'Get-MyNamedLocation'
+        Write-Warning -Message $errorInfo.FullMessage
         return
     }
 

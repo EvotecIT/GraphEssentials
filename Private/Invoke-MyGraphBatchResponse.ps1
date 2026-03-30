@@ -8,10 +8,58 @@ function Invoke-MyGraphBatchResponse {
         [hashtable]$IdMap, # Maps Request ID to original context (e.g., UserId or RequestItem)
 
         [Parameter(Mandatory)]
-        [string]$DataType # Description of data being fetched (for logging)
+        [string]$DataType, # Description of data being fetched (for logging)
+
+        [Parameter()]
+        [hashtable]$RequestsById = @{},
+
+        [Parameter()]
+        [int]$MaxRetryCount = 3,
+
+        [Parameter()]
+        [int]$RetryAttempt = 0
     )
 
     $results = [System.Collections.Generic.List[object]]::new()
+    $throttledResponses = [System.Collections.Generic.List[object]]::new()
+    $throttledFailures = [System.Collections.Generic.List[object]]::new()
+
+    function Get-BatchRetryDelaySeconds {
+        param(
+            $BatchResponse
+        )
+
+        $delaySeconds = 0
+        if (-not $BatchResponse -or -not $BatchResponse.headers) {
+            return 5
+        }
+
+        foreach ($headerName in @('Retry-After', 'retry-after')) {
+            $headerProperty = $BatchResponse.headers.PSObject.Properties[$headerName]
+            if ($headerProperty -and $headerProperty.Value) {
+                $parsedDelay = 0
+                if ([int]::TryParse($headerProperty.Value.ToString(), [ref] $parsedDelay)) {
+                    $delaySeconds = [Math]::Max($delaySeconds, $parsedDelay)
+                }
+            }
+        }
+
+        foreach ($headerName in @('x-ms-retry-after-ms', 'X-MS-Retry-After-MS')) {
+            $headerProperty = $BatchResponse.headers.PSObject.Properties[$headerName]
+            if ($headerProperty -and $headerProperty.Value) {
+                $parsedDelayMs = 0
+                if ([int]::TryParse($headerProperty.Value.ToString(), [ref] $parsedDelayMs)) {
+                    $delaySeconds = [Math]::Max($delaySeconds, [Math]::Ceiling($parsedDelayMs / 1000))
+                }
+            }
+        }
+
+        if ($delaySeconds -le 0) {
+            $delaySeconds = 5
+        }
+
+        return $delaySeconds
+    }
 
     if (-not $BatchResponses -or -not $BatchResponses.responses) {
         Write-Warning "Invoke-MyGraphBatchResponse: Invalid or empty batch response received for $DataType."
@@ -57,6 +105,25 @@ function Invoke-MyGraphBatchResponse {
                     Body      = $response.body
                     Error     = $null
                 })
+        } elseif ($response.status -eq 429) {
+            if ($RetryAttempt -lt $MaxRetryCount -and $RequestsById.ContainsKey($response.id)) {
+                $throttledResponses.Add($response)
+            } else {
+                $throttledFailures.Add([PSCustomObject]@{
+                        RequestId = $response.id
+                        Context   = $originalContext
+                        Status    = $response.status
+                        Body      = $response.body
+                    })
+                $results.Add([PSCustomObject]@{
+                        RequestId = $response.id
+                        Context   = $originalContext
+                        Success   = $false
+                        Status    = $response.status
+                        Body      = $response.body
+                        Error     = "Request failed with status code $($response.status) after retrying throttled batch items."
+                    })
+            }
         } else {
             # Failure
             Write-Warning "Invoke-MyGraphBatchResponse: Failed request in batch for $DataType (Context: '$originalContext', Response ID: $($response.id)). Status: $($response.status). Body: $($response.body | ConvertTo-Json -Depth 3 -Compress)"
@@ -70,6 +137,75 @@ function Invoke-MyGraphBatchResponse {
                 })
         }
     }
+
+    if ($throttledResponses.Count -gt 0) {
+        $retryAttemptNumber = $RetryAttempt + 1
+        $retryDelaySeconds = 0
+        foreach ($throttledResponse in $throttledResponses) {
+            $retryDelaySeconds = [Math]::Max($retryDelaySeconds, (Get-BatchRetryDelaySeconds -BatchResponse $throttledResponse))
+        }
+
+        Write-Warning "Invoke-MyGraphBatchResponse: Graph throttled $($throttledResponses.Count) request(s) for $DataType. Waiting $retryDelaySeconds second(s) before retry $retryAttemptNumber/$MaxRetryCount."
+        Start-Sleep -Seconds $retryDelaySeconds
+
+        $retryRequests = [System.Collections.Generic.List[object]]::new()
+        foreach ($throttledResponse in $throttledResponses) {
+            $retryRequest = $RequestsById[$throttledResponse.id]
+            if ($null -ne $retryRequest) {
+                $retryRequests.Add($retryRequest)
+            }
+        }
+
+        $retryChunkSize = [Math]::Min(5, [Math]::Max(1, $retryRequests.Count))
+        for ($i = 0; $i -lt $retryRequests.Count; $i += $retryChunkSize) {
+            $currentRetryBatch = $retryRequests[$i..([Math]::Min($i + $retryChunkSize - 1, $retryRequests.Count - 1))]
+            $retryIdMap = @{}
+            $retryRequestsById = @{}
+
+            foreach ($request in $currentRetryBatch) {
+                $retryIdMap[$request.id] = $IdMap[$request.id]
+                $retryRequestsById[$request.id] = $request
+            }
+
+            $retryDataType = "$DataType (Retry $retryAttemptNumber)"
+            $retryBatchResponse = Invoke-MyGraphBatchRequest -BatchRequests $currentRetryBatch -DataType $retryDataType
+
+            if ($retryBatchResponse) {
+                $retryResults = Invoke-MyGraphBatchResponse -BatchResponses $retryBatchResponse -IdMap $retryIdMap -DataType $retryDataType -RequestsById $retryRequestsById -MaxRetryCount $MaxRetryCount -RetryAttempt $retryAttemptNumber
+                foreach ($retryResult in $retryResults) {
+                    $results.Add($retryResult)
+                }
+            } else {
+                foreach ($request in $currentRetryBatch) {
+                    $results.Add([PSCustomObject]@{
+                            RequestId = $request.id
+                            Context   = $retryIdMap[$request.id]
+                            Success   = $false
+                            Status    = $null
+                            Body      = $null
+                            Error     = "Batch retry request failed before a response was received."
+                        })
+                }
+            }
+        }
+    }
+
+    if ($throttledFailures.Count -gt 0) {
+        $exampleContexts = $throttledFailures |
+        Select-Object -First 5 |
+        ForEach-Object { $_.Context } |
+        Where-Object { $null -ne $_ } |
+        ForEach-Object { "'$_'" }
+
+        $exampleSuffix = if ($exampleContexts.Count -gt 0) {
+            " Example contexts: $($exampleContexts -join ', ')."
+        } else {
+            ''
+        }
+
+        Write-Warning "Invoke-MyGraphBatchResponse: $($throttledFailures.Count) request(s) for $DataType remained throttled after $RetryAttempt retry attempt(s).$exampleSuffix"
+    }
+
     Write-Verbose "Invoke-MyGraphBatchResponse: Finished processing responses for $DataType."
     return $results
 }

@@ -139,7 +139,7 @@ function Show-MyRole {
     }
 
     if (-not $RoleHistory -or $RoleHistory.Count -eq 0) {
-        Write-Warning -Message "Show-MyRole - No PIM history found for the specified period ($DaysBack days)"
+        Write-Verbose -Message "Show-MyRole - No PIM history available for the specified period ($DaysBack days). This can mean no activity or missing Graph permissions."
         $RoleHistory = @()
     }
 
@@ -548,7 +548,7 @@ function Show-MyRole {
                     }
                 }
             } else {
-                New-HTMLSection -HeaderText "No PIM History Found" {
+                New-HTMLSection -HeaderText "No PIM History Available" {
                     New-HTMLPanel -Invisible {
                         New-HTMLContainer {
                             New-HTMLText -FontSize 12pt -TextBlock {
@@ -562,7 +562,7 @@ function Show-MyRole {
                             } -FontSize 11pt
 
                             New-HTMLText -FontSize 11pt -TextBlock {
-                                "Required permissions for PIM history: RoleManagement.Read.Directory, RoleAssignmentSchedule.Read.Directory"
+                                "Required permissions for PIM history: RoleAssignmentSchedule.ReadWrite.Directory and RoleEligibilitySchedule.ReadWrite.Directory, or the broader RoleManagement.ReadWrite.Directory"
                             }
                         }
                     }

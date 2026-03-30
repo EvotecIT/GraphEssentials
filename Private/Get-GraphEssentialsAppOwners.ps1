@@ -29,8 +29,12 @@ function Get-GraphEssentialsAppOwners {
             Write-Verbose "Get-GraphEssentialsAppOwners: No owners found for Service Principal $ServicePrincipalObjectId."
         }
     } catch {
-        Write-Warning "Get-GraphEssentialsAppOwners: Failed to get owners for SP $ServicePrincipalObjectId. Error: $($_.Exception.Message)"
-        $OwnersInfo.Add([PSCustomObject]@{ Error = "Error fetching SP owners: $($_.Exception.Message)" })
+        $errorInfo = $_ | Get-GraphEssentialsErrorDetails -FunctionName 'Get-GraphEssentialsAppOwners'
+        if ($errorInfo.IsNotFound) {
+            Write-Verbose "Get-GraphEssentialsAppOwners: Service Principal $ServicePrincipalObjectId no longer resolves while fetching owners."
+        } else {
+            Write-Warning $errorInfo.FullMessage
+        }
     }
     $OwnersInfo
 }

@@ -9,7 +9,12 @@
         $Config = Get-MgPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration -AuthenticationMethodConfigurationId $ConfigId -ErrorAction Stop
         return $Config
     } catch {
-        Write-Warning -Message "Get-MyAuthenticationMethodsPolicy - Failed to get configuration for $MethodName. Error: $($_.Exception.Message)"
+        $errorInfo = $_ | Get-GraphEssentialsErrorDetails -FunctionName 'Get-MyAuthenticationMethodsPolicy'
+        if ($errorInfo.IsNotFound) {
+            Write-Verbose -Message "Get-MyAuthenticationMethodsPolicy - Configuration for $MethodName is not available in this tenant."
+        } else {
+            Write-Warning -Message $errorInfo.FullMessage
+        }
         return $null
     }
 }
