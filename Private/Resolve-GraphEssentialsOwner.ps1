@@ -33,6 +33,7 @@ function Resolve-GraphEssentialsOwner {
     if (-not $mail -and $OwnerObject.PSObject.Properties['Mail']) { $mail = $OwnerObject.Mail }
 
     $permDenied = $false
+    $missingObject = $false
 
     # If missing, try live lookups (user first, then service principal) using cached results
     if ($id) {
@@ -53,15 +54,14 @@ function Resolve-GraphEssentialsOwner {
                     if (-not $oDataType) { $oDataType = '#microsoft.graph.user' }
                 }
             } catch {
-                # Note permission issue so we can surface a hint.
-                $exceptionText = $_.Exception.ToString()
-                if ($exceptionText -like '*Authorization_RequestDenied*' -or
-                    $exceptionText -like '*Insufficient privileges*' -or
-                    $exceptionText -like '*insufficient*permission*' -or
-                    $exceptionText -like '*permission*denied*' -or
-                    $exceptionText -like '*accessDenied*' -or
-                    $exceptionText -like '*Forbidden*') {
+                $errorInfo = $_ | Get-GraphEssentialsErrorDetails -FunctionName 'Resolve-GraphEssentialsOwner'
+                if ($errorInfo.IsPermissionDenied) {
                     $permDenied = $true
+                } elseif ($errorInfo.IsNotFound) {
+                    $missingObject = $true
+                    Write-Verbose "Resolve-GraphEssentialsOwner: Owner object $id no longer resolves as a user."
+                } else {
+                    Write-Verbose $errorInfo.FullMessage
                 }
             }
         }
@@ -79,7 +79,15 @@ function Resolve-GraphEssentialsOwner {
                     if (-not $appId -and $spResolved.PSObject.Properties['AppId']) { $appId = $spResolved.AppId }
                     if (-not $oDataType) { $oDataType = '#microsoft.graph.servicePrincipal' }
                 }
-            } catch { }
+            } catch {
+                $errorInfo = $_ | Get-GraphEssentialsErrorDetails -FunctionName 'Resolve-GraphEssentialsOwner'
+                if ($errorInfo.IsNotFound) {
+                    $missingObject = $true
+                    Write-Verbose "Resolve-GraphEssentialsOwner: Owner object $id no longer resolves as a service principal."
+                } elseif (-not $errorInfo.IsPermissionDenied) {
+                    Write-Verbose $errorInfo.FullMessage
+                }
+            }
         }
     }
 
@@ -87,6 +95,9 @@ function Resolve-GraphEssentialsOwner {
         $dispName = '(Permission Denied)'
         $oDataType = '#microsoft.graph.user'
         Write-Verbose 'Resolve-GraphEssentialsOwner: Permission missing: add User.Read.All or Directory.Read.All.'
+    } elseif ($missingObject -and (-not $dispName) -and (-not $upn) -and (-not $mail)) {
+        $dispName = '(Deleted or missing object)'
+        Write-Verbose "Resolve-GraphEssentialsOwner: Owner object $id appears to have been deleted or is no longer resolvable."
     }
 
     [pscustomobject]@{

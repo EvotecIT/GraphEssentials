@@ -40,7 +40,8 @@
             }
         }
     } catch {
-        Write-Warning -Message "Get-MyAuthenticationContext - Failed to get authentication contexts. Error: $($_.Exception.Message)"
+        $errorInfo = $_ | Get-GraphEssentialsErrorDetails -FunctionName 'Get-MyAuthenticationContext'
+        Write-Warning -Message $errorInfo.FullMessage
         return
     }
 }

@@ -41,6 +41,10 @@ function Get-GraphEssentialsErrorDetails {
         Message = 'Unknown error'
         FullMessage = ''
         IsGraphError = $false
+        IsPermissionDenied = $false
+        IsNotFound = $false
+        IsTransient = $false
+        StatusCode = $null
         Original = $null
     }
 
@@ -52,7 +56,7 @@ function Get-GraphEssentialsErrorDetails {
         if ($ErrorRecord.ErrorDetails -and $ErrorRecord.ErrorDetails.Message) {
             # Extract just the error JSON part from the message
             # Look specifically for the error JSON object at the end of the message
-            if ($ErrorRecord.ErrorDetails.Message -match '({"\s*error"\s*:.+})$') {
+            if ($ErrorRecord.ErrorDetails.Message -match '(?s)({\s*"error"\s*:\s*.+})') {
                 $jsonContent = $Matches[1]
                 $errorResponse = $jsonContent | ConvertFrom-Json -ErrorAction Stop
 
@@ -79,6 +83,8 @@ function Get-GraphEssentialsErrorDetails {
             }
         }
 
+        $exceptionText = $ErrorRecord.Exception.ToString()
+
         # If we couldn't get details from ErrorDetails.Message, try other approaches
         if ($ErrorRecord.Exception.Response) {
             # Try to get status code and description from the response
@@ -87,6 +93,7 @@ function Get-GraphEssentialsErrorDetails {
 
             $errorDetails.Code = "HTTP $statusCode"
             $errorDetails.Message = "HTTP $statusCode $statusDesc"
+            $errorDetails.StatusCode = $statusCode
             $errorDetails.FullMessage = "$($FunctionName): Failed with HTTP status $statusCode $statusDesc"
         }
         elseif ($ErrorRecord.Exception.Message) {
@@ -95,15 +102,55 @@ function Get-GraphEssentialsErrorDetails {
             $errorDetails.FullMessage = "$($FunctionName): $($ErrorRecord.Exception.Message)"
         }
 
-        # Check specifically for permission errors in the exception string
-        $exceptionText = $ErrorRecord.Exception.ToString()
+        if (-not $errorDetails.StatusCode -and $exceptionText -match 'Status:\s*(\d{3})') {
+            $errorDetails.StatusCode = [int] $Matches[1]
+        }
+
+        if ($errorDetails.Code -eq 'Unknown' -and $exceptionText -match 'ErrorCode:\s*([^\r\n]+)') {
+            $errorDetails.Code = $Matches[1].Trim()
+        }
+
+        if (($errorDetails.Message -eq 'Unknown error' -or $errorDetails.Message -eq $ErrorRecord.Exception.Message) -and
+            $exceptionText -match 'Message:\s*([^\r\n]+)') {
+            $errorDetails.Message = $Matches[1].Trim()
+        }
+
+        if ($errorDetails.StatusCode -and $errorDetails.FullMessage -notlike '*HTTP status*') {
+            $errorDetails.FullMessage = "$($FunctionName): Failed with HTTP status $($errorDetails.StatusCode). $($errorDetails.Message)"
+        }
+
+        # Check specifically for permission, missing-resource and transient errors in the exception string
         if ($exceptionText -like '*Authorization_RequestDenied*' -or
             $exceptionText -like '*Forbidden*' -or
             $exceptionText -like '*Insufficient privileges*' -or
             $exceptionText -like '*insufficient*permission*' -or
             $exceptionText -like '*permission*denied*' -or
             $exceptionText -like '*accessDenied*') {
+            $errorDetails.IsPermissionDenied = $true
+        }
+
+        if ($errorDetails.StatusCode -eq 404 -or
+            $exceptionText -like '*Request_ResourceNotFound*' -or
+            $exceptionText -like '*resourceNotFound*') {
+            $errorDetails.IsNotFound = $true
+        }
+
+        if ($exceptionText -like '*transport stream*' -or
+            $exceptionText -like '*unexpected EOF*' -or
+            $exceptionText -like '*timed out*' -or
+            $exceptionText -like '*timeout*' -or
+            $errorDetails.StatusCode -eq 429 -or
+            $errorDetails.StatusCode -eq 503 -or
+            $errorDetails.StatusCode -eq 504) {
+            $errorDetails.IsTransient = $true
+        }
+
+        if ($errorDetails.IsPermissionDenied) {
             $errorDetails.FullMessage += "`n$($FunctionName): This often indicates insufficient permissions."
+        } elseif ($errorDetails.IsNotFound) {
+            $errorDetails.FullMessage += "`n$($FunctionName): This usually means the object or policy configuration does not exist in this tenant anymore."
+        } elseif ($errorDetails.IsTransient) {
+            $errorDetails.FullMessage += "`n$($FunctionName): This looks transient. Retrying the command usually succeeds."
         }
     }
     catch {
