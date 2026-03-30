@@ -1,6 +1,6 @@
 ﻿Clear-Host
 
-Import-Module PSPublishModule -RequiredVersion '2.0.26' -Force
+Import-Module PSPublishModule -Force
 
 Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
     # Usual defaults as per standard module
@@ -21,11 +21,11 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
     New-ConfigurationManifest @Manifest
 
     New-ConfigurationModule -Type RequiredModule -Name @(
-        'PSSharedGoods'
         'PSWriteColor'
-        'PSWriteHTML'
-        #'O365Essentials'
     ) -Guid Auto -Version Latest
+
+    New-ConfigurationModule -Type RequiredModule -Name 'PSWriteHTML' -Guid Auto -Version '1.41.0'
+    New-ConfigurationModule -Type RequiredModule -Name 'PSSharedGoods' -Guid Auto -Version '0.0.312'
 
     New-ConfigurationModule -Type RequiredModule -Name @(
         'Microsoft.Graph.Authentication'
@@ -101,7 +101,7 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
 
     New-ConfigurationBuild -Enable:$true -SignModule -MergeModuleOnBuild -MergeFunctionsFromApprovedModules -CertificateThumbprint '483292C9E317AA13B07BB7A96AE9D1A5ED9E7703'
 
-    #New-ConfigurationArtefact -Type Unpacked -Enable -Path "$PSScriptRoot\..\Artefacts\Unpacked" -ModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -RequiredModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -AddRequiredModules
+    New-ConfigurationArtefact -Type Unpacked -Enable -Path "$PSScriptRoot\..\Artefacts\Unpacked" -ModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -RequiredModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -AddRequiredModules
     New-ConfigurationArtefact -Type Packed -Enable -Path "$PSScriptRoot\..\Artefacts\Packed" -ArtefactName '<ModuleName>.v<ModuleVersion>.zip'
 
     # options for publishing to github/psgallery
