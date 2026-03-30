@@ -23,11 +23,6 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Install PowerShellGet NuGet provider
-              shell: powershell
-              run: |
-                  Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
-
             - name: Run tests
               shell: powershell
               run: ./GraphEssentials.Tests.ps1
@@ -39,11 +34,6 @@ jobs:
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
-
-            - name: Install PowerShellGet NuGet provider
-              shell: pwsh
-              run: |
-                  Install-PackageProvider -Name NuGet -Force -Scope CurrentUser
 
             - name: Run tests
               shell: pwsh
