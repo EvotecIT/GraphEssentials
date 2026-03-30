@@ -15,18 +15,21 @@ function Get-MyUserAuthSummaries {
         $batchUserIds = $UserIds[$i..([math]::Min($i + $BatchSize - 1, $UserIds.Count - 1))]
         $batchRequests = @()
         $idMap = @{} # Map request ID to UserId for this batch
+        $requestsById = @{}
         $userCounterInBatch = 0
 
         foreach ($userId in $batchUserIds) {
             if (-not $userId) { continue }
             $userCounterInBatch++
             $requestId = "summary_$($i)_$($userCounterInBatch)" # Unique ID for summary requests
-            $batchRequests += @{
+            $request = @{
                 id     = $requestId
                 method = "GET"
                 url    = "/users/$userId/authentication/methods"
             }
+            $batchRequests += $request
             $idMap[$requestId] = $userId
+            $requestsById[$requestId] = $request
         }
 
         if ($batchRequests.Count -eq 0) { continue }
@@ -35,7 +38,7 @@ function Get-MyUserAuthSummaries {
         $batchResponses = Invoke-MyGraphBatchRequest -BatchRequests $batchRequests -DataType $dataType
 
         if ($batchResponses) {
-            $processedResults = Invoke-MyGraphBatchResponse -BatchResponses $batchResponses -IdMap $idMap -DataType $dataType
+            $processedResults = Invoke-MyGraphBatchResponse -BatchResponses $batchResponses -IdMap $idMap -DataType $dataType -RequestsById $requestsById
             foreach ($result in $processedResults) {
                 $currentUserId = $result.Context
                 if ($null -eq $currentUserId) { continue } # Already warned by Invoke-MyGraphBatchResponse

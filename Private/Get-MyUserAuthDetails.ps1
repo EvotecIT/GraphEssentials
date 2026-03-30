@@ -15,15 +15,18 @@ function Get-MyUserAuthDetails {
         $batchDetailItems = $DetailRequestsList.GetRange($i, [math]::Min($BatchSize, $DetailRequestsList.Count - $i))
         $batchDetailRequests = @()
         $detailIdMap = @{} # Map request ID to the original request item
+        $detailRequestsById = @{}
 
         foreach ($item in $batchDetailItems) {
             if (-not $item -or -not $item.BatchUrl) { continue }
-            $batchDetailRequests += @{
+            $request = @{
                 id     = $item.RequestId
                 method = "GET"
                 url    = $item.BatchUrl
             }
+            $batchDetailRequests += $request
             $detailIdMap[$item.RequestId] = $item # Map to the whole item
+            $detailRequestsById[$item.RequestId] = $request
         }
 
         if ($batchDetailRequests.Count -eq 0) { continue }
@@ -32,7 +35,7 @@ function Get-MyUserAuthDetails {
         $batchDetailResponses = Invoke-MyGraphBatchRequest -BatchRequests $batchDetailRequests -DataType $dataType
 
         if ($batchDetailResponses) {
-            $processedResults = Invoke-MyGraphBatchResponse -BatchResponses $batchDetailResponses -IdMap $detailIdMap -DataType $dataType
+            $processedResults = Invoke-MyGraphBatchResponse -BatchResponses $batchDetailResponses -IdMap $detailIdMap -DataType $dataType -RequestsById $detailRequestsById
             foreach ($result in $processedResults) {
                 $originalRequestItem = $result.Context
                 if ($null -eq $originalRequestItem) { continue } # Already warned
