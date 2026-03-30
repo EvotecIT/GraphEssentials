@@ -1,0 +1,40 @@
+name: Test PowerShell
+
+on:
+    push:
+        branches:
+            - master
+        paths-ignore:
+            - '*.md'
+            - 'Docs/**'
+            - 'Examples/**'
+            - '.gitignore'
+    pull_request:
+        branches:
+            - master
+    workflow_dispatch:
+
+jobs:
+    test-windows-ps51:
+        name: Windows PowerShell 5.1
+        runs-on: windows-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Run tests
+              shell: powershell
+              run: ./GraphEssentials.Tests.ps1
+
+    test-windows-ps7:
+        name: PowerShell 7
+        runs-on: windows-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Run tests
+              shell: pwsh
+              run: ./GraphEssentials.Tests.ps1
