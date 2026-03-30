@@ -70,6 +70,8 @@
     $ErrorsCount = 0
     $StartDate = (Get-Date).AddDays(-$DaysBack).ToString("yyyy-MM-ddTHH:mm:ssZ")
     $PermissionIssues = [System.Collections.Generic.List[string]]::new()
+    $RoleAssignmentRequests = @()
+    $RoleEligibilityRequests = @()
 
     function Write-RoleHistoryWarning {
         param(
@@ -132,7 +134,6 @@
             'RoleAssignmentSchedule.ReadWrite.Directory',
             'RoleManagement.ReadWrite.Directory'
         )
-        $ErrorsCount++
     }
 
     try {
@@ -144,16 +145,15 @@
             'RoleEligibilitySchedule.ReadWrite.Directory',
             'RoleManagement.ReadWrite.Directory'
         )
-        $ErrorsCount++
     }
 
     if ($ErrorsCount -gt 0) {
-        if ($PermissionIssues.Count -gt 0) {
-            Write-Error "Get-MyRoleHistory - Missing Microsoft Graph application permissions for PIM history. $($PermissionIssues -join ' ')"
-        } else {
-            Write-Error "Get-MyRoleHistory - Failed to retrieve required data. Cannot continue."
-        }
+        Write-Error "Get-MyRoleHistory - Failed to retrieve required data. Cannot continue."
         return
+    }
+
+    if ($PermissionIssues.Count -gt 0 -and -not $RoleAssignmentRequests -and -not $RoleEligibilityRequests) {
+        Write-Verbose "Get-MyRoleHistory - Returning no PIM history because request-history permissions are missing. $($PermissionIssues -join ' ')"
     }
 
     # Build caches for quick lookups
