@@ -81,6 +81,26 @@ function Get-MyGuest {
             $LastNonInteractiveSignInDaysAgo = $null
         }
 
+        if ($Guest.SignInActivity -and $Guest.SignInActivity.LastSuccessfulSignInDateTime) {
+            $LastSuccessfulSignInDaysAgo = [math]::Floor((New-TimeSpan -Start $Guest.SignInActivity.LastSuccessfulSignInDateTime -End $Today).TotalDays)
+        } else {
+            $LastSuccessfulSignInDaysAgo = $null
+        }
+
+        if ($null -ne $LastSignInDaysAgo -and $null -ne $LastNonInteractiveSignInDaysAgo) {
+            $SignInPattern = 'Interactive + non-interactive'
+        } elseif ($null -ne $LastSignInDaysAgo) {
+            $SignInPattern = 'Interactive only'
+        } elseif ($null -ne $LastNonInteractiveSignInDaysAgo) {
+            $SignInPattern = 'Non-interactive only'
+        } elseif ($null -ne $LastSuccessfulSignInDaysAgo) {
+            $SignInPattern = 'Successful sign-in only'
+        } elseif ($Guest.SignInActivity) {
+            $SignInPattern = 'No sign-in recorded'
+        } else {
+            $SignInPattern = 'No activity data'
+        }
+
         $ExternalAddress = $null
         if ($Guest.OtherMails -and $Guest.OtherMails.Count -gt 0) {
             $ExternalAddress = $Guest.OtherMails[0]
@@ -155,7 +175,11 @@ function Get-MyGuest {
             LastSignInDaysAgo                 = $LastSignInDaysAgo
             LastNonInteractiveSignInDateTime  = if ($Guest.SignInActivity) { $Guest.SignInActivity.LastNonInteractiveSignInDateTime } else { $null }
             LastNonInteractiveSignInDaysAgo   = $LastNonInteractiveSignInDaysAgo
+            LastSuccessfulSignInDateTime      = if ($Guest.SignInActivity) { $Guest.SignInActivity.LastSuccessfulSignInDateTime } else { $null }
+            LastSuccessfulSignInDaysAgo       = $LastSuccessfulSignInDaysAgo
             NeverSignedIn                     = ($null -eq $LastSignInDaysAgo -and $null -eq $LastNonInteractiveSignInDaysAgo)
+            NeverSuccessfullySignedIn         = ($null -eq $LastSuccessfulSignInDaysAgo)
+            SignInPattern                     = $SignInPattern
             CreationType                      = $Guest.CreationType
             CompanyName                       = $Guest.CompanyName
             IsSynchronized                    = if ($Guest.OnPremisesSyncEnabled) { $Guest.OnPremisesSyncEnabled } else { $null }

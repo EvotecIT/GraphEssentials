@@ -42,6 +42,8 @@ function New-MyUserAuthenticationObject {
         LastSignInDaysAgo                = if ($User.SignInActivity -and $User.SignInActivity.LastSignInDateTime) { [math]::Round((New-TimeSpan -Start $User.SignInActivity.LastSignInDateTime -End $Today).TotalDays, 0) } else { $null }
         LastNonInteractiveSignInDateTime = if ($User.SignInActivity) { $User.SignInActivity.LastNonInteractiveSignInDateTime } else { $null }
         LastNonInteractiveSignInDaysAgo  = if ($User.SignInActivity -and $User.SignInActivity.LastNonInteractiveSignInDateTime) { [math]::Round((New-TimeSpan -Start $User.SignInActivity.LastNonInteractiveSignInDateTime -End $Today).TotalDays, 0) } else { $null }
+        LastSuccessfulSignInDateTime     = if ($User.SignInActivity) { $User.SignInActivity.LastSuccessfulSignInDateTime } else { $null }
+        LastSuccessfulSignInDaysAgo      = if ($User.SignInActivity -and $User.SignInActivity.LastSuccessfulSignInDateTime) { [math]::Round((New-TimeSpan -Start $User.SignInActivity.LastSuccessfulSignInDateTime -End $Today).TotalDays, 0) } else { $null }
 
         # Authentication Status
         DefaultMfaMethod                 = $defaultMfaMethod

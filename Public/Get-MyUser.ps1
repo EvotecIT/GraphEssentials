@@ -97,10 +97,32 @@ function Get-MyUser {
             $LastNonInteractiveSignInDaysAgo = $null
         }
 
+        if ($User.SignInActivity -and $User.SignInActivity.LastSuccessfulSignInDateTime) {
+            $LastSuccessfulSignInDaysAgo = [math]::Floor((New-TimeSpan -Start $User.SignInActivity.LastSuccessfulSignInDateTime -End $Today).TotalDays)
+        } else {
+            $LastSuccessfulSignInDaysAgo = $null
+        }
+
         if ($null -ne $User.SignInActivity) {
             $NeverSignedIn = ($null -eq $LastSignInDaysAgo -and $null -eq $LastNonInteractiveSignInDaysAgo)
+            $NeverSuccessfullySignedIn = ($null -eq $LastSuccessfulSignInDaysAgo)
         } else {
             $NeverSignedIn = $null
+            $NeverSuccessfullySignedIn = $null
+        }
+
+        if ($null -ne $LastSignInDaysAgo -and $null -ne $LastNonInteractiveSignInDaysAgo) {
+            $SignInPattern = 'Interactive + non-interactive'
+        } elseif ($null -ne $LastSignInDaysAgo) {
+            $SignInPattern = 'Interactive only'
+        } elseif ($null -ne $LastNonInteractiveSignInDaysAgo) {
+            $SignInPattern = 'Non-interactive only'
+        } elseif ($null -ne $LastSuccessfulSignInDaysAgo) {
+            $SignInPattern = 'Successful sign-in only'
+        } elseif ($null -ne $User.SignInActivity) {
+            $SignInPattern = 'No sign-in recorded'
+        } else {
+            $SignInPattern = 'No activity data'
         }
 
         $UserDomain = $null
@@ -138,7 +160,11 @@ function Get-MyUser {
             LastSignInDaysAgo                = $LastSignInDaysAgo
             LastNonInteractiveSignInDateTime = if ($User.SignInActivity) { $User.SignInActivity.LastNonInteractiveSignInDateTime } else { $null }
             LastNonInteractiveSignInDaysAgo  = $LastNonInteractiveSignInDaysAgo
+            LastSuccessfulSignInDateTime     = if ($User.SignInActivity) { $User.SignInActivity.LastSuccessfulSignInDateTime } else { $null }
+            LastSuccessfulSignInDaysAgo      = $LastSuccessfulSignInDaysAgo
             NeverSignedIn                    = $NeverSignedIn
+            NeverSuccessfullySignedIn        = $NeverSuccessfullySignedIn
+            SignInPattern                    = $SignInPattern
         }
 
         if ($PerLicense) {
@@ -230,6 +256,123 @@ function Get-MyUser {
             $OutputUser['LicensesErrors'] = $LicensesErrors
             $OutputUser['Licenses'] = $LicensesList
             $OutputUser['Plans'] = $Plans
+
+            $IsCloudOnlyMemberCandidate = $User.AccountEnabled -eq $true -and $User.UserType -eq 'Member' -and $User.OnPremisesSyncEnabled -eq $false
+            $CloudOnlyProfile = $null
+            $CloudOnlyReviewPriority = $null
+            $CloudOnlySignals = [System.Collections.Generic.List[string]]::new()
+
+            if ($IsCloudOnlyMemberCandidate) {
+                $CloudOnlySignals.Add('Enabled member account')
+                $CloudOnlySignals.Add('Cloud-only identity source')
+
+                if ($User.Manager.Id) {
+                    $CloudOnlySignals.Add('Manager assigned')
+                } else {
+                    $CloudOnlySignals.Add('No manager assigned')
+                }
+                if ($User.GivenName -or $User.SurName) {
+                    $CloudOnlySignals.Add('Given name or surname present')
+                } else {
+                    $CloudOnlySignals.Add('No given name or surname')
+                }
+                if ($User.JobTitle) {
+                    $CloudOnlySignals.Add('Job title present')
+                } else {
+                    $CloudOnlySignals.Add('No job title')
+                }
+                if ($null -ne $LastSignInDaysAgo) {
+                    $CloudOnlySignals.Add('Interactive sign-in observed')
+                }
+                if ($null -ne $LastNonInteractiveSignInDaysAgo -and $null -eq $LastSignInDaysAgo) {
+                    $CloudOnlySignals.Add('Only non-interactive sign-in observed')
+                }
+                if ($null -ne $LastSuccessfulSignInDaysAgo) {
+                    $CloudOnlySignals.Add("Successful sign-in recorded $LastSuccessfulSignInDaysAgo days ago")
+                } elseif ($NeverSuccessfullySignedIn -eq $true) {
+                    $CloudOnlySignals.Add('No successful sign-in recorded')
+                }
+                if (-not $LicensesList.Count) {
+                    $CloudOnlySignals.Add('No licenses assigned')
+                }
+
+                $workloadLicenseKeywords = @(
+                    'teams rooms',
+                    'meeting room',
+                    'common area phone',
+                    'resource account',
+                    'virtual user'
+                )
+                $hasWorkloadLicenseIndicator = $false
+
+                foreach ($LicenseName in $LicensesList) {
+                    $licenseValue = [string] $LicenseName
+                    $licenseValueLower = $licenseValue.ToLowerInvariant()
+                    foreach ($keyword in $workloadLicenseKeywords) {
+                        if ($licenseValueLower -like "*$keyword*") {
+                            $hasWorkloadLicenseIndicator = $true
+                            $CloudOnlySignals.Add("Workload license: $licenseValue")
+                            break
+                        }
+                    }
+                    if ($hasWorkloadLicenseIndicator) {
+                        break
+                    }
+                }
+
+                if (-not $hasWorkloadLicenseIndicator) {
+                    foreach ($PlanName in $Plans) {
+                        if (-not $PlanName) {
+                            continue
+                        }
+
+                        $planValue = [string] $PlanName
+                        $planValueLower = $planValue.ToLowerInvariant()
+                        foreach ($keyword in $workloadLicenseKeywords) {
+                            if ($planValueLower -like "*$keyword*") {
+                                $hasWorkloadLicenseIndicator = $true
+                                $CloudOnlySignals.Add("Workload plan: $planValue")
+                                break
+                            }
+                        }
+                        if ($hasWorkloadLicenseIndicator) {
+                            break
+                        }
+                    }
+                }
+
+                $hasHumanIndicators = $false
+                if ($User.Manager.Id -or $User.GivenName -or $User.SurName -or $User.JobTitle -or $null -ne $LastSignInDaysAgo) {
+                    $hasHumanIndicators = $true
+                }
+
+                $hasWorkloadBehaviorIndicators = $null -eq $LastSignInDaysAgo -and
+                    $null -ne $LastNonInteractiveSignInDaysAgo -and
+                    -not $User.Manager.Id -and
+                    -not $User.GivenName -and
+                    -not $User.SurName -and
+                    -not $User.JobTitle
+
+                if ($hasWorkloadBehaviorIndicators) {
+                    $CloudOnlySignals.Add('Non-interactive-only activity with no manager or profile attributes')
+                }
+
+                if ($hasWorkloadLicenseIndicator -or $hasWorkloadBehaviorIndicators) {
+                    $CloudOnlyProfile = 'Likely workload/resource'
+                    $CloudOnlyReviewPriority = 'Low'
+                } elseif ($hasHumanIndicators -and -not $hasWorkloadLicenseIndicator) {
+                    $CloudOnlyProfile = 'Likely human account'
+                    $CloudOnlyReviewPriority = 'High'
+                } else {
+                    $CloudOnlyProfile = 'Needs review'
+                    $CloudOnlyReviewPriority = 'Medium'
+                }
+            }
+
+            $OutputUser['IsCloudOnlyMemberCandidate'] = $IsCloudOnlyMemberCandidate
+            $OutputUser['CloudOnlyProfile'] = $CloudOnlyProfile
+            $OutputUser['CloudOnlyReviewPriority'] = $CloudOnlyReviewPriority
+            $OutputUser['CloudOnlySignals'] = if ($CloudOnlySignals.Count -gt 0) { $CloudOnlySignals -join ', ' } else { $null }
         }
 
         [PSCustomObject] $OutputUser

@@ -20,12 +20,18 @@ $Script:Users = [ordered] @{
         $usersWithoutLicenses = 0
         $usersWithoutManager = 0
         $neverSignedInUsers = 0
+        $neverSuccessfulSignInUsers = 0
         $inactiveUsers = 0
         $recentUsers = 0
+        $inactiveSuccessfulUsers = 0
+        $recentSuccessfulUsers = 0
         $domainCounts = @{}
         $userTypeCounts = @{}
+        $cloudOnlyProfileCounts = @{}
         $memberAccounts = [System.Collections.Generic.List[object]]::new()
         $guestAccounts = [System.Collections.Generic.List[object]]::new()
+        $cloudOnlyMemberAccounts = [System.Collections.Generic.List[object]]::new()
+        $cloudOnlyReviewQueue = [System.Collections.Generic.List[object]]::new()
         $reviewCandidates = [System.Collections.Generic.List[object]]::new()
 
         foreach ($user in $userData) {
@@ -69,6 +75,10 @@ $Script:Users = [ordered] @{
                 $neverSignedInUsers++
             }
 
+            if ($user.NeverSuccessfullySignedIn -eq $true) {
+                $neverSuccessfulSignInUsers++
+            }
+
             if (($null -ne $user.LastSignInDaysAgo -and $user.LastSignInDaysAgo -gt 90) -or ($null -ne $user.LastNonInteractiveSignInDaysAgo -and $user.LastNonInteractiveSignInDaysAgo -gt 90)) {
                 $inactiveUsers++
             }
@@ -77,11 +87,33 @@ $Script:Users = [ordered] @{
                 $recentUsers++
             }
 
+            if ($null -ne $user.LastSuccessfulSignInDaysAgo -and $user.LastSuccessfulSignInDaysAgo -gt 90) {
+                $inactiveSuccessfulUsers++
+            }
+
+            if ($null -ne $user.LastSuccessfulSignInDaysAgo -and $user.LastSuccessfulSignInDaysAgo -le 30) {
+                $recentSuccessfulUsers++
+            }
+
             if ($user.UserDomain) {
                 if (-not $domainCounts.ContainsKey($user.UserDomain)) {
                     $domainCounts[$user.UserDomain] = 0
                 }
                 $domainCounts[$user.UserDomain]++
+            }
+
+            if ($user.IsCloudOnlyMemberCandidate) {
+                $cloudOnlyMemberAccounts.Add($user)
+
+                $cloudOnlyProfile = if ($user.CloudOnlyProfile) { $user.CloudOnlyProfile } else { 'Not classified' }
+                if (-not $cloudOnlyProfileCounts.ContainsKey($cloudOnlyProfile)) {
+                    $cloudOnlyProfileCounts[$cloudOnlyProfile] = 0
+                }
+                $cloudOnlyProfileCounts[$cloudOnlyProfile]++
+
+                if ($user.CloudOnlyReviewPriority -in @('High', 'Medium')) {
+                    $cloudOnlyReviewQueue.Add($user)
+                }
             }
 
             $reviewFlags = [System.Collections.Generic.List[string]]::new()
@@ -97,8 +129,14 @@ $Script:Users = [ordered] @{
             if ($user.NeverSignedIn -eq $true) {
                 $reviewFlags.Add('Never signed in')
             }
+            if ($user.NeverSuccessfullySignedIn -eq $true) {
+                $reviewFlags.Add('No successful sign-in')
+            }
             if (($null -ne $user.LastSignInDaysAgo -and $user.LastSignInDaysAgo -gt 90) -or ($null -ne $user.LastNonInteractiveSignInDaysAgo -and $user.LastNonInteractiveSignInDaysAgo -gt 90)) {
                 $reviewFlags.Add('Inactive 90+ days')
+            }
+            if ($null -ne $user.LastSuccessfulSignInDaysAgo -and $user.LastSuccessfulSignInDaysAgo -gt 90) {
+                $reviewFlags.Add('No successful sign-in 90+ days')
             }
             if ($null -ne $user.LastPasswordChangeDays -and $user.LastPasswordChangeDays -gt 180) {
                 $reviewFlags.Add('Password older than 180 days')
@@ -108,6 +146,12 @@ $Script:Users = [ordered] @{
             }
             if ($user.LicensesStatus -contains 'Error') {
                 $reviewFlags.Add('License issue')
+            }
+            if ($user.IsCloudOnlyMemberCandidate -and $user.CloudOnlyProfile -eq 'Likely human account') {
+                $reviewFlags.Add('Cloud-only member with human usage pattern')
+            }
+            if ($user.IsCloudOnlyMemberCandidate -and $user.CloudOnlyProfile -eq 'Needs review') {
+                $reviewFlags.Add('Cloud-only member requires classification review')
             }
 
             if ($reviewFlags.Count -gt 0) {
@@ -129,8 +173,15 @@ $Script:Users = [ordered] @{
                 UnlicensedUsers    = $usersWithoutLicenses
                 UsersWithoutManager = $usersWithoutManager
                 NeverSignedIn      = $neverSignedInUsers
+                NeverSuccessfulSignIn = $neverSuccessfulSignInUsers
                 Inactive90Days     = $inactiveUsers
                 Active30Days       = $recentUsers
+                InactiveSuccessful90Days = $inactiveSuccessfulUsers
+                ActiveSuccessful30Days = $recentSuccessfulUsers
+                CloudOnlyMemberCandidates = $cloudOnlyMemberAccounts.Count
+                CloudOnlyLikelyHuman = @($cloudOnlyMemberAccounts.Where({ $_.CloudOnlyProfile -eq 'Likely human account' })).Count
+                CloudOnlyLikelyWorkload = @($cloudOnlyMemberAccounts.Where({ $_.CloudOnlyProfile -eq 'Likely workload/resource' })).Count
+                CloudOnlyNeedsReview = @($cloudOnlyMemberAccounts.Where({ $_.CloudOnlyProfile -eq 'Needs review' })).Count
             }
         )
 
@@ -161,6 +212,15 @@ $Script:Users = [ordered] @{
             [PSCustomObject]@{ Name = '180+ days'; Count = @($userData.Where({ ($null -ne $_.LastSignInDaysAgo -and $_.LastSignInDaysAgo -gt 180) -or ($null -ne $_.LastNonInteractiveSignInDaysAgo -and $_.LastNonInteractiveSignInDaysAgo -gt 180) })).Count }
         )
 
+        $successfulSignInDistribution = @(
+            [PSCustomObject]@{ Name = 'No activity data'; Count = @($userData.Where({ $null -eq $_.NeverSuccessfullySignedIn -and $null -eq $_.LastSuccessfulSignInDaysAgo })).Count }
+            [PSCustomObject]@{ Name = 'No successful sign-in'; Count = @($userData.Where({ $_.NeverSuccessfullySignedIn -eq $true })).Count }
+            [PSCustomObject]@{ Name = '0-30 days'; Count = @($userData.Where({ $null -ne $_.LastSuccessfulSignInDaysAgo -and $_.LastSuccessfulSignInDaysAgo -le 30 })).Count }
+            [PSCustomObject]@{ Name = '31-90 days'; Count = @($userData.Where({ $null -ne $_.LastSuccessfulSignInDaysAgo -and $_.LastSuccessfulSignInDaysAgo -gt 30 -and $_.LastSuccessfulSignInDaysAgo -le 90 })).Count }
+            [PSCustomObject]@{ Name = '91-180 days'; Count = @($userData.Where({ $null -ne $_.LastSuccessfulSignInDaysAgo -and $_.LastSuccessfulSignInDaysAgo -gt 90 -and $_.LastSuccessfulSignInDaysAgo -le 180 })).Count }
+            [PSCustomObject]@{ Name = '180+ days'; Count = @($userData.Where({ $null -ne $_.LastSuccessfulSignInDaysAgo -and $_.LastSuccessfulSignInDaysAgo -gt 180 })).Count }
+        )
+
         $identitySourceDistribution = @(
             [PSCustomObject]@{ Name = 'Synchronized'; Count = $synchronizedUsers }
             [PSCustomObject]@{ Name = 'Cloud only'; Count = $cloudOnlyUsers }
@@ -173,15 +233,28 @@ $Script:Users = [ordered] @{
             [PSCustomObject]@{ Name = 'License issues'; Count = @($userData.Where({ $_.LicensesStatus -contains 'Error' })).Count }
         )
 
+        $cloudOnlyProfileDistribution = @(
+            foreach ($key in $cloudOnlyProfileCounts.Keys) {
+                [PSCustomObject]@{
+                    Name  = $key
+                    Count = $cloudOnlyProfileCounts[$key]
+                }
+            }
+        ) | Sort-Object Count -Descending
+
         [PSCustomObject]@{
             Overview                   = $overview
             DomainDistribution         = $domainDistribution
             UserTypeDistribution       = $userTypeDistribution
             SignInDistribution         = $signInDistribution
+            SuccessfulSignInDistribution = $successfulSignInDistribution
             IdentitySourceDistribution = $identitySourceDistribution
             LicenseDistribution        = $licenseDistribution
+            CloudOnlyProfileDistribution = $cloudOnlyProfileDistribution
             MemberAccounts             = @($memberAccounts)
             GuestAccounts              = @($guestAccounts)
+            CloudOnlyMemberAccounts    = @($cloudOnlyMemberAccounts)
+            CloudOnlyReviewQueue       = @($cloudOnlyReviewQueue)
             ReviewCandidates           = @($reviewCandidates)
         }
     }
@@ -215,6 +288,10 @@ $Script:Users = [ordered] @{
                 New-HTMLTableCondition -Name 'LicensesStatus' -Operator eq -Value '' -ComparisonType string -BackgroundColor OldGold
 
                 New-HTMLTableCondition -Name 'NeverSignedIn' -Operator eq -Value $true -ComparisonType string -BackgroundColor PeachOrange -HighlightHeaders 'NeverSignedIn', 'LastSignInDateTime', 'LastNonInteractiveSignInDateTime'
+                New-HTMLTableCondition -Name 'NeverSuccessfullySignedIn' -Operator eq -Value $true -ComparisonType string -BackgroundColor CoralRed -HighlightHeaders 'NeverSuccessfullySignedIn', 'LastSuccessfulSignInDateTime'
+                New-HTMLTableCondition -Name 'SignInPattern' -Operator eq -Value 'Non-interactive only' -ComparisonType string -BackgroundColor LightSkyBlue -HighlightHeaders 'SignInPattern', 'LastNonInteractiveSignInDateTime'
+                New-HTMLTableCondition -Name 'SignInPattern' -Operator eq -Value 'Interactive only' -ComparisonType string -BackgroundColor LightGreen -HighlightHeaders 'SignInPattern', 'LastSignInDateTime'
+                New-HTMLTableCondition -Name 'SignInPattern' -Operator eq -Value 'Interactive + non-interactive' -ComparisonType string -BackgroundColor MediumSpringGreen -HighlightHeaders 'SignInPattern'
 
                 New-HTMLTableCondition -Name 'LastSignInDaysAgo' -Value 180 -Operator gt -ComparisonType number -BackgroundColor CoralRed -HighlightHeaders 'LastSignInDaysAgo', 'LastSignInDateTime'
                 New-HTMLTableCondition -Name 'LastSignInDaysAgo' -Value 180 -Operator le -ComparisonType number -BackgroundColor SunsetOrange -HighlightHeaders 'LastSignInDaysAgo', 'LastSignInDateTime'
@@ -226,6 +303,11 @@ $Script:Users = [ordered] @{
                 New-HTMLTableCondition -Name 'LastNonInteractiveSignInDaysAgo' -Value 90 -Operator le -ComparisonType number -BackgroundColor LaserLemon -HighlightHeaders 'LastNonInteractiveSignInDaysAgo', 'LastNonInteractiveSignInDateTime'
                 New-HTMLTableCondition -Name 'LastNonInteractiveSignInDaysAgo' -Value 30 -Operator le -ComparisonType number -BackgroundColor MediumSpringGreen -HighlightHeaders 'LastNonInteractiveSignInDaysAgo', 'LastNonInteractiveSignInDateTime'
 
+                New-HTMLTableCondition -Name 'LastSuccessfulSignInDaysAgo' -Value 180 -Operator gt -ComparisonType number -BackgroundColor CoralRed -HighlightHeaders 'LastSuccessfulSignInDaysAgo', 'LastSuccessfulSignInDateTime'
+                New-HTMLTableCondition -Name 'LastSuccessfulSignInDaysAgo' -Value 180 -Operator le -ComparisonType number -BackgroundColor SunsetOrange -HighlightHeaders 'LastSuccessfulSignInDaysAgo', 'LastSuccessfulSignInDateTime'
+                New-HTMLTableCondition -Name 'LastSuccessfulSignInDaysAgo' -Value 90 -Operator le -ComparisonType number -BackgroundColor LaserLemon -HighlightHeaders 'LastSuccessfulSignInDaysAgo', 'LastSuccessfulSignInDateTime'
+                New-HTMLTableCondition -Name 'LastSuccessfulSignInDaysAgo' -Value 30 -Operator le -ComparisonType number -BackgroundColor MediumSpringGreen -HighlightHeaders 'LastSuccessfulSignInDaysAgo', 'LastSuccessfulSignInDateTime'
+
                 New-HTMLTableCondition -Name 'LastPasswordChangeDays' -Value 180 -Operator gt -ComparisonType number -BackgroundColor CoralRed -HighlightHeaders 'LastPasswordChangeDays', 'LastPasswordChangeDateTime'
                 New-HTMLTableCondition -Name 'LastPasswordChangeDays' -Value 180 -Operator le -ComparisonType number -BackgroundColor SunsetOrange -HighlightHeaders 'LastPasswordChangeDays', 'LastPasswordChangeDateTime'
                 New-HTMLTableCondition -Name 'LastPasswordChangeDays' -Value 90 -Operator le -ComparisonType number -BackgroundColor LaserLemon -HighlightHeaders 'LastPasswordChangeDays', 'LastPasswordChangeDateTime'
@@ -235,6 +317,12 @@ $Script:Users = [ordered] @{
                 New-HTMLTableCondition -Name 'LastSynchronizedDays' -Value 180 -Operator le -ComparisonType number -BackgroundColor SunsetOrange -HighlightHeaders 'LastSynchronizedDays', 'LastSynchronized'
                 New-HTMLTableCondition -Name 'LastSynchronizedDays' -Value 90 -Operator le -ComparisonType number -BackgroundColor LaserLemon -HighlightHeaders 'LastSynchronizedDays', 'LastSynchronized'
                 New-HTMLTableCondition -Name 'LastSynchronizedDays' -Value 30 -Operator le -ComparisonType number -BackgroundColor MediumSpringGreen -HighlightHeaders 'LastSynchronizedDays', 'LastSynchronized'
+
+                New-HTMLTableCondition -Name 'CloudOnlyProfile' -Operator eq -Value 'Likely human account' -ComparisonType string -BackgroundColor Salmon -HighlightHeaders 'CloudOnlyProfile', 'CloudOnlySignals'
+                New-HTMLTableCondition -Name 'CloudOnlyProfile' -Operator eq -Value 'Needs review' -ComparisonType string -BackgroundColor OldGold -HighlightHeaders 'CloudOnlyProfile', 'CloudOnlySignals'
+                New-HTMLTableCondition -Name 'CloudOnlyProfile' -Operator eq -Value 'Likely workload/resource' -ComparisonType string -BackgroundColor LightSkyBlue -HighlightHeaders 'CloudOnlyProfile', 'CloudOnlySignals'
+                New-HTMLTableCondition -Name 'CloudOnlyReviewPriority' -Operator eq -Value 'High' -ComparisonType string -BackgroundColor CoralRed -HighlightHeaders 'CloudOnlyReviewPriority', 'CloudOnlyProfile'
+                New-HTMLTableCondition -Name 'CloudOnlyReviewPriority' -Operator eq -Value 'Medium' -ComparisonType string -BackgroundColor SunsetOrange -HighlightHeaders 'CloudOnlyReviewPriority', 'CloudOnlyProfile'
             }
 
             New-HTMLTabPanel {
@@ -251,8 +339,14 @@ $Script:Users = [ordered] @{
                             New-HTMLSection -Invisible {
                                 New-HTMLInfoCard -Title 'Synchronized / Cloud' -Number "$($overview.SynchronizedUsers) / $($overview.CloudOnlyUsers)" -Subtitle 'Identity source split' -Icon '🔄' -IconColor '#fd7e14' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                                 New-HTMLInfoCard -Title 'Without Manager' -Number $overview.UsersWithoutManager -Subtitle 'Users missing manager assignment' -Icon '🧭' -IconColor '#dc3545' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                                New-HTMLInfoCard -Title 'Never Signed In' -Number $overview.NeverSignedIn -Subtitle 'Only when sign-in activity is available' -Icon '⏱️' -IconColor '#dc3545' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                                New-HTMLInfoCard -Title 'Inactive 90+ Days' -Number $overview.Inactive90Days -Subtitle 'No recent sign-in activity reported' -Icon '📉' -IconColor '#ffc107' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'No Successful Sign-in' -Number $overview.NeverSuccessfulSignIn -Subtitle 'Interactive or non-interactive success not recorded' -Icon '⏱️' -IconColor '#dc3545' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Successful Inactive 90+ Days' -Number $overview.InactiveSuccessful90Days -Subtitle 'No recent successful sign-in recorded' -Icon '📉' -IconColor '#ffc107' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                            }
+                            New-HTMLSection -Invisible {
+                                New-HTMLInfoCard -Title 'Cloud-only Members' -Number $overview.CloudOnlyMemberCandidates -Subtitle 'Enabled member accounts that are not synchronized' -Icon '☁️' -IconColor '#0d6efd' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Likely Human / Workload' -Number "$($overview.CloudOnlyLikelyHuman) / $($overview.CloudOnlyLikelyWorkload)" -Subtitle 'Heuristic split for cloud-only members' -Icon '🧩' -IconColor '#6f42c1' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Needs Review' -Number $overview.CloudOnlyNeedsReview -Subtitle 'Cloud-only members without a clear pattern' -Icon '🔍' -IconColor '#fd7e14' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                                New-HTMLInfoCard -Title 'Successful Active 30 Days' -Number $overview.ActiveSuccessful30Days -Subtitle 'Users with recent successful sign-in activity' -Icon '📈' -IconColor '#198754' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             }
                             New-HTMLSection -Invisible {
                                 New-HTMLPanel {
@@ -263,8 +357,8 @@ $Script:Users = [ordered] @{
                                     }
                                 }
                                 New-HTMLPanel {
-                                    New-HTMLChart -Title 'User Sign-in Recency' {
-                                        foreach ($item in $userSummary.SignInDistribution) {
+                                    New-HTMLChart -Title 'Successful Sign-in Recency' {
+                                        foreach ($item in $userSummary.SuccessfulSignInDistribution) {
                                             New-ChartPie -Name $item.Name -Value $item.Count
                                         }
                                     }
@@ -279,8 +373,24 @@ $Script:Users = [ordered] @{
                                     }
                                 }
                                 New-HTMLPanel {
+                                    New-HTMLChart -Title 'Cloud-only Member Profiles' {
+                                        foreach ($item in $userSummary.CloudOnlyProfileDistribution) {
+                                            New-ChartPie -Name $item.Name -Value $item.Count
+                                        }
+                                    }
+                                }
+                            }
+                            New-HTMLSection -HeaderText 'Identity Signals' -Invisible {
+                                New-HTMLPanel {
                                     New-HTMLChart -Title 'License Coverage' {
                                         foreach ($item in $userSummary.LicenseDistribution) {
+                                            New-ChartPie -Name $item.Name -Value $item.Count
+                                        }
+                                    }
+                                }
+                                New-HTMLPanel {
+                                    New-HTMLChart -Title 'User Sign-in Recency' {
+                                        foreach ($item in $userSummary.SignInDistribution) {
                                             New-ChartPie -Name $item.Name -Value $item.Count
                                         }
                                     }
@@ -328,6 +438,28 @@ $Script:Users = [ordered] @{
                             } else {
                                 New-HTMLSection -HeaderText 'Guest And External Accounts' {
                                     New-HTMLText -Text 'No guest or external accounts found in the user dataset.' -Color Orange
+                                }
+                            }
+                        }
+                        New-HTMLTab -Name "Cloud-only Members ($(@($userSummary.CloudOnlyMemberAccounts).Count))" {
+                            if (@($userSummary.CloudOnlyMemberAccounts).Count -gt 0) {
+                                New-HTMLSection -HeaderText 'Enabled Cloud-only Member Accounts' {
+                                    New-HTMLTable -DataTable $userSummary.CloudOnlyMemberAccounts -Filtering $userTableConditions -ScrollX
+                                }
+                            } else {
+                                New-HTMLSection -HeaderText 'Enabled Cloud-only Member Accounts' {
+                                    New-HTMLText -Text 'No enabled cloud-only member accounts were detected in the current dataset.' -Color Orange
+                                }
+                            }
+                        }
+                        New-HTMLTab -Name "Cloud-only Review ($(@($userSummary.CloudOnlyReviewQueue).Count))" {
+                            if (@($userSummary.CloudOnlyReviewQueue).Count -gt 0) {
+                                New-HTMLSection -HeaderText 'Cloud-only Member Review Queue' {
+                                    New-HTMLTable -DataTable $userSummary.CloudOnlyReviewQueue -Filtering $userTableConditions -ScrollX
+                                }
+                            } else {
+                                New-HTMLSection -HeaderText 'Cloud-only Member Review Queue' {
+                                    New-HTMLText -Text 'No cloud-only member accounts currently require classification review.' -Color Orange
                                 }
                             }
                         }
