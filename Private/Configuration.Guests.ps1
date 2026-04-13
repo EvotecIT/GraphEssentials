@@ -15,13 +15,22 @@ $Script:Guests = [ordered] @{
         $pendingGuests = 0
         $acceptedGuests = 0
         $neverSignedInGuests = 0
+        $neverSuccessfulSignInGuests = 0
+        $staleGuests = 0
+        $recentGuests = 0
         $guestWithRoles = 0
         $guestWithLicenses = 0
         $guestDomains = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
         $domainCounts = @{}
         $stateCounts = @{}
+        $creationTypeCounts = @{}
         $pendingAccounts = [System.Collections.Generic.List[object]]::new()
         $acceptedAccounts = [System.Collections.Generic.List[object]]::new()
+        $neverSuccessfulAccounts = [System.Collections.Generic.List[object]]::new()
+        $staleAccounts = [System.Collections.Generic.List[object]]::new()
+        $recentAccounts = [System.Collections.Generic.List[object]]::new()
+        $privilegedAccounts = [System.Collections.Generic.List[object]]::new()
+        $licensedAccounts = [System.Collections.Generic.List[object]]::new()
         $reviewCandidates = [System.Collections.Generic.List[object]]::new()
 
         foreach ($guest in $guestData) {
@@ -42,11 +51,17 @@ $Script:Guests = [ordered] @{
             if ($guest.NeverSignedIn) {
                 $neverSignedInGuests++
             }
+            if ($guest.NeverSuccessfullySignedIn) {
+                $neverSuccessfulSignInGuests++
+                $neverSuccessfulAccounts.Add($guest)
+            }
             if ($guest.HasRoles) {
                 $guestWithRoles++
+                $privilegedAccounts.Add($guest)
             }
             if ($guest.HasLicenses) {
                 $guestWithLicenses++
+                $licensedAccounts.Add($guest)
             }
             if ($guest.GuestDomain) {
                 [void] $guestDomains.Add($guest.GuestDomain)
@@ -62,6 +77,22 @@ $Script:Guests = [ordered] @{
             }
             $stateCounts[$guestState]++
 
+            $creationType = if ($guest.CreationType) { $guest.CreationType } else { 'Unknown' }
+            if (-not $creationTypeCounts.ContainsKey($creationType)) {
+                $creationTypeCounts[$creationType] = 0
+            }
+            $creationTypeCounts[$creationType]++
+
+            if ($null -ne $guest.LastSuccessfulSignInDaysAgo -and $guest.LastSuccessfulSignInDaysAgo -gt 180) {
+                $staleGuests++
+                $staleAccounts.Add($guest)
+            }
+
+            if ($null -ne $guest.LastSuccessfulSignInDaysAgo -and $guest.LastSuccessfulSignInDaysAgo -le 30) {
+                $recentGuests++
+                $recentAccounts.Add($guest)
+            }
+
             $reviewFlags = [System.Collections.Generic.List[string]]::new()
             if (-not $guest.Enabled) {
                 $reviewFlags.Add('Disabled')
@@ -72,8 +103,14 @@ $Script:Guests = [ordered] @{
             if ($guest.NeverSignedIn) {
                 $reviewFlags.Add('Never signed in')
             }
+            if ($guest.NeverSuccessfullySignedIn) {
+                $reviewFlags.Add('No successful sign-in')
+            }
             if (($null -ne $guest.LastSignInDaysAgo -and $guest.LastSignInDaysAgo -gt 180) -or ($null -ne $guest.LastNonInteractiveSignInDaysAgo -and $guest.LastNonInteractiveSignInDaysAgo -gt 180)) {
                 $reviewFlags.Add('Stale sign-in')
+            }
+            if ($null -ne $guest.LastSuccessfulSignInDaysAgo -and $guest.LastSuccessfulSignInDaysAgo -gt 180) {
+                $reviewFlags.Add('No successful sign-in 180+ days')
             }
             if ($guest.HasRoles) {
                 $reviewFlags.Add('Privileged')
@@ -96,6 +133,9 @@ $Script:Guests = [ordered] @{
                 PendingAcceptance  = $pendingGuests
                 AcceptedGuests     = $acceptedGuests
                 NeverSignedIn      = $neverSignedInGuests
+                NeverSuccessfulSignIn = $neverSuccessfulSignInGuests
+                StaleSuccessful180Days = $staleGuests
+                ActiveSuccessful30Days = $recentGuests
                 GuestsWithRoles    = $guestWithRoles
                 GuestsWithLicenses = $guestWithLicenses
                 DistinctDomains    = $guestDomains.Count
@@ -121,6 +161,7 @@ $Script:Guests = [ordered] @{
         ) | Sort-Object Count -Descending
 
         $signInDistribution = @(
+            [PSCustomObject]@{ Name = 'No activity data'; Count = @($guestData.Where({ $null -eq $_.NeverSignedIn -and $null -eq $_.LastSignInDaysAgo -and $null -eq $_.LastNonInteractiveSignInDaysAgo })).Count }
             [PSCustomObject]@{ Name = 'Never signed in'; Count = $neverSignedInGuests }
             [PSCustomObject]@{ Name = '0-30 days'; Count = @($guestData.Where({ $null -ne $_.LastSignInDaysAgo -and $_.LastSignInDaysAgo -le 30 })).Count }
             [PSCustomObject]@{ Name = '31-90 days'; Count = @($guestData.Where({ $null -ne $_.LastSignInDaysAgo -and $_.LastSignInDaysAgo -gt 30 -and $_.LastSignInDaysAgo -le 90 })).Count }
@@ -128,14 +169,34 @@ $Script:Guests = [ordered] @{
             [PSCustomObject]@{ Name = '180+ days'; Count = @($guestData.Where({ $null -ne $_.LastSignInDaysAgo -and $_.LastSignInDaysAgo -gt 180 })).Count }
         )
 
+        $successfulSignInDistribution = @(
+            [PSCustomObject]@{ Name = 'No activity data'; Count = @($guestData.Where({ $null -eq $_.NeverSuccessfullySignedIn -and $null -eq $_.LastSuccessfulSignInDaysAgo })).Count }
+            [PSCustomObject]@{ Name = 'No successful sign-in'; Count = $neverSuccessfulSignInGuests }
+            [PSCustomObject]@{ Name = '0-30 days'; Count = @($guestData.Where({ $null -ne $_.LastSuccessfulSignInDaysAgo -and $_.LastSuccessfulSignInDaysAgo -le 30 })).Count }
+            [PSCustomObject]@{ Name = '31-90 days'; Count = @($guestData.Where({ $null -ne $_.LastSuccessfulSignInDaysAgo -and $_.LastSuccessfulSignInDaysAgo -gt 30 -and $_.LastSuccessfulSignInDaysAgo -le 90 })).Count }
+            [PSCustomObject]@{ Name = '91-180 days'; Count = @($guestData.Where({ $null -ne $_.LastSuccessfulSignInDaysAgo -and $_.LastSuccessfulSignInDaysAgo -gt 90 -and $_.LastSuccessfulSignInDaysAgo -le 180 })).Count }
+            [PSCustomObject]@{ Name = '180+ days'; Count = @($guestData.Where({ $null -ne $_.LastSuccessfulSignInDaysAgo -and $_.LastSuccessfulSignInDaysAgo -gt 180 })).Count }
+        )
+
         $accessDistribution = @(
             [PSCustomObject]@{ Name = 'Enabled'; Count = $enabledGuests }
             [PSCustomObject]@{ Name = 'Disabled'; Count = $disabledGuests }
             [PSCustomObject]@{ Name = 'Pending acceptance'; Count = $pendingGuests }
             [PSCustomObject]@{ Name = 'Never signed in'; Count = $neverSignedInGuests }
+            [PSCustomObject]@{ Name = 'No successful sign-in'; Count = $neverSuccessfulSignInGuests }
+            [PSCustomObject]@{ Name = 'Successful sign-in 180+ days'; Count = $staleGuests }
             [PSCustomObject]@{ Name = 'With roles'; Count = $guestWithRoles }
             [PSCustomObject]@{ Name = 'With licenses'; Count = $guestWithLicenses }
         )
+
+        $creationTypeDistribution = @(
+            foreach ($key in $creationTypeCounts.Keys) {
+                [PSCustomObject]@{
+                    Name  = $key
+                    Count = $creationTypeCounts[$key]
+                }
+            }
+        ) | Sort-Object Count -Descending
 
         $authenticationSummary = @()
         try {
@@ -226,9 +287,16 @@ $Script:Guests = [ordered] @{
             DomainDistribution    = $domainDistribution
             StateDistribution     = $stateDistribution
             SignInDistribution    = $signInDistribution
+            SuccessfulSignInDistribution = $successfulSignInDistribution
             AccessDistribution    = $accessDistribution
+            CreationTypeDistribution = $creationTypeDistribution
             PendingAccounts       = @($pendingAccounts)
             AcceptedAccounts      = @($acceptedAccounts)
+            NeverSuccessfulAccounts = @($neverSuccessfulAccounts)
+            StaleAccounts         = @($staleAccounts)
+            RecentAccounts        = @($recentAccounts)
+            PrivilegedAccounts    = @($privilegedAccounts)
+            LicensedAccounts      = @($licensedAccounts)
             ReviewCandidates      = @($reviewCandidates)
             AuthenticationPolicy  = $authenticationSummary
             TermsOfUse            = $termsOfUseSummary
@@ -253,12 +321,13 @@ $Script:Guests = [ordered] @{
                             New-HTMLInfoCard -Title 'Total External Accounts' -Number $overview.TotalGuests -Subtitle 'All guest and external accounts in scope' -Icon '👥' -IconColor '#0078d4' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             New-HTMLInfoCard -Title 'Enabled / Disabled' -Number "$($overview.EnabledGuests) / $($overview.DisabledGuests)" -Subtitle 'Account state split' -Icon '✅' -IconColor '#198754' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             New-HTMLInfoCard -Title 'Pending / Accepted' -Number "$($overview.PendingAcceptance) / $($overview.AcceptedGuests)" -Subtitle 'Invitation lifecycle split' -Icon '📨' -IconColor '#fd7e14' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                            New-HTMLInfoCard -Title 'Never Signed In' -Number $overview.NeverSignedIn -Subtitle 'External accounts without observed sign-in activity' -Icon '⏱️' -IconColor '#dc3545' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                            New-HTMLInfoCard -Title 'No Successful Sign-in' -Number $overview.NeverSuccessfulSignIn -Subtitle 'External accounts without recorded successful sign-in activity' -Icon '⏱️' -IconColor '#dc3545' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                         }
                         New-HTMLSection -Invisible {
                             New-HTMLInfoCard -Title 'Accounts With Roles' -Number $overview.GuestsWithRoles -Subtitle 'Privileged external identities' -Icon '🛡️' -IconColor '#6f42c1' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                             New-HTMLInfoCard -Title 'Accounts With Licenses' -Number $overview.GuestsWithLicenses -Subtitle 'Licensed external identities' -Icon '🎫' -IconColor '#20c997' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
-                            New-HTMLInfoCard -Title 'Distinct Domains' -Number $overview.DistinctDomains -Subtitle 'Partner domains represented' -Icon '🌐' -IconColor '#ffc107' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                            New-HTMLInfoCard -Title 'Successful 180+ Days' -Number $overview.StaleSuccessful180Days -Subtitle 'No recent successful sign-in recorded' -Icon '📉' -IconColor '#ffc107' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
+                            New-HTMLInfoCard -Title 'Distinct Domains' -Number $overview.DistinctDomains -Subtitle 'Partner domains represented' -Icon '🌐' -IconColor '#0dcaf0' -Style 'Standard' -ShadowIntensity 'Normal' -BorderRadius 2px
                         }
                         New-HTMLSection -Invisible {
                             New-HTMLPanel {
@@ -269,8 +338,8 @@ $Script:Guests = [ordered] @{
                                 }
                             }
                             New-HTMLPanel {
-                                New-HTMLChart -Title 'External Sign-in Recency' {
-                                    foreach ($item in $guestSummary.SignInDistribution) {
+                                New-HTMLChart -Title 'External Successful Sign-in Recency' {
+                                    foreach ($item in $guestSummary.SuccessfulSignInDistribution) {
                                         New-ChartPie -Name $item.Name -Value $item.Count
                                     }
                                 }
@@ -280,6 +349,22 @@ $Script:Guests = [ordered] @{
                             New-HTMLPanel {
                                 New-HTMLChart -Title 'External Access Indicators' {
                                     foreach ($item in $guestSummary.AccessDistribution) {
+                                        New-ChartPie -Name $item.Name -Value $item.Count
+                                    }
+                                }
+                            }
+                            New-HTMLPanel {
+                                New-HTMLChart -Title 'Creation Type Distribution' {
+                                    foreach ($item in $guestSummary.CreationTypeDistribution) {
+                                        New-ChartBar -Name $item.Name -Value $item.Count
+                                    }
+                                }
+                            }
+                        }
+                        New-HTMLSection -HeaderText 'Sign-in Signals' -Invisible {
+                            New-HTMLPanel {
+                                New-HTMLChart -Title 'External Sign-in Recency' {
+                                    foreach ($item in $guestSummary.SignInDistribution) {
                                         New-ChartPie -Name $item.Name -Value $item.Count
                                     }
                                 }
@@ -335,6 +420,10 @@ $Script:Guests = [ordered] @{
                         New-HTMLTableCondition -Name 'ExternalUserState' -Operator eq -Value '' -ComparisonType string -BackgroundColor OldGold -HighlightHeaders 'ExternalUserState'
 
                         New-HTMLTableCondition -Name 'NeverSignedIn' -Operator eq -Value $true -ComparisonType string -BackgroundColor PeachOrange -HighlightHeaders 'NeverSignedIn', 'LastSignInDateTime', 'LastNonInteractiveSignInDateTime'
+                        New-HTMLTableCondition -Name 'NeverSuccessfullySignedIn' -Operator eq -Value $true -ComparisonType string -BackgroundColor CoralRed -HighlightHeaders 'NeverSuccessfullySignedIn', 'LastSuccessfulSignInDateTime'
+                        New-HTMLTableCondition -Name 'SignInPattern' -Operator eq -Value 'Non-interactive only' -ComparisonType string -BackgroundColor LightSkyBlue -HighlightHeaders 'SignInPattern', 'LastNonInteractiveSignInDateTime'
+                        New-HTMLTableCondition -Name 'SignInPattern' -Operator eq -Value 'Interactive only' -ComparisonType string -BackgroundColor LightGreen -HighlightHeaders 'SignInPattern', 'LastSignInDateTime'
+                        New-HTMLTableCondition -Name 'SignInPattern' -Operator eq -Value 'Interactive + non-interactive' -ComparisonType string -BackgroundColor MediumSpringGreen -HighlightHeaders 'SignInPattern'
                         New-HTMLTableCondition -Name 'HasRoles' -Operator eq -Value $true -ComparisonType string -BackgroundColor LightSkyBlue -HighlightHeaders 'HasRoles', 'RoleCount', 'Roles'
                         New-HTMLTableCondition -Name 'HasLicenses' -Operator eq -Value $true -ComparisonType string -BackgroundColor LightGreen -HighlightHeaders 'HasLicenses', 'LicenseCount', 'Licenses'
 
@@ -347,6 +436,11 @@ $Script:Guests = [ordered] @{
                         New-HTMLTableCondition -Name 'LastNonInteractiveSignInDaysAgo' -Value 180 -Operator le -ComparisonType number -BackgroundColor SunsetOrange -HighlightHeaders 'LastNonInteractiveSignInDaysAgo', 'LastNonInteractiveSignInDateTime'
                         New-HTMLTableCondition -Name 'LastNonInteractiveSignInDaysAgo' -Value 90 -Operator le -ComparisonType number -BackgroundColor LaserLemon -HighlightHeaders 'LastNonInteractiveSignInDaysAgo', 'LastNonInteractiveSignInDateTime'
                         New-HTMLTableCondition -Name 'LastNonInteractiveSignInDaysAgo' -Value 30 -Operator le -ComparisonType number -BackgroundColor MediumSpringGreen -HighlightHeaders 'LastNonInteractiveSignInDaysAgo', 'LastNonInteractiveSignInDateTime'
+
+                        New-HTMLTableCondition -Name 'LastSuccessfulSignInDaysAgo' -Value 180 -Operator gt -ComparisonType number -BackgroundColor CoralRed -HighlightHeaders 'LastSuccessfulSignInDaysAgo', 'LastSuccessfulSignInDateTime'
+                        New-HTMLTableCondition -Name 'LastSuccessfulSignInDaysAgo' -Value 180 -Operator le -ComparisonType number -BackgroundColor SunsetOrange -HighlightHeaders 'LastSuccessfulSignInDaysAgo', 'LastSuccessfulSignInDateTime'
+                        New-HTMLTableCondition -Name 'LastSuccessfulSignInDaysAgo' -Value 90 -Operator le -ComparisonType number -BackgroundColor LaserLemon -HighlightHeaders 'LastSuccessfulSignInDaysAgo', 'LastSuccessfulSignInDateTime'
+                        New-HTMLTableCondition -Name 'LastSuccessfulSignInDaysAgo' -Value 30 -Operator le -ComparisonType number -BackgroundColor MediumSpringGreen -HighlightHeaders 'LastSuccessfulSignInDaysAgo', 'LastSuccessfulSignInDateTime'
 
                         New-HTMLTableCondition -Name 'LicensesStatus' -Operator contains -Value 'Direct' -ComparisonType string -BackgroundColor LightSkyBlue
                         New-HTMLTableCondition -Name 'LicensesStatus' -Operator contains -Value 'Group' -ComparisonType string -BackgroundColor LightGreen
@@ -383,6 +477,61 @@ $Script:Guests = [ordered] @{
                             } else {
                                 New-HTMLSection -HeaderText 'Accepted External Accounts' {
                                     New-HTMLText -Text 'No accepted external accounts found.' -Color Orange
+                                }
+                            }
+                        }
+                        New-HTMLTab -Name "No Successful Sign-in ($(@($guestSummary.NeverSuccessfulAccounts).Count))" {
+                            if (@($guestSummary.NeverSuccessfulAccounts).Count -gt 0) {
+                                New-HTMLSection -HeaderText 'External Accounts Without Successful Sign-in' {
+                                    New-HTMLTable -DataTable $guestSummary.NeverSuccessfulAccounts -Filtering $guestTableConditions -ScrollX
+                                }
+                            } else {
+                                New-HTMLSection -HeaderText 'External Accounts Without Successful Sign-in' {
+                                    New-HTMLText -Text 'All guest or external accounts have a recorded successful sign-in.' -Color Orange
+                                }
+                            }
+                        }
+                        New-HTMLTab -Name "Recent Successful ($(@($guestSummary.RecentAccounts).Count))" {
+                            if (@($guestSummary.RecentAccounts).Count -gt 0) {
+                                New-HTMLSection -HeaderText 'Recently Active External Accounts' {
+                                    New-HTMLTable -DataTable $guestSummary.RecentAccounts -Filtering $guestTableConditions -ScrollX
+                                }
+                            } else {
+                                New-HTMLSection -HeaderText 'Recently Active External Accounts' {
+                                    New-HTMLText -Text 'No external accounts have a successful sign-in within the last 30 days.' -Color Orange
+                                }
+                            }
+                        }
+                        New-HTMLTab -Name "Stale Successful ($(@($guestSummary.StaleAccounts).Count))" {
+                            if (@($guestSummary.StaleAccounts).Count -gt 0) {
+                                New-HTMLSection -HeaderText 'Stale External Accounts' {
+                                    New-HTMLTable -DataTable $guestSummary.StaleAccounts -Filtering $guestTableConditions -ScrollX
+                                }
+                            } else {
+                                New-HTMLSection -HeaderText 'Stale External Accounts' {
+                                    New-HTMLText -Text 'No external accounts are currently stale based on successful sign-in activity.' -Color Orange
+                                }
+                            }
+                        }
+                        New-HTMLTab -Name "Privileged ($(@($guestSummary.PrivilegedAccounts).Count))" {
+                            if (@($guestSummary.PrivilegedAccounts).Count -gt 0) {
+                                New-HTMLSection -HeaderText 'Privileged External Accounts' {
+                                    New-HTMLTable -DataTable $guestSummary.PrivilegedAccounts -Filtering $guestTableConditions -ScrollX
+                                }
+                            } else {
+                                New-HTMLSection -HeaderText 'Privileged External Accounts' {
+                                    New-HTMLText -Text 'No guest or external accounts currently hold directory roles.' -Color Orange
+                                }
+                            }
+                        }
+                        New-HTMLTab -Name "Licensed ($(@($guestSummary.LicensedAccounts).Count))" {
+                            if (@($guestSummary.LicensedAccounts).Count -gt 0) {
+                                New-HTMLSection -HeaderText 'Licensed External Accounts' {
+                                    New-HTMLTable -DataTable $guestSummary.LicensedAccounts -Filtering $guestTableConditions -ScrollX
+                                }
+                            } else {
+                                New-HTMLSection -HeaderText 'Licensed External Accounts' {
+                                    New-HTMLText -Text 'No guest or external accounts currently have licenses assigned.' -Color Orange
                                 }
                             }
                         }
