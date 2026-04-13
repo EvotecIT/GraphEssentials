@@ -81,6 +81,26 @@ function Get-MyGuest {
             $LastNonInteractiveSignInDaysAgo = $null
         }
 
+        if ($Guest.SignInActivity -and $Guest.SignInActivity.LastSuccessfulSignInDateTime) {
+            $LastSuccessfulSignInDaysAgo = [math]::Floor((New-TimeSpan -Start $Guest.SignInActivity.LastSuccessfulSignInDateTime -End $Today).TotalDays)
+        } else {
+            $LastSuccessfulSignInDaysAgo = $null
+        }
+
+        if ($null -ne $LastSignInDaysAgo -and $null -ne $LastNonInteractiveSignInDaysAgo) {
+            $SignInPattern = 'Interactive + non-interactive'
+        } elseif ($null -ne $LastSignInDaysAgo) {
+            $SignInPattern = 'Interactive only'
+        } elseif ($null -ne $LastNonInteractiveSignInDaysAgo) {
+            $SignInPattern = 'Non-interactive only'
+        } elseif ($null -ne $LastSuccessfulSignInDaysAgo) {
+            $SignInPattern = 'Successful sign-in only'
+        } elseif ($Guest.SignInActivity) {
+            $SignInPattern = 'No sign-in recorded'
+        } else {
+            $SignInPattern = 'No activity data'
+        }
+
         $ExternalAddress = $null
         if ($Guest.OtherMails -and $Guest.OtherMails.Count -gt 0) {
             $ExternalAddress = $Guest.OtherMails[0]
@@ -136,6 +156,14 @@ function Get-MyGuest {
             }
         }
 
+        if ($null -ne $Guest.SignInActivity) {
+            $NeverSignedIn = ($null -eq $LastSignInDaysAgo -and $null -eq $LastNonInteractiveSignInDaysAgo)
+            $NeverSuccessfullySignedIn = ($null -eq $LastSuccessfulSignInDaysAgo)
+        } else {
+            $NeverSignedIn = $null
+            $NeverSuccessfullySignedIn = $null
+        }
+
         [PSCustomObject] @{
             DisplayName                       = $Guest.DisplayName
             Id                                = $Guest.Id
@@ -155,7 +183,11 @@ function Get-MyGuest {
             LastSignInDaysAgo                 = $LastSignInDaysAgo
             LastNonInteractiveSignInDateTime  = if ($Guest.SignInActivity) { $Guest.SignInActivity.LastNonInteractiveSignInDateTime } else { $null }
             LastNonInteractiveSignInDaysAgo   = $LastNonInteractiveSignInDaysAgo
-            NeverSignedIn                     = ($null -eq $LastSignInDaysAgo -and $null -eq $LastNonInteractiveSignInDaysAgo)
+            LastSuccessfulSignInDateTime      = if ($Guest.SignInActivity) { $Guest.SignInActivity.LastSuccessfulSignInDateTime } else { $null }
+            LastSuccessfulSignInDaysAgo       = $LastSuccessfulSignInDaysAgo
+            NeverSignedIn                     = $NeverSignedIn
+            NeverSuccessfullySignedIn         = $NeverSuccessfullySignedIn
+            SignInPattern                     = $SignInPattern
             CreationType                      = $Guest.CreationType
             CompanyName                       = $Guest.CompanyName
             IsSynchronized                    = if ($Guest.OnPremisesSyncEnabled) { $Guest.OnPremisesSyncEnabled } else { $null }
