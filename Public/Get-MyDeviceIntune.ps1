@@ -136,6 +136,8 @@
         $DeviceInformation = [ordered] @{
             Name                                    = $DeviceI.DeviceName                                # : EVOMONSTER
             Id                                      = $DeviceI.Id                                        # : 83fe122f-c51c-49dc-a0f3-cc11d9e7d045
+            ManagedDeviceId                         = $DeviceI.Id
+            EntraDeviceObjectId                     = if ($DeviceA) { $DeviceA.Id } else { $null }
             ComplianceState                         = $DeviceI.ComplianceState                           # : compliant
             OperatingSystem                         = $DeviceI.OperatingSystem                           # : Windows
             OperatingSystemVersion                  = $DeviceI.OSVersion                                 # : 10.0.22621.1555

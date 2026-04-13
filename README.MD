@@ -85,12 +85,16 @@ Complete list of commands available in GraphEssentials module.
 | Function    | Get-MyUsageReports               |
 | Function    | Get-MyUser                       |
 | Function    | Get-MyUserAuthentication         |
+| Function    | Disable-MyDevice                 |
+| Function    | Invoke-MyDeviceRetire            |
 | Function    | Invoke-MyGraphEssentials         |
 | Function    | Invoke-MyGraphUsageReports       |
 | Function    | New-MyApp                        |
 | Function    | New-MyAppCredentials             |
 | Function    | Register-FIDO2Key                |
 | Function    | Remove-MyAppCredentials          |
+| Function    | Remove-MyDevice                  |
+| Function    | Remove-MyDeviceIntuneRecord      |
 | Function    | Send-MyApp                       |
 | Function    | Show-MyApp                       |
 | Function    | Show-MyConditionalAccess         |

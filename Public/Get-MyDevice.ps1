@@ -104,6 +104,7 @@
         [PSCustomObject] @{
             Name                   = $Device.DisplayName
             Id                     = $Device.Id
+            EntraDeviceObjectId    = $Device.Id
             Enabled                = $Device.AccountEnabled
             OperatingSystem        = $Device.OperatingSystem
             OperatingSystemVersion = $Device.OperatingSystemVersion
