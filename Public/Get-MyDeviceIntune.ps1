@@ -28,11 +28,15 @@
     .NOTES
     This function requires the Microsoft.Graph.Authentication module and appropriate permissions to access Intune data.
 
-    When you use Type parameter or Synchronized parameter, the function will retrieve Azure devices to match them with Intune devices.
+    The function always resolves Azure device object IDs so the output can be used with
+    lifecycle cmdlets such as Disable-MyDevice and Remove-MyDevice.
+
+    When you use Type parameter or Synchronized parameter, the function also retrieves
+    Azure trust and synchronization metadata to match and filter Intune devices.
     This operation may take some time, especially if you have a large number of devices.
-    That's why the function tries to use cached Azure devices if they were already retrieved by Get-MyDevice cmdlet.
-    If you want to force the function to retrieve Azure devices again, use the Force switch.
-    The cache is valid for 30 minutes by default.
+    That's why the function tries to use cached Azure devices if they were already retrieved
+    by Get-MyDevice cmdlet. If you want to force the function to retrieve Azure devices again,
+    use the Force switch. The cache is valid for 30 minutes by default.
     #>
     [cmdletBinding()]
     param(
@@ -51,8 +55,9 @@
         return
     }
 
+    # Always build a deviceId -> Entra object id lookup so lifecycle actions can
+    # resolve Microsoft Entra targets directly from Get-MyDeviceIntune output.
     if ($Type -or $Synchronized) {
-        # We only need to get Azure devices if we are filtering by type
         try {
             if (-not $Script:Devices -or $Force -or $Script:DevicesDate -lt (Get-Date).AddMinutes(-$CacheMinutes)) {
                 $DevicesAzure = Get-MgDevice -All -Property 'deviceId,onPremisesSyncEnabled,trustType' -ErrorAction Stop
@@ -63,10 +68,20 @@
             Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure devices. Error: $($_.Exception.Message)"
             return
         }
-        foreach ($DeviceA in $DevicesAzure) {
-            if ($DeviceA.DeviceId) {
-                $CachedAzure[$DeviceA.DeviceId] = $DeviceA
-            }
+    } elseif ($Script:Devices -and -not $Force -and $Script:DevicesDate -ge (Get-Date).AddMinutes(-$CacheMinutes)) {
+        $DevicesAzure = $Script:Devices
+    } else {
+        try {
+            $DevicesAzure = Get-MgDevice -All -Property 'deviceId,id' -ErrorAction Stop
+        } catch {
+            Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure device identifiers. Error: $($_.Exception.Message)"
+            return
+        }
+    }
+
+    foreach ($DeviceA in $DevicesAzure) {
+        if ($DeviceA.DeviceId) {
+            $CachedAzure[$DeviceA.DeviceId] = $DeviceA
         }
     }
 
