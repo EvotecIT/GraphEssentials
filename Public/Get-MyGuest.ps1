@@ -156,6 +156,14 @@ function Get-MyGuest {
             }
         }
 
+        if ($null -ne $Guest.SignInActivity) {
+            $NeverSignedIn = ($null -eq $LastSignInDaysAgo -and $null -eq $LastNonInteractiveSignInDaysAgo)
+            $NeverSuccessfullySignedIn = ($null -eq $LastSuccessfulSignInDaysAgo)
+        } else {
+            $NeverSignedIn = $null
+            $NeverSuccessfullySignedIn = $null
+        }
+
         [PSCustomObject] @{
             DisplayName                       = $Guest.DisplayName
             Id                                = $Guest.Id
@@ -177,8 +185,8 @@ function Get-MyGuest {
             LastNonInteractiveSignInDaysAgo   = $LastNonInteractiveSignInDaysAgo
             LastSuccessfulSignInDateTime      = if ($Guest.SignInActivity) { $Guest.SignInActivity.LastSuccessfulSignInDateTime } else { $null }
             LastSuccessfulSignInDaysAgo       = $LastSuccessfulSignInDaysAgo
-            NeverSignedIn                     = ($null -eq $LastSignInDaysAgo -and $null -eq $LastNonInteractiveSignInDaysAgo)
-            NeverSuccessfullySignedIn         = ($null -eq $LastSuccessfulSignInDaysAgo)
+            NeverSignedIn                     = $NeverSignedIn
+            NeverSuccessfullySignedIn         = $NeverSuccessfullySignedIn
             SignInPattern                     = $SignInPattern
             CreationType                      = $Guest.CreationType
             CompanyName                       = $Guest.CompanyName
