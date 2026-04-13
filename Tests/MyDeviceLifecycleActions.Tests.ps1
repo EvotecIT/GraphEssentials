@@ -5,14 +5,69 @@ BeforeAll {
     . (Join-Path $PSScriptRoot '..\Public\Invoke-MyDeviceRetire.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Remove-MyDevice.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Remove-MyDeviceIntuneRecord.ps1')
+
+    function Update-MgDevice {}
+    function Invoke-MgRetireDeviceManagementManagedDevice {}
+    function Remove-MgDevice {}
+    function Remove-MgDeviceManagementManagedDevice {}
 }
 
 Describe 'GraphEssentials device lifecycle actions' {
     BeforeEach {
-        Mock Update-MgDevice {}
-        Mock Invoke-MgRetireDeviceManagementManagedDevice {}
-        Mock Remove-MgDevice {}
-        Mock Remove-MgDeviceManagementManagedDevice {}
+        $script:UpdateMgDeviceCall = $null
+        $script:RetireManagedDeviceCall = $null
+        $script:RemoveMgDeviceCall = $null
+        $script:RemoveManagedDeviceCall = $null
+
+        function Update-MgDevice {
+            param(
+                $DeviceId,
+                $BodyParameter,
+                $ErrorAction
+            )
+
+            $script:UpdateMgDeviceCall = [PSCustomObject] @{
+                DeviceId      = $DeviceId
+                BodyParameter = $BodyParameter
+                ErrorAction   = $ErrorAction
+            }
+        }
+
+        function Invoke-MgRetireDeviceManagementManagedDevice {
+            param(
+                $ManagedDeviceId,
+                $ErrorAction
+            )
+
+            $script:RetireManagedDeviceCall = [PSCustomObject] @{
+                ManagedDeviceId = $ManagedDeviceId
+                ErrorAction     = $ErrorAction
+            }
+        }
+
+        function Remove-MgDevice {
+            param(
+                $DeviceId,
+                $ErrorAction
+            )
+
+            $script:RemoveMgDeviceCall = [PSCustomObject] @{
+                DeviceId    = $DeviceId
+                ErrorAction = $ErrorAction
+            }
+        }
+
+        function Remove-MgDeviceManagementManagedDevice {
+            param(
+                $ManagedDeviceId,
+                $ErrorAction
+            )
+
+            $script:RemoveManagedDeviceCall = [PSCustomObject] @{
+                ManagedDeviceId = $ManagedDeviceId
+                ErrorAction     = $ErrorAction
+            }
+        }
     }
 
     It 'disables an Entra device using the resolved object id' {
@@ -25,9 +80,8 @@ Describe 'GraphEssentials device lifecycle actions' {
         $result = Disable-MyDevice -InputObject $device -Confirm:$false
 
         $result.Success | Should -BeTrue
-        Assert-MockCalled Update-MgDevice -Times 1 -Exactly -ParameterFilter {
-            $DeviceId -eq 'entra-1' -and $BodyParameter.accountEnabled -eq $false
-        }
+        $script:UpdateMgDeviceCall.DeviceId | Should -Be 'entra-1'
+        $script:UpdateMgDeviceCall.BodyParameter.accountEnabled | Should -BeFalse
     }
 
     It 'retires an Intune device using the managed device id' {
@@ -39,9 +93,7 @@ Describe 'GraphEssentials device lifecycle actions' {
         $result = Invoke-MyDeviceRetire -InputObject $device -Confirm:$false
 
         $result.Success | Should -BeTrue
-        Assert-MockCalled Invoke-MgRetireDeviceManagementManagedDevice -Times 1 -Exactly -ParameterFilter {
-            $ManagedDeviceId -eq 'managed-1'
-        }
+        $script:RetireManagedDeviceCall.ManagedDeviceId | Should -Be 'managed-1'
     }
 
     It 'removes an Entra device using the resolved object id' {
@@ -53,9 +105,7 @@ Describe 'GraphEssentials device lifecycle actions' {
         $result = Remove-MyDevice -InputObject $device -Confirm:$false
 
         $result.Success | Should -BeTrue
-        Assert-MockCalled Remove-MgDevice -Times 1 -Exactly -ParameterFilter {
-            $DeviceId -eq 'entra-2'
-        }
+        $script:RemoveMgDeviceCall.DeviceId | Should -Be 'entra-2'
     }
 
     It 'removes an Intune device record using the managed device id' {
@@ -67,8 +117,6 @@ Describe 'GraphEssentials device lifecycle actions' {
         $result = Remove-MyDeviceIntuneRecord -InputObject $device -Confirm:$false
 
         $result.Success | Should -BeTrue
-        Assert-MockCalled Remove-MgDeviceManagementManagedDevice -Times 1 -Exactly -ParameterFilter {
-            $ManagedDeviceId -eq 'managed-2'
-        }
+        $script:RemoveManagedDeviceCall.ManagedDeviceId | Should -Be 'managed-2'
     }
 }

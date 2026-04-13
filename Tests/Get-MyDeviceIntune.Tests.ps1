@@ -1,5 +1,8 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\Public\Get-MyDeviceIntune.ps1')
+
+    function Get-MgDeviceManagementManagedDevice {}
+    function Get-MgDevice {}
 }
 
 Describe 'Get-MyDeviceIntune' {
@@ -18,7 +21,7 @@ Describe 'Get-MyDeviceIntune' {
                     OSVersion        = '17.0'
                 }
             )
-        } -ParameterFilter { $All }
+        }
 
         Mock Get-MgDevice {
             @(
@@ -31,10 +34,22 @@ Describe 'Get-MyDeviceIntune' {
     }
 
     It 'populates EntraDeviceObjectId on the default path' {
-        $devices = Get-MyDeviceIntune -Force
+        $devices = @(Get-MyDeviceIntune -Force)
 
         $devices.Count | Should -Be 1
         $devices[0].ManagedDeviceId | Should -Be 'managed-1'
         $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
+    }
+
+    It 'continues Intune enumeration when the default Entra lookup fails' {
+        Mock Get-MgDevice {
+            throw 'Entra lookup failed'
+        }
+
+        $devices = @(Get-MyDeviceIntune -Force)
+
+        $devices.Count | Should -Be 1
+        $devices[0].ManagedDeviceId | Should -Be 'managed-1'
+        $devices[0].EntraDeviceObjectId | Should -Be $null
     }
 }

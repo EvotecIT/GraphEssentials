@@ -74,8 +74,8 @@
         try {
             $DevicesAzure = Get-MgDevice -All -Property 'deviceId,id' -ErrorAction Stop
         } catch {
-            Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure device identifiers. Error: $($_.Exception.Message)"
-            return
+            Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure device identifiers. Continuing without Entra device object IDs. Error: $($_.Exception.Message)"
+            $DevicesAzure = @()
         }
     }
 
