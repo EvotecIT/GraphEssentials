@@ -257,14 +257,18 @@ function Get-MyUser {
             $OutputUser['Licenses'] = $LicensesList
             $OutputUser['Plans'] = $Plans
 
-            $IsCloudOnlyMemberCandidate = $User.AccountEnabled -eq $true -and $User.UserType -eq 'Member' -and $User.OnPremisesSyncEnabled -eq $false
+            $IsCloudOnlyMemberCandidate = $User.AccountEnabled -eq $true -and $User.UserType -eq 'Member' -and $User.OnPremisesSyncEnabled -ne $true
             $CloudOnlyProfile = $null
             $CloudOnlyReviewPriority = $null
             $CloudOnlySignals = [System.Collections.Generic.List[string]]::new()
 
             if ($IsCloudOnlyMemberCandidate) {
                 $CloudOnlySignals.Add('Enabled member account')
-                $CloudOnlySignals.Add('Cloud-only identity source')
+                if ($null -eq $User.OnPremisesSyncEnabled) {
+                    $CloudOnlySignals.Add('Sync state unavailable, treated as cloud-only candidate')
+                } else {
+                    $CloudOnlySignals.Add('Cloud-only identity source')
+                }
 
                 if ($User.Manager.Id) {
                     $CloudOnlySignals.Add('Manager assigned')
