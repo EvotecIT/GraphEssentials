@@ -157,7 +157,7 @@ function Get-MyGuest {
         }
 
         if ($null -ne $Guest.SignInActivity) {
-            $NeverSignedIn = ($null -eq $LastSignInDaysAgo -and $null -eq $LastNonInteractiveSignInDaysAgo)
+            $NeverSignedIn = ($null -eq $LastSignInDaysAgo -and $null -eq $LastNonInteractiveSignInDaysAgo -and $null -eq $LastSuccessfulSignInDaysAgo)
             $NeverSuccessfullySignedIn = ($null -eq $LastSuccessfulSignInDaysAgo)
         } else {
             $NeverSignedIn = $null
