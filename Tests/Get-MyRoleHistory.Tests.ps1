@@ -1,5 +1,6 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsErrorDetails.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Write-RoleHistoryWarning.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyRoleHistory.ps1')
 
     foreach ($commandName in @(

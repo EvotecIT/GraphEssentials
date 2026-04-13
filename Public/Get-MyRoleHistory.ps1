@@ -73,31 +73,12 @@
     $RoleAssignmentRequests = @()
     $RoleEligibilityRequests = @()
 
-    function Write-RoleHistoryWarning {
-        param(
-            [string] $Operation,
-            [System.Management.Automation.ErrorRecord] $ErrorRecord,
-            [string[]] $RequiredApplicationPermissions
-        )
-
-        $errorInfo = $ErrorRecord | Get-GraphEssentialsErrorDetails -FunctionName 'Get-MyRoleHistory'
-
-        if ($RequiredApplicationPermissions -and $errorInfo.IsPermissionDenied) {
-            $permissions = $RequiredApplicationPermissions -join ' or '
-            $PermissionIssues.Add("$Operation requires application permission $permissions with admin consent.") | Out-Null
-            Write-Warning -Message "Get-MyRoleHistory - Missing Microsoft Graph application permission for $Operation. Add $permissions and grant admin consent."
-            return
-        }
-
-        Write-Warning -Message "Get-MyRoleHistory - Failed to get $Operation. Error: $($errorInfo.Message)"
-    }
-
     # Get all required data with error handling
     try {
         Write-Verbose "Getting users..."
         $Users = Get-MgUser -ErrorAction Stop -All -Property DisplayName, CreatedDateTime, 'AccountEnabled', 'Mail', 'UserPrincipalName', 'Id', 'UserType', 'OnPremisesDistinguishedName', 'OnPremisesSamAccountName'
     } catch {
-        Write-RoleHistoryWarning -Operation 'users' -ErrorRecord $_
+        Write-RoleHistoryWarning -Operation 'users' -ErrorRecord $_ -PermissionIssues $PermissionIssues
         $ErrorsCount++
     }
 
@@ -105,7 +86,7 @@
         Write-Verbose "Getting groups..."
         $Groups = Get-MgGroup -ErrorAction Stop -All -Filter "IsAssignableToRole eq true" -Property CreatedDateTime, Id, DisplayName, Mail, SecurityEnabled
     } catch {
-        Write-RoleHistoryWarning -Operation 'groups' -ErrorRecord $_
+        Write-RoleHistoryWarning -Operation 'groups' -ErrorRecord $_ -PermissionIssues $PermissionIssues
         $ErrorsCount++
     }
 
@@ -113,7 +94,7 @@
         Write-Verbose "Getting service principals..."
         $ServicePrincipals = Get-MgServicePrincipal -ErrorAction Stop -All -Property CreatedDateTime, 'ServicePrincipalType', 'DisplayName', 'AccountEnabled', 'Id', 'AppId'
     } catch {
-        Write-RoleHistoryWarning -Operation 'service principals' -ErrorRecord $_
+        Write-RoleHistoryWarning -Operation 'service principals' -ErrorRecord $_ -PermissionIssues $PermissionIssues
         $ErrorsCount++
     }
 
@@ -121,7 +102,7 @@
         Write-Verbose "Getting role definitions..."
         $Roles = Get-MgRoleManagementDirectoryRoleDefinition -ErrorAction Stop -All
     } catch {
-        Write-RoleHistoryWarning -Operation 'role definitions' -ErrorRecord $_
+        Write-RoleHistoryWarning -Operation 'role definitions' -ErrorRecord $_ -PermissionIssues $PermissionIssues
         $ErrorsCount++
     }
 
@@ -130,7 +111,7 @@
         $Filter = "createdDateTime ge $StartDate"
         $RoleAssignmentRequests = Get-MgRoleManagementDirectoryRoleAssignmentScheduleRequest -ErrorAction Stop -All -Filter $Filter
     } catch {
-        Write-RoleHistoryWarning -Operation 'role assignment schedule requests' -ErrorRecord $_ -RequiredApplicationPermissions @(
+        Write-RoleHistoryWarning -Operation 'role assignment schedule requests' -ErrorRecord $_ -PermissionIssues $PermissionIssues -RequiredApplicationPermissions @(
             'RoleAssignmentSchedule.ReadWrite.Directory',
             'RoleManagement.ReadWrite.Directory'
         )
@@ -141,7 +122,7 @@
         $Filter = "createdDateTime ge $StartDate"
         $RoleEligibilityRequests = Get-MgRoleManagementDirectoryRoleEligibilityScheduleRequest -ErrorAction Stop -All -Filter $Filter
     } catch {
-        Write-RoleHistoryWarning -Operation 'role eligibility schedule requests' -ErrorRecord $_ -RequiredApplicationPermissions @(
+        Write-RoleHistoryWarning -Operation 'role eligibility schedule requests' -ErrorRecord $_ -PermissionIssues $PermissionIssues -RequiredApplicationPermissions @(
             'RoleEligibilitySchedule.ReadWrite.Directory',
             'RoleManagement.ReadWrite.Directory'
         )

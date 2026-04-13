@@ -1,4 +1,5 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot '..\Private\Get-BatchRetryDelaySeconds.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Invoke-MyGraphBatchRequest.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Invoke-MyGraphBatchResponse.ps1')
 }
