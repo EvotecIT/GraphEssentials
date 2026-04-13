@@ -60,7 +60,7 @@
     if ($Type -or $Synchronized) {
         try {
             if (-not $Script:Devices -or $Force -or $Script:DevicesDate -lt (Get-Date).AddMinutes(-$CacheMinutes)) {
-                $DevicesAzure = Get-MgDevice -All -Property 'deviceId,onPremisesSyncEnabled,trustType' -ErrorAction Stop
+                $DevicesAzure = Get-MgDevice -All -Property 'deviceId,id,onPremisesSyncEnabled,trustType' -ErrorAction Stop
             } else {
                 $DevicesAzure = $Script:Devices
             }

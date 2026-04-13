@@ -41,6 +41,25 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
     }
 
+    It 'populates EntraDeviceObjectId on the filtered path' {
+        Mock Get-MgDevice {
+            @(
+                [PSCustomObject] @{
+                    DeviceId             = 'device-1'
+                    Id                   = 'entra-1'
+                    TrustType            = 'Workplace'
+                    OnPremisesSyncEnabled = $false
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -Type 'AzureAD registered' -Force)
+
+        $devices.Count | Should -Be 1
+        $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
+        $devices[0].TrustType | Should -Be 'AzureAD registered'
+    }
+
     It 'continues Intune enumeration when the default Entra lookup fails' {
         Mock Get-MgDevice {
             throw 'Entra lookup failed'
