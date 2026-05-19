@@ -121,10 +121,6 @@
             $TrustType = 'Not available'
             $SynchronizedDevice = $null
         }
-        if (-not $DeviceA -and $DeviceI.DeviceRegistrationState -eq 'registered') {
-            $TrustType = 'AzureAD registered'
-        }
-
         if ($Type) {
             # Only return devices of the specified type
             if ($Type -notcontains $TrustType) {

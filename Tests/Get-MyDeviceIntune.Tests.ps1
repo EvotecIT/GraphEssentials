@@ -1,5 +1,6 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsObjectProperty.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Test-GraphEssentialsAutopilotSerialNumber.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsAutopilotLookup.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Find-GraphEssentialsAutopilotDevice.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyDeviceIntune.ps1')
@@ -80,7 +81,7 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].EntraDeviceObjectId | Should -Be $null
     }
 
-    It 'falls back to registered Intune state when Entra trust metadata is unavailable' {
+    It 'does not infer Entra trust from Intune registration state' {
         Mock Get-MgDevice {
             @()
         }
@@ -101,8 +102,7 @@ Describe 'Get-MyDeviceIntune' {
 
         $devices = @(Get-MyDeviceIntune -Type 'AzureAD registered' -Force)
 
-        $devices.Count | Should -Be 1
-        $devices[0].TrustType | Should -Be 'AzureAD registered'
+        $devices.Count | Should -Be 0
     }
 
     It 'enriches managed devices with Autopilot identity metadata' {
@@ -129,5 +129,45 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].AutopilotDeviceId | Should -Be 'autopilot-1'
         $devices[0].AutopilotGroupTag | Should -Be 'pilot'
         $devices[0].AutopilotEnrollmentState | Should -Be 'enrolled'
+    }
+
+    It 'does not match Autopilot devices by duplicate serial number alone' {
+        Mock Get-MgDevice {
+            @()
+        }
+        Mock Get-MgDeviceManagementManagedDevice {
+            @(
+                [PSCustomObject] @{
+                    DeviceName       = 'Windows-DuplicateSerial'
+                    Id               = 'managed-missing'
+                    AzureAdDeviceId  = 'device-missing'
+                    LastSyncDateTime = (Get-Date).AddDays(-10)
+                    OperatingSystem  = 'Windows'
+                    OSVersion        = '10.0.22631.5624'
+                    SerialNumber     = 'duplicate-serial'
+                }
+            )
+        }
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{
+                    Id             = 'autopilot-1'
+                    SerialNumber   = 'duplicate-serial'
+                    ManagedDeviceId = 'managed-other-1'
+                }
+                [PSCustomObject] @{
+                    Id             = 'autopilot-2'
+                    SerialNumber   = 'duplicate-serial'
+                    ManagedDeviceId = 'managed-other-2'
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices.Count | Should -Be 1
+        $devices[0].AutopilotInventoryLoaded | Should -BeTrue
+        $devices[0].AutopilotOnboarded | Should -BeFalse
+        $devices[0].AutopilotDeviceId | Should -Be $null
     }
 }
