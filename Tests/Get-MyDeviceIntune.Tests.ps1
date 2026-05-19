@@ -1,7 +1,11 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsObjectProperty.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsAutopilotLookup.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Find-GraphEssentialsAutopilotDevice.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyDeviceIntune.ps1')
 
     function Get-MgDeviceManagementManagedDevice {}
+    function Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {}
     function Get-MgDevice {}
 }
 
@@ -30,6 +34,10 @@ Describe 'Get-MyDeviceIntune' {
                     Id       = 'entra-1'
                 }
             )
+        }
+
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @()
         }
     }
 
@@ -70,5 +78,56 @@ Describe 'Get-MyDeviceIntune' {
         $devices.Count | Should -Be 1
         $devices[0].ManagedDeviceId | Should -Be 'managed-1'
         $devices[0].EntraDeviceObjectId | Should -Be $null
+    }
+
+    It 'falls back to registered Intune state when Entra trust metadata is unavailable' {
+        Mock Get-MgDevice {
+            @()
+        }
+        Mock Get-MgDeviceManagementManagedDevice {
+            @(
+                [PSCustomObject] @{
+                    DeviceName              = 'Android-Orphan'
+                    Id                      = 'managed-orphan'
+                    AzureAdDeviceId         = 'device-orphan'
+                    LastSyncDateTime        = (Get-Date).AddDays(-30)
+                    OperatingSystem         = 'Android'
+                    OSVersion               = '14'
+                    DeviceRegistrationState = 'registered'
+                    AzureAdRegistered       = $true
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -Type 'AzureAD registered' -Force)
+
+        $devices.Count | Should -Be 1
+        $devices[0].TrustType | Should -Be 'AzureAD registered'
+    }
+
+    It 'enriches managed devices with Autopilot identity metadata' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{
+                    Id                           = 'autopilot-1'
+                    ManagedDeviceId              = 'managed-1'
+                    AzureActiveDirectoryDeviceId = 'device-1'
+                    SerialNumber                 = 'serial-1'
+                    GroupTag                     = 'pilot'
+                    EnrollmentState              = 'enrolled'
+                    LastContactedDateTime        = (Get-Date).AddDays(-5)
+                    UserPrincipalName            = 'user.one@contoso.com'
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices.Count | Should -Be 1
+        $devices[0].AutopilotInventoryLoaded | Should -BeTrue
+        $devices[0].AutopilotOnboarded | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be 'autopilot-1'
+        $devices[0].AutopilotGroupTag | Should -Be 'pilot'
+        $devices[0].AutopilotEnrollmentState | Should -Be 'enrolled'
     }
 }
