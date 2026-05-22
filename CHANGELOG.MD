@@ -1,4 +1,8 @@
-﻿### 0.0.57
+﻿### 0.0.58
+
+- Added `Remove-MyAutopilotDevice` for explicit Windows Autopilot device identity removal.
+
+### 0.0.57
 
 - Added optional Windows Autopilot inventory enrichment to `Get-MyDevice` and `Get-MyDeviceIntune`.
 - Improved `Get-MyDeviceIntune -Type 'AzureAD registered'` to keep Intune records with registered state even when Entra trust metadata is unavailable.
