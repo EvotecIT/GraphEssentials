@@ -124,6 +124,20 @@ Describe 'GraphEssentials device lifecycle actions' {
         $script:RemoveAutopilotDeviceCall.WindowsAutopilotDeviceIdentityId | Should -Be 'autopilot-1'
     }
 
+    It 'does not treat a generic Id as an Autopilot identity id' {
+        $device = [PSCustomObject] @{
+            Name = 'Windows-Intune-Only'
+            Id   = 'managed-or-entra-id'
+        }
+
+        $errorVar = $null
+        $result = Remove-MyAutopilotDevice -InputObject $device -Confirm:$false -ErrorAction SilentlyContinue -ErrorVariable errorVar
+
+        $result | Should -BeNullOrEmpty
+        $errorVar[0].ToString() | Should -Match 'Unable to resolve Windows Autopilot device identity id'
+        $script:RemoveAutopilotDeviceCall | Should -BeNullOrEmpty
+    }
+
     It 'removes an Entra device using the resolved object id' {
         $device = [PSCustomObject] @{
             Name                = 'iPad-01'

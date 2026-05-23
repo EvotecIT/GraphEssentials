@@ -49,10 +49,6 @@ function Resolve-MyDeviceActionTarget {
             $resolvedAutopilotDeviceId = $InputObject.WindowsAutopilotDeviceIdentityId
         }
 
-        if (-not $resolvedAutopilotDeviceId -and $TargetType -eq 'Autopilot' -and $InputObject.PSObject.Properties['Id']) {
-            $resolvedAutopilotDeviceId = $InputObject.Id
-        }
-
         if (-not $resolvedManagedDeviceId -and
             $InputObject.PSObject.Properties['AzureAdDeviceId'] -and
             $InputObject.PSObject.Properties['Id']) {

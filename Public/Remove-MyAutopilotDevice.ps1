@@ -6,12 +6,12 @@ function Remove-MyAutopilotDevice {
     .DESCRIPTION
     Deletes a Windows Autopilot device identity using Microsoft Graph.
     The function accepts either a device object returned by Get-MyDevice or
-    Get-MyDeviceIntune with Autopilot enrichment, an Autopilot identity object,
-    or an explicit Windows Autopilot device identity id.
+    Get-MyDeviceIntune with Autopilot enrichment, or an explicit Windows
+    Autopilot device identity id.
 
     .PARAMETER InputObject
-    Device object that exposes AutopilotDeviceId, WindowsAutopilotDeviceIdentityId,
-    or an Autopilot identity object that exposes Id.
+    Device object that exposes AutopilotDeviceId or
+    WindowsAutopilotDeviceIdentityId.
 
     .PARAMETER AutopilotDeviceId
     The Windows Autopilot device identity id to remove.
