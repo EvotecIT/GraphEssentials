@@ -3,11 +3,13 @@ BeforeAll {
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsErrorDetails.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Disable-MyDevice.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Invoke-MyDeviceRetire.ps1')
+    . (Join-Path $PSScriptRoot '..\Public\Remove-MyAutopilotDevice.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Remove-MyDevice.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Remove-MyDeviceIntuneRecord.ps1')
 
     function Update-MgDevice {}
     function Invoke-MgRetireDeviceManagementManagedDevice {}
+    function Remove-MgDeviceManagementWindowsAutopilotDeviceIdentity {}
     function Remove-MgDevice {}
     function Remove-MgDeviceManagementManagedDevice {}
 }
@@ -16,6 +18,7 @@ Describe 'GraphEssentials device lifecycle actions' {
     BeforeEach {
         $script:UpdateMgDeviceCall = $null
         $script:RetireManagedDeviceCall = $null
+        $script:RemoveAutopilotDeviceCall = $null
         $script:RemoveMgDeviceCall = $null
         $script:RemoveManagedDeviceCall = $null
 
@@ -57,6 +60,18 @@ Describe 'GraphEssentials device lifecycle actions' {
             }
         }
 
+        function Remove-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            param(
+                $WindowsAutopilotDeviceIdentityId,
+                $ErrorAction
+            )
+
+            $script:RemoveAutopilotDeviceCall = [PSCustomObject] @{
+                WindowsAutopilotDeviceIdentityId = $WindowsAutopilotDeviceIdentityId
+                ErrorAction                      = $ErrorAction
+            }
+        }
+
         function Remove-MgDeviceManagementManagedDevice {
             param(
                 $ManagedDeviceId,
@@ -94,6 +109,33 @@ Describe 'GraphEssentials device lifecycle actions' {
 
         $result.Success | Should -BeTrue
         $script:RetireManagedDeviceCall.ManagedDeviceId | Should -Be 'managed-1'
+    }
+
+    It 'removes an Autopilot device identity using the resolved Autopilot id' {
+        $device = [PSCustomObject] @{
+            Name              = 'Windows-Autopilot-01'
+            AutopilotDeviceId = 'autopilot-1'
+            ManagedDeviceId   = 'managed-1'
+        }
+
+        $result = Remove-MyAutopilotDevice -InputObject $device -Confirm:$false
+
+        $result.Success | Should -BeTrue
+        $script:RemoveAutopilotDeviceCall.WindowsAutopilotDeviceIdentityId | Should -Be 'autopilot-1'
+    }
+
+    It 'does not treat a generic Id as an Autopilot identity id' {
+        $device = [PSCustomObject] @{
+            Name = 'Windows-Intune-Only'
+            Id   = 'managed-or-entra-id'
+        }
+
+        $errorVar = $null
+        $result = Remove-MyAutopilotDevice -InputObject $device -Confirm:$false -ErrorAction SilentlyContinue -ErrorVariable errorVar
+
+        $result | Should -BeNullOrEmpty
+        $errorVar[0].ToString() | Should -Match 'Unable to resolve Windows Autopilot device identity id'
+        $script:RemoveAutopilotDeviceCall | Should -BeNullOrEmpty
     }
 
     It 'removes an Entra device using the resolved object id' {

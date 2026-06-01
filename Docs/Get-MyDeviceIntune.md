@@ -8,7 +8,7 @@ schema: 2.0.0
 # Get-MyDeviceIntune
 
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Retrieves Intune managed-device inventory and optional Windows Autopilot metadata.
 
 ## SYNTAX
 
@@ -17,16 +17,26 @@ Get-MyDeviceIntune [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+`Get-MyDeviceIntune` returns Intune managed devices with Entra object identifiers, activity dates, compliance state, ownership, enrollment, and management fields.
+
+Use `-IncludeAutopilotInventory` when the caller needs to know whether a Windows device is present in Windows Autopilot. This performs an additional Autopilot inventory read and adds fields such as `AutopilotOnboarded`, `AutopilotDeviceId`, `AutopilotGroupTag`, `AutopilotEnrollmentState`, and `AutopilotLastContacted`.
 
 ## EXAMPLES
 
 ### Example 1
 ```powershell
-PS C:\> {{ Add example code here }}
+Get-MyDeviceIntune -Type 'AzureAD registered'
 ```
 
-{{ Add example description here }}
+Returns Intune devices that resolve as Microsoft Entra registered.
+
+### Example 2
+```powershell
+Get-MyDeviceIntune -Type 'AzureAD joined' -IncludeAutopilotInventory |
+    Format-Table Name, OperatingSystem, TrustType, AutopilotOnboarded, AutopilotGroupTag
+```
+
+Returns AzureAD joined Intune devices and includes Windows Autopilot matching data.
 
 ## PARAMETERS
 

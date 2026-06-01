@@ -13,6 +13,9 @@
     .PARAMETER Synchronized
     When specified, returns only synchronized devices (devices with OnPremisesSyncEnabled set to true).
 
+    .PARAMETER IncludeAutopilotInventory
+    When specified, enriches devices with Windows Autopilot identity metadata.
+
     .EXAMPLE
     Get-MyDevice
     Returns all devices from the Microsoft Graph API.
@@ -31,7 +34,8 @@
     [cmdletBinding()]
     param(
         [ValidateSet('Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', 'Not available')][string[]] $Type,
-        [switch] $Synchronized
+        [switch] $Synchronized,
+        [switch] $IncludeAutopilotInventory
     )
 
     $TrustTypes = @{
@@ -48,6 +52,11 @@
         'operatingSystem', 'operatingSystemVersion', 'profileType', 'registrationDateTime',
         'trustType'
     )
+    $AutopilotLookup = $null
+    if ($IncludeAutopilotInventory) {
+        $AutopilotLookup = Get-GraphEssentialsAutopilotLookup
+    }
+
     try {
         $Script:DevicesDate = Get-Date
         $Script:Devices = Get-MgDevice -All -Property $Properties -ExpandProperty RegisteredOwners -ErrorAction Stop
@@ -101,6 +110,8 @@
             }
         }
 
+        $AutopilotDevice = Find-GraphEssentialsAutopilotDevice -Lookup $AutopilotLookup -AzureAdDeviceId $Device.DeviceId
+
         [PSCustomObject] @{
             Name                   = $Device.DisplayName
             Id                     = $Device.Id
@@ -128,6 +139,14 @@
             Manufacturer           = $Device.Manufacturer
             ManagementType         = $Device.ManagementType
             EnrollmentType         = $Device.EnrollmentType
+            AutopilotInventoryLoaded = if ($IncludeAutopilotInventory) { [bool] $AutopilotLookup.InventoryLoaded } else { $false }
+            AutopilotOnboarded     = if ($IncludeAutopilotInventory -and $AutopilotLookup.InventoryLoaded) { [bool] $AutopilotDevice } else { $null }
+            AutopilotDeviceId      = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('Id', 'id') } else { $null }
+            AutopilotGroupTag      = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('GroupTag', 'groupTag') } else { $null }
+            AutopilotSerialNumber  = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('SerialNumber', 'serialNumber') } else { $null }
+            AutopilotEnrollmentState = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('EnrollmentState', 'enrollmentState') } else { $null }
+            AutopilotLastContacted = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
+            AutopilotUserPrincipalName = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('UserPrincipalName', 'userPrincipalName') } else { $null }
         }
     }
 }

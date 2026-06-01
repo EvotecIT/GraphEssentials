@@ -11,12 +11,16 @@ function Resolve-MyDeviceActionTarget {
         [string] $ManagedDeviceId,
 
         [Parameter()]
-        [ValidateSet('Entra', 'Intune')]
+        [string] $AutopilotDeviceId,
+
+        [Parameter()]
+        [ValidateSet('Entra', 'Intune', 'Autopilot')]
         [string] $TargetType
     )
 
     $resolvedEntraDeviceObjectId = $EntraDeviceObjectId
     $resolvedManagedDeviceId = $ManagedDeviceId
+    $resolvedAutopilotDeviceId = $AutopilotDeviceId
     $resolvedDisplayName = $null
     $resolvedDeviceId = $null
 
@@ -37,6 +41,14 @@ function Resolve-MyDeviceActionTarget {
             $resolvedManagedDeviceId = $InputObject.ManagedDeviceId
         }
 
+        if (-not $resolvedAutopilotDeviceId -and $InputObject.PSObject.Properties['AutopilotDeviceId']) {
+            $resolvedAutopilotDeviceId = $InputObject.AutopilotDeviceId
+        }
+
+        if (-not $resolvedAutopilotDeviceId -and $InputObject.PSObject.Properties['WindowsAutopilotDeviceIdentityId']) {
+            $resolvedAutopilotDeviceId = $InputObject.WindowsAutopilotDeviceIdentityId
+        }
+
         if (-not $resolvedManagedDeviceId -and
             $InputObject.PSObject.Properties['AzureAdDeviceId'] -and
             $InputObject.PSObject.Properties['Id']) {
@@ -55,6 +67,8 @@ function Resolve-MyDeviceActionTarget {
             $resolvedDisplayName = $resolvedEntraDeviceObjectId
         } elseif ($TargetType -eq 'Intune' -and $resolvedManagedDeviceId) {
             $resolvedDisplayName = $resolvedManagedDeviceId
+        } elseif ($TargetType -eq 'Autopilot' -and $resolvedAutopilotDeviceId) {
+            $resolvedDisplayName = $resolvedAutopilotDeviceId
         }
     }
 
@@ -66,10 +80,15 @@ function Resolve-MyDeviceActionTarget {
         throw "Resolve-MyDeviceActionTarget - Unable to resolve Intune managed device id."
     }
 
+    if ($TargetType -eq 'Autopilot' -and -not $resolvedAutopilotDeviceId) {
+        throw "Resolve-MyDeviceActionTarget - Unable to resolve Windows Autopilot device identity id."
+    }
+
     [PSCustomObject] @{
         DisplayName         = $resolvedDisplayName
         EntraDeviceObjectId = $resolvedEntraDeviceObjectId
         ManagedDeviceId     = $resolvedManagedDeviceId
+        AutopilotDeviceId   = $resolvedAutopilotDeviceId
         DeviceId            = $resolvedDeviceId
     }
 }

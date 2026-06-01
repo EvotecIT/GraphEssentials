@@ -1,7 +1,12 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsObjectProperty.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Test-GraphEssentialsAutopilotSerialNumber.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsAutopilotLookup.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Find-GraphEssentialsAutopilotDevice.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyDeviceIntune.ps1')
 
     function Get-MgDeviceManagementManagedDevice {}
+    function Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {}
     function Get-MgDevice {}
 }
 
@@ -30,6 +35,10 @@ Describe 'Get-MyDeviceIntune' {
                     Id       = 'entra-1'
                 }
             )
+        }
+
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @()
         }
     }
 
@@ -70,5 +79,95 @@ Describe 'Get-MyDeviceIntune' {
         $devices.Count | Should -Be 1
         $devices[0].ManagedDeviceId | Should -Be 'managed-1'
         $devices[0].EntraDeviceObjectId | Should -Be $null
+    }
+
+    It 'does not infer Entra trust from Intune registration state' {
+        Mock Get-MgDevice {
+            @()
+        }
+        Mock Get-MgDeviceManagementManagedDevice {
+            @(
+                [PSCustomObject] @{
+                    DeviceName              = 'Android-Orphan'
+                    Id                      = 'managed-orphan'
+                    AzureAdDeviceId         = 'device-orphan'
+                    LastSyncDateTime        = (Get-Date).AddDays(-30)
+                    OperatingSystem         = 'Android'
+                    OSVersion               = '14'
+                    DeviceRegistrationState = 'registered'
+                    AzureAdRegistered       = $true
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -Type 'AzureAD registered' -Force)
+
+        $devices.Count | Should -Be 0
+    }
+
+    It 'enriches managed devices with Autopilot identity metadata' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{
+                    Id                           = 'autopilot-1'
+                    ManagedDeviceId              = 'managed-1'
+                    AzureActiveDirectoryDeviceId = 'device-1'
+                    SerialNumber                 = 'serial-1'
+                    GroupTag                     = 'pilot'
+                    EnrollmentState              = 'enrolled'
+                    LastContactedDateTime        = (Get-Date).AddDays(-5)
+                    UserPrincipalName            = 'user.one@contoso.com'
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices.Count | Should -Be 1
+        $devices[0].AutopilotInventoryLoaded | Should -BeTrue
+        $devices[0].AutopilotOnboarded | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be 'autopilot-1'
+        $devices[0].AutopilotGroupTag | Should -Be 'pilot'
+        $devices[0].AutopilotEnrollmentState | Should -Be 'enrolled'
+    }
+
+    It 'does not match Autopilot devices by duplicate serial number alone' {
+        Mock Get-MgDevice {
+            @()
+        }
+        Mock Get-MgDeviceManagementManagedDevice {
+            @(
+                [PSCustomObject] @{
+                    DeviceName       = 'Windows-DuplicateSerial'
+                    Id               = 'managed-missing'
+                    AzureAdDeviceId  = 'device-missing'
+                    LastSyncDateTime = (Get-Date).AddDays(-10)
+                    OperatingSystem  = 'Windows'
+                    OSVersion        = '10.0.22631.5624'
+                    SerialNumber     = 'duplicate-serial'
+                }
+            )
+        }
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{
+                    Id             = 'autopilot-1'
+                    SerialNumber   = 'duplicate-serial'
+                    ManagedDeviceId = 'managed-other-1'
+                }
+                [PSCustomObject] @{
+                    Id             = 'autopilot-2'
+                    SerialNumber   = 'duplicate-serial'
+                    ManagedDeviceId = 'managed-other-2'
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices.Count | Should -Be 1
+        $devices[0].AutopilotInventoryLoaded | Should -BeTrue
+        $devices[0].AutopilotOnboarded | Should -BeFalse
+        $devices[0].AutopilotDeviceId | Should -Be $null
     }
 }

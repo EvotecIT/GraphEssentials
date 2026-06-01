@@ -1,4 +1,13 @@
-﻿### 0.0.48
+﻿### 0.0.58
+
+- Added `Remove-MyAutopilotDevice` for explicit Windows Autopilot device identity removal.
+
+### 0.0.57
+
+- Added optional Windows Autopilot inventory enrichment to `Get-MyDevice` and `Get-MyDeviceIntune`.
+- Improved `Get-MyDeviceIntune -Type 'AzureAD registered'` to keep Intune records with registered state even when Entra trust metadata is unavailable.
+
+### 0.0.48
 
 #### What's Changed
 * Fix tenant name script typo by @PrzemyslawKlys in https://github.com/EvotecIT/GraphEssentials/pull/3

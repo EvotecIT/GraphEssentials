@@ -56,6 +56,9 @@ Provides a way to get a token for Microsoft Graph API to be used with Connect-MG
 ### [Remove-MyAppCredentials](Remove-MyAppCredentials.md)
 {{ Fill in the Synopsis }}
 
+### [Remove-MyAutopilotDevice](Remove-MyAutopilotDevice.md)
+Removes a Windows Autopilot device identity.
+
 ### [Send-MyApp](Send-MyApp.md)
 {{ Fill in the Synopsis }}
 

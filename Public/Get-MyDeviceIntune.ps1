@@ -21,6 +21,9 @@
     ActivationLockBypassCode, ICCID, UDID, Notes, EthernetMacAddress, and PhysicalMemoryInBytes contain
     authoritative values instead of relying on list-response defaults.
 
+    .PARAMETER IncludeAutopilotInventory
+    When specified, enriches managed devices with Windows Autopilot identity metadata.
+
     .EXAMPLE
     Get-MyDeviceIntune
     Returns all Intune managed devices with their properties.
@@ -44,10 +47,16 @@
         [switch] $Synchronized,
         [int] $CacheMinutes = 30,
         [switch] $Force,
-        [switch] $IncludeDetailedInventory
+        [switch] $IncludeDetailedInventory,
+        [switch] $IncludeAutopilotInventory
     )
     $CachedAzure = [ordered] @{}
     $Today = Get-Date
+    $AutopilotLookup = $null
+    if ($IncludeAutopilotInventory) {
+        $AutopilotLookup = Get-GraphEssentialsAutopilotLookup
+    }
+
     try {
         $DevicesIntune = Get-MgDeviceManagementManagedDevice -All -ErrorAction Stop
     } catch {
@@ -112,7 +121,6 @@
             $TrustType = 'Not available'
             $SynchronizedDevice = $null
         }
-
         if ($Type) {
             # Only return devices of the specified type
             if ($Type -notcontains $TrustType) {
@@ -125,6 +133,8 @@
                 continue
             }
         }
+
+        $AutopilotDevice = Find-GraphEssentialsAutopilotDevice -Lookup $AutopilotLookup -ManagedDeviceId $DeviceI.Id -AzureAdDeviceId $DeviceI.AzureAdDeviceId -SerialNumber $DeviceI.SerialNumber
 
         $DetailedInventoryLoaded = $false
         $ActivationLockBypassCode = $null
@@ -212,6 +222,14 @@
             Notes                                   = $Notes
             PhysicalMemoryInBytes                   = $PhysicalMemoryInBytes
             Udid                                    = $Udid
+            AutopilotInventoryLoaded                = if ($IncludeAutopilotInventory) { [bool] $AutopilotLookup.InventoryLoaded } else { $false }
+            AutopilotOnboarded                      = if ($IncludeAutopilotInventory -and $AutopilotLookup.InventoryLoaded) { [bool] $AutopilotDevice } else { $null }
+            AutopilotDeviceId                       = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('Id', 'id') } else { $null }
+            AutopilotGroupTag                       = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('GroupTag', 'groupTag') } else { $null }
+            AutopilotSerialNumber                   = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('SerialNumber', 'serialNumber') } else { $null }
+            AutopilotEnrollmentState                = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('EnrollmentState', 'enrollmentState') } else { $null }
+            AutopilotLastContacted                  = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
+            AutopilotUserPrincipalName              = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('UserPrincipalName', 'userPrincipalName') } else { $null }
             #AdditionalProperties                      = $DeviceI.AdditionalProperties                      # : {}
         }
         if ($Type -or $Synchronized) {

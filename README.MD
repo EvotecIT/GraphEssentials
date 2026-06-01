@@ -93,6 +93,7 @@ Complete list of commands available in GraphEssentials module.
 | Function    | New-MyAppCredentials             |
 | Function    | Register-FIDO2Key                |
 | Function    | Remove-MyAppCredentials          |
+| Function    | Remove-MyAutopilotDevice         |
 | Function    | Remove-MyDevice                  |
 | Function    | Remove-MyDeviceIntuneRecord      |
 | Function    | Send-MyApp                       |
