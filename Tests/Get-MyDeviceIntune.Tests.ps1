@@ -113,6 +113,7 @@ Describe 'Get-MyDeviceIntune' {
                     ManagedDeviceId              = 'managed-1'
                     AzureActiveDirectoryDeviceId = 'device-1'
                     SerialNumber                 = 'serial-1'
+                    ResourceName                 = 'serial-1'
                     GroupTag                     = 'pilot'
                     EnrollmentState              = 'enrolled'
                     LastContactedDateTime        = (Get-Date).AddDays(-5)
@@ -127,8 +128,13 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].AutopilotInventoryLoaded | Should -BeTrue
         $devices[0].AutopilotOnboarded | Should -BeTrue
         $devices[0].AutopilotDeviceId | Should -Be 'autopilot-1'
+        $devices[0].AutopilotManagedDeviceId | Should -Be 'managed-1'
+        $devices[0].AutopilotAzureAdDeviceId | Should -Be 'device-1'
+        $devices[0].AutopilotResourceName | Should -Be 'serial-1'
         $devices[0].AutopilotGroupTag | Should -Be 'pilot'
+        $devices[0].AutopilotSerialNumber | Should -Be 'serial-1'
         $devices[0].AutopilotEnrollmentState | Should -Be 'enrolled'
+        $devices[0].AutopilotLastContactedDays | Should -BeGreaterOrEqual 4
     }
 
     It 'does not match Autopilot devices by duplicate serial number alone' {
