@@ -111,6 +111,8 @@
         }
 
         $AutopilotDevice = Find-GraphEssentialsAutopilotDevice -Lookup $AutopilotLookup -AzureAdDeviceId $Device.DeviceId
+        $AutopilotLastContacted = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
+        $AutopilotLastContactedDays = if ($AutopilotLastContacted) { [math]::Floor((New-TimeSpan -Start $AutopilotLastContacted -End $Today).TotalDays) } else { $null }
 
         [PSCustomObject] @{
             Name                   = $Device.DisplayName
@@ -142,10 +144,14 @@
             AutopilotInventoryLoaded = if ($IncludeAutopilotInventory) { [bool] $AutopilotLookup.InventoryLoaded } else { $false }
             AutopilotOnboarded     = if ($IncludeAutopilotInventory -and $AutopilotLookup.InventoryLoaded) { [bool] $AutopilotDevice } else { $null }
             AutopilotDeviceId      = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('Id', 'id') } else { $null }
+            AutopilotManagedDeviceId = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('ManagedDeviceId', 'managedDeviceId') } else { $null }
+            AutopilotAzureAdDeviceId = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('AzureAdDeviceId', 'azureAdDeviceId', 'AzureActiveDirectoryDeviceId', 'azureActiveDirectoryDeviceId') } else { $null }
+            AutopilotResourceName  = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('ResourceName', 'resourceName', 'DisplayName', 'displayName') } else { $null }
             AutopilotGroupTag      = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('GroupTag', 'groupTag') } else { $null }
             AutopilotSerialNumber  = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('SerialNumber', 'serialNumber') } else { $null }
             AutopilotEnrollmentState = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('EnrollmentState', 'enrollmentState') } else { $null }
-            AutopilotLastContacted = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
+            AutopilotLastContacted = $AutopilotLastContacted
+            AutopilotLastContactedDays = $AutopilotLastContactedDays
             AutopilotUserPrincipalName = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('UserPrincipalName', 'userPrincipalName') } else { $null }
         }
     }
