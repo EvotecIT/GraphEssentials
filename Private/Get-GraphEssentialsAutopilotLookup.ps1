@@ -9,12 +9,24 @@ function Get-GraphEssentialsAutopilotLookup {
 
     try {
         $properties = @(
-            'id', 'groupTag', 'purchaseOrderIdentifier', 'serialNumber', 'manufacturer', 'model',
-            'enrollmentState', 'lastContactedDateTime', 'addressableUserName', 'userPrincipalName',
-            'resourceName', 'skuNumber', 'systemFamily', 'azureActiveDirectoryDeviceId',
-            'managedDeviceId', 'displayName'
+            'id', 'groupTag', 'serialNumber', 'enrollmentState', 'lastContactedDateTime',
+            'userPrincipalName', 'resourceName', 'azureActiveDirectoryDeviceId', 'managedDeviceId'
         )
-        $autopilotDevices = @(Get-MgDeviceManagementWindowsAutopilotDeviceIdentity -All -Property $properties -ErrorAction Stop)
+        $autopilotDevices = [System.Collections.Generic.List[object]]::new()
+        Get-MgDeviceManagementWindowsAutopilotDeviceIdentity -All -Property $properties -ErrorAction Stop | ForEach-Object {
+            $autopilotDevices.Add([PSCustomObject] @{
+                    Id                           = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('Id', 'id')
+                    GroupTag                     = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('GroupTag', 'groupTag')
+                    SerialNumber                 = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('SerialNumber', 'serialNumber')
+                    EnrollmentState              = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('EnrollmentState', 'enrollmentState')
+                    LastContactedDateTime        = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('LastContactedDateTime', 'lastContactedDateTime')
+                    UserPrincipalName            = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('UserPrincipalName', 'userPrincipalName')
+                    ResourceName                 = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('ResourceName', 'resourceName')
+                    AzureActiveDirectoryDeviceId = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('AzureAdDeviceId', 'azureAdDeviceId', 'AzureActiveDirectoryDeviceId', 'azureActiveDirectoryDeviceId')
+                    ManagedDeviceId              = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('ManagedDeviceId', 'managedDeviceId')
+                    DisplayName                  = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('DisplayName', 'displayName')
+                })
+        }
     } catch {
         Write-Warning -Message "Get-GraphEssentialsAutopilotLookup - Failed to get Windows Autopilot devices. Error: $($_.Exception.Message)"
         return [PSCustomObject] @{
