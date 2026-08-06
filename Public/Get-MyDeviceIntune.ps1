@@ -24,6 +24,10 @@
     .PARAMETER IncludeAutopilotInventory
     When specified, enriches managed devices with Windows Autopilot identity metadata.
 
+    .PARAMETER PropertySet
+    Selects the managed-device property projection. Full preserves the existing rich output.
+    Lifecycle requests only the fields needed for inventory correlation and lifecycle actions.
+
     .EXAMPLE
     Get-MyDeviceIntune
     Returns all Intune managed devices with their properties.
@@ -48,20 +52,21 @@
         [int] $CacheMinutes = 30,
         [switch] $Force,
         [switch] $IncludeDetailedInventory,
-        [switch] $IncludeAutopilotInventory
+        [switch] $IncludeAutopilotInventory,
+        [ValidateSet('Full', 'Lifecycle')]
+        [string] $PropertySet = 'Full'
     )
-    $CachedAzure = [ordered] @{}
+    $CachedAzure = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $Today = Get-Date
+    $LifecycleProperties = @(
+        'azureADDeviceId', 'azureADRegistered', 'complianceState', 'deviceEnrollmentType', 'deviceName',
+        'deviceRegistrationState', 'emailAddress', 'enrolledDateTime', 'id', 'lastSyncDateTime',
+        'managedDeviceOwnerType', 'managementAgent', 'operatingSystem', 'osVersion', 'serialNumber',
+        'userDisplayName', 'userPrincipalName'
+    )
     $AutopilotLookup = $null
     if ($IncludeAutopilotInventory) {
         $AutopilotLookup = Get-GraphEssentialsAutopilotLookup
-    }
-
-    try {
-        $DevicesIntune = Get-MgDeviceManagementManagedDevice -All -ErrorAction Stop
-    } catch {
-        Write-Warning -Message "Get-MyDeviceIntune - Failed to get intune devices. Error: $($_.Exception.Message)"
-        return
     }
 
     # Always build a deviceId -> Entra object id lookup so lifecycle actions can
@@ -69,28 +74,38 @@
     if ($Type -or $Synchronized) {
         try {
             if (-not $Script:Devices -or $Force -or $Script:DevicesDate -lt (Get-Date).AddMinutes(-$CacheMinutes)) {
-                $DevicesAzure = Get-MgDevice -All -Property 'deviceId,id,onPremisesSyncEnabled,trustType' -ErrorAction Stop
+                Get-MgDevice -All -Property 'deviceId,id,onPremisesSyncEnabled,trustType' -ErrorAction Stop | ForEach-Object {
+                    if ($_.DeviceId) {
+                        $CachedAzure[$_.DeviceId] = $_
+                    }
+                }
             } else {
-                $DevicesAzure = $Script:Devices
+                foreach ($DeviceA in $Script:Devices) {
+                    if ($DeviceA.DeviceId) {
+                        $CachedAzure[$DeviceA.DeviceId] = $DeviceA
+                    }
+                }
             }
         } catch {
             Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure devices. Error: $($_.Exception.Message)"
             return
         }
     } elseif ($Script:Devices -and -not $Force -and $Script:DevicesDate -ge (Get-Date).AddMinutes(-$CacheMinutes)) {
-        $DevicesAzure = $Script:Devices
+        foreach ($DeviceA in $Script:Devices) {
+            if ($DeviceA.DeviceId) {
+                $CachedAzure[$DeviceA.DeviceId] = $DeviceA
+            }
+        }
     } else {
         try {
-            $DevicesAzure = Get-MgDevice -All -Property 'deviceId,id' -ErrorAction Stop
+            Get-MgDevice -All -Property 'deviceId,id' -ErrorAction Stop | ForEach-Object {
+                if ($_.DeviceId) {
+                    $CachedAzure[$_.DeviceId] = $_
+                }
+            }
         } catch {
             Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure device identifiers. Continuing without Entra device object IDs. Error: $($_.Exception.Message)"
-            $DevicesAzure = @()
-        }
-    }
-
-    foreach ($DeviceA in $DevicesAzure) {
-        if ($DeviceA.DeviceId) {
-            $CachedAzure[$DeviceA.DeviceId] = $DeviceA
+            $CachedAzure.Clear()
         }
     }
 
@@ -100,169 +115,185 @@
         'Workplace' = 'AzureAD registered'
     }
 
-    foreach ($DeviceI in $DevicesIntune) {
-        if ($DeviceI.LastSyncDateTime) {
-            $LastSynchronizedDays = [math]::Floor((New-TimeSpan -Start $DeviceI.LastSyncDateTime -End $Today).TotalDays)
-        } else {
-            $LastSynchronizedDays = $null
+    $NormalizedDevices = [System.Collections.Generic.List[object]]::new()
+    try {
+        $ManagedDeviceParameters = @{
+            All         = $true
+            ErrorAction = 'Stop'
         }
-
-        # Get the Azure device information for the current Intune device
-        if ($CachedAzure[$DeviceI.AzureAdDeviceId]) {
-            $DeviceA = $CachedAzure[$DeviceI.AzureAdDeviceId]
-            if ($DeviceA.TrustType) {
-                $TrustType = $TrustTypes[$DeviceA.TrustType]
+        if ($PropertySet -eq 'Lifecycle') {
+            $ManagedDeviceParameters.Property = $LifecycleProperties
+        }
+        Get-MgDeviceManagementManagedDevice @ManagedDeviceParameters | ForEach-Object {
+            $DeviceI = $_
+            if ($DeviceI.LastSyncDateTime) {
+                $LastSynchronizedDays = [math]::Floor((New-TimeSpan -Start $DeviceI.LastSyncDateTime -End $Today).TotalDays)
             } else {
+                $LastSynchronizedDays = $null
+            }
+
+            # Get the Azure device information for the current Intune device
+            if ($DeviceI.AzureAdDeviceId -and $CachedAzure.ContainsKey($DeviceI.AzureAdDeviceId)) {
+                $DeviceA = $CachedAzure[$DeviceI.AzureAdDeviceId]
+                if ($DeviceA.TrustType) {
+                    $TrustType = $TrustTypes[$DeviceA.TrustType]
+                } else {
+                    $TrustType = 'Not available'
+                }
+                $SynchronizedDevice = $DeviceA.OnPremisesSyncEnabled
+            } else {
+                $DeviceA = $null
                 $TrustType = 'Not available'
+                $SynchronizedDevice = $null
             }
-            $SynchronizedDevice = $DeviceA.OnPremisesSyncEnabled
-        } else {
-            $DeviceA = $null
-            $TrustType = 'Not available'
-            $SynchronizedDevice = $null
-        }
-        if ($Type) {
-            # Only return devices of the specified type
-            if ($Type -notcontains $TrustType) {
-                continue
-            }
-        }
-        if ($Synchronized) {
-            # Only return synchronized devices
-            if (-not $SynchronizedDevice) {
-                continue
-            }
-        }
-
-        $AutopilotDevice = Find-GraphEssentialsAutopilotDevice -Lookup $AutopilotLookup -ManagedDeviceId $DeviceI.Id -AzureAdDeviceId $DeviceI.AzureAdDeviceId -SerialNumber $DeviceI.SerialNumber
-        $AutopilotLastContacted = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
-        $AutopilotLastContactedDays = if ($AutopilotLastContacted) { [math]::Floor((New-TimeSpan -Start $AutopilotLastContacted -End $Today).TotalDays) } else { $null }
-
-        $DetailedInventoryLoaded = $false
-        $ActivationLockBypassCode = $null
-        $Iccid = $null
-        $Udid = $null
-        $Notes = $null
-        $EthernetMacAddress = $null
-        $PhysicalMemoryInBytes = $null
-        if ($IncludeDetailedInventory) {
-            try {
-                $DetailedDevice = Get-MgDeviceManagementManagedDevice -ManagedDeviceId $DeviceI.Id -Property 'activationLockBypassCode,iccid,udid,notes,ethernetMacAddress,physicalMemoryInBytes' -ErrorAction Stop
-                $ActivationLockBypassCode = $DetailedDevice.ActivationLockBypassCode
-                $Iccid = $DetailedDevice.Iccid
-                $Udid = $DetailedDevice.Udid
-                $Notes = $DetailedDevice.Notes
-                $EthernetMacAddress = $DetailedDevice.EthernetMacAddress
-                $PhysicalMemoryInBytes = $DetailedDevice.PhysicalMemoryInBytes
-                $DetailedInventoryLoaded = $true
-            } catch {
-                Write-Warning -Message "Get-MyDeviceIntune - Failed to get detailed inventory for $($DeviceI.DeviceName). Error: $($_.Exception.Message)"
-            }
-        }
-
-        $DeviceInformation = [ordered] @{
-            Name                                    = $DeviceI.DeviceName                                # : EVOMONSTER
-            Id                                      = $DeviceI.Id                                        # : 83fe122f-c51c-49dc-a0f3-cc11d9e7d045
-            ManagedDeviceId                         = $DeviceI.Id
-            EntraDeviceObjectId                     = if ($DeviceA) { $DeviceA.Id } else { $null }
-            ComplianceState                         = $DeviceI.ComplianceState                           # : compliant
-            OperatingSystem                         = $DeviceI.OperatingSystem                           # : Windows
-            OperatingSystemVersion                  = $DeviceI.OSVersion                                 # : 10.0.22621.1555
-            FirstSeen                               = $DeviceI.EnrolledDateTime                          # : 2023-01-28 10:34:18
-            LastSeen                                = $DeviceI.LastSyncDateTime                          # : 2023-04-14 04:52:42
-            LastSeenDays                            = $LastSynchronizedDays
-            UserDisplayName                         = $DeviceI.UserDisplayName                           # : Przemysław Kłys
-            UserId                                  = $DeviceI.UserId                                    # : e6a8f1cf-0874-4323-a12f-2bf51bb6dfdd
-            UserPrincipalName                       = $DeviceI.UserPrincipalName                         # : przemyslaw.klys@evotec.pl
-            EmailAddress                            = $DeviceI.EmailAddress                              # : przemyslaw.klys@evotec.pl
-            ManagedDeviceName                       = $DeviceI.ManagedDeviceName                         # : przemyslaw.klys_Windows_1/28/2023_10:34 AM
-            ManagedDeviceOwnerType                  = $DeviceI.ManagedDeviceOwnerType                    # : company
-            ManagementAgent                         = $DeviceI.ManagementAgent                           # : mdm
-            ManagementCertificateExpirationDate     = $DeviceI.ManagementCertificateExpirationDate       # : 2024-01-27 17:58:15
-            AndroidSecurityPatchLevel               = $DeviceI.AndroidSecurityPatchLevel                 # :
-            AzureAdDeviceId                         = $DeviceI.AzureAdDeviceId                           # : aee87706-674b-40be-8120-74e7c469329b
-            AzureAdRegistered                       = $DeviceI.AzureAdRegistered                         # : True
-            ComplianceGracePeriodExpirationDateTime = $DeviceI.ComplianceGracePeriodExpirationDateTime   # : 9999-12-31 23:59:59
-
-            #ConfigurationManagerClientEnabledFeatures = $DeviceI.ConfigurationManagerClientEnabledFeatures # : Microsoft.Graph.PowerShell.Models.MicrosoftGraphConfigurationManagerClientEnabledFeatures
-            DeviceActionResults                     = $DeviceI.DeviceActionResults                       # : {}
-            #DeviceCategory                            = $DeviceI.DeviceCategory                            # : Microsoft.Graph.PowerShell.Models.MicrosoftGraphDeviceCategory
-            DeviceCategoryName                      = $DeviceI.DeviceCategoryDisplayName                 # : Unknown
-            DeviceCompliancePolicyStates            = $DeviceI.DeviceCompliancePolicyStates              # :
-            DeviceConfigurationStates               = $DeviceI.DeviceConfigurationStates                 # :
-            DeviceEnrollmentType                    = $DeviceI.DeviceEnrollmentType                      # : windowsCoManagement
-            #DeviceHealthAttestationState              = $DeviceI.DeviceHealthAttestationState              # : Microsoft.Graph.PowerShell.Models.MicrosoftGraphDeviceHealthAttestationState
-            DeviceRegistrationState                 = $DeviceI.DeviceRegistrationState                   # : registered
-            EasActivated                            = $DeviceI.EasActivated                              # : True
-            EasActivationDateTime                   = $DeviceI.EasActivationDateTime                     # : 0001-01-01 00:00:00
-            EasDeviceId                             = $DeviceI.EasDeviceId                               # : E88398D87BD859566D129F86E2FD722C
-            ExchangeAccessState                     = $DeviceI.ExchangeAccessState                       # : none
-            ExchangeAccessStateReason               = $DeviceI.ExchangeAccessStateReason                 # : none
-            ExchangeLastSuccessfulSyncDateTime      = $DeviceI.ExchangeLastSuccessfulSyncDateTime        # : 0001-01-01 00:00:00
-            FreeStorageSpaceInBytes                 = $DeviceI.FreeStorageSpaceInBytes                   # : 1392111517696
-            Imei                                    = $DeviceI.Imei                                      # :
-            IsEncrypted                             = $DeviceI.IsEncrypted                               # : True
-            IsSupervised                            = $DeviceI.IsSupervised                              # : False
-            IsJailBroken                            = $DeviceI.JailBroken                                # : Unknown
-            Manufacturer                            = $DeviceI.Manufacturer                              # : ASUS
-            Meid                                    = $DeviceI.Meid                                      # :
-            Model                                   = $DeviceI.Model                                     # : System Product Name
-            PartnerReportedThreatState              = $DeviceI.PartnerReportedThreatState                # : unknown
-            PhoneNumber                             = $DeviceI.PhoneNumber                               # :
-            SerialNumber                            = $DeviceI.SerialNumber                              # : SystemSerialNumber
-            SubscriberCarrier                       = $DeviceI.SubscriberCarrier                         # :
-            TotalStorageSpaceInBytes                = $DeviceI.TotalStorageSpaceInBytes                  # : 1999609266176
-            Users                                   = $DeviceI.Users                                     # :
-            WiFiMacAddress                          = $DeviceI.WiFiMacAddress                            # : 8C1D96F0937B
-            RemoteAssistanceSessionErrorDetails     = $DeviceI.RemoteAssistanceSessionErrorDetails       # :
-            RemoteAssistanceSessionUrl              = $DeviceI.RemoteAssistanceSessionUrl                # :
-            RequireUserEnrollmentApproval           = $DeviceI.RequireUserEnrollmentApproval             # :
-            DetailedInventoryLoaded                 = $DetailedInventoryLoaded
-            ActivationLockBypassCode                = $ActivationLockBypassCode
-            EthernetMacAddress                      = $EthernetMacAddress
-            Iccid                                   = $Iccid
-            Notes                                   = $Notes
-            PhysicalMemoryInBytes                   = $PhysicalMemoryInBytes
-            Udid                                    = $Udid
-            AutopilotInventoryLoaded                = if ($IncludeAutopilotInventory) { [bool] $AutopilotLookup.InventoryLoaded } else { $false }
-            AutopilotOnboarded                      = if ($IncludeAutopilotInventory -and $AutopilotLookup.InventoryLoaded) { [bool] $AutopilotDevice } else { $null }
-            AutopilotDeviceId                       = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('Id', 'id') } else { $null }
-            AutopilotManagedDeviceId                = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('ManagedDeviceId', 'managedDeviceId') } else { $null }
-            AutopilotAzureAdDeviceId                = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('AzureAdDeviceId', 'azureAdDeviceId', 'AzureActiveDirectoryDeviceId', 'azureActiveDirectoryDeviceId') } else { $null }
-            AutopilotResourceName                   = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('ResourceName', 'resourceName', 'DisplayName', 'displayName') } else { $null }
-            AutopilotGroupTag                       = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('GroupTag', 'groupTag') } else { $null }
-            AutopilotSerialNumber                   = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('SerialNumber', 'serialNumber') } else { $null }
-            AutopilotEnrollmentState                = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('EnrollmentState', 'enrollmentState') } else { $null }
-            AutopilotLastContacted                  = $AutopilotLastContacted
-            AutopilotLastContactedDays              = $AutopilotLastContactedDays
-            AutopilotUserPrincipalName              = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('UserPrincipalName', 'userPrincipalName') } else { $null }
-            #AdditionalProperties                      = $DeviceI.AdditionalProperties                      # : {}
-        }
-        if ($Type -or $Synchronized) {
-            $DeviceInformation['TrustType'] = $TrustType
-            $DeviceInformation['IsSynchronized'] = $SynchronizedDevice
-        }
-        if ($DeviceI.ConfigurationManagerClientEnabledFeatures) {
-            foreach ($D in $DeviceI.ConfigurationManagerClientEnabledFeatures.PSObject.Properties) {
-                if ($D.Name -notin 'AdditionalProperties') {
-                    $DeviceInformation["ConfigurationManagerClientEnabledFeatures$($D.Name)"] = $D.Value
+            if ($Type) {
+                # Only return devices of the specified type
+                if ($Type -notcontains $TrustType) {
+                    return
                 }
             }
-        }
-        if ($DeviceI.DeviceCategory) {
-            foreach ($D in $DeviceI.DeviceCategory.PSObject.Properties) {
-                if ($D.Name -notin 'AdditionalProperties') {
-                    $DeviceInformation["DeviceCategory$($D.Name)"] = $D.Value
+            if ($Synchronized) {
+                # Only return synchronized devices
+                if (-not $SynchronizedDevice) {
+                    return
                 }
             }
-        }
-        if ($DeviceI.DeviceHealthAttestationState) {
-            foreach ($D in $DeviceI.DeviceHealthAttestationState.PSObject.Properties) {
-                if ($D.Name -notin 'AdditionalProperties') {
-                    $DeviceInformation["DeviceHealthAttestationState$($D.Name)"] = $D.Value
+
+            $AutopilotDevice = Find-GraphEssentialsAutopilotDevice -Lookup $AutopilotLookup -ManagedDeviceId $DeviceI.Id -AzureAdDeviceId $DeviceI.AzureAdDeviceId -SerialNumber $DeviceI.SerialNumber
+            $AutopilotLastContacted = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
+            $AutopilotLastContactedDays = if ($AutopilotLastContacted) { [math]::Floor((New-TimeSpan -Start $AutopilotLastContacted -End $Today).TotalDays) } else { $null }
+
+            $DetailedInventoryLoaded = $false
+            $ActivationLockBypassCode = $null
+            $Iccid = $null
+            $Udid = $null
+            $Notes = $null
+            $EthernetMacAddress = $null
+            $PhysicalMemoryInBytes = $null
+            if ($IncludeDetailedInventory) {
+                try {
+                    $DetailedDevice = Get-MgDeviceManagementManagedDevice -ManagedDeviceId $DeviceI.Id -Property 'activationLockBypassCode,iccid,udid,notes,ethernetMacAddress,physicalMemoryInBytes' -ErrorAction Stop
+                    $ActivationLockBypassCode = $DetailedDevice.ActivationLockBypassCode
+                    $Iccid = $DetailedDevice.Iccid
+                    $Udid = $DetailedDevice.Udid
+                    $Notes = $DetailedDevice.Notes
+                    $EthernetMacAddress = $DetailedDevice.EthernetMacAddress
+                    $PhysicalMemoryInBytes = $DetailedDevice.PhysicalMemoryInBytes
+                    $DetailedInventoryLoaded = $true
+                } catch {
+                    Write-Warning -Message "Get-MyDeviceIntune - Failed to get detailed inventory for $($DeviceI.DeviceName). Error: $($_.Exception.Message)"
                 }
             }
+
+            $DeviceInformation = [ordered] @{
+                Name                                    = $DeviceI.DeviceName                                # : EVOMONSTER
+                Id                                      = $DeviceI.Id                                        # : 83fe122f-c51c-49dc-a0f3-cc11d9e7d045
+                ManagedDeviceId                         = $DeviceI.Id
+                EntraDeviceObjectId                     = if ($DeviceA) { $DeviceA.Id } else { $null }
+                ComplianceState                         = $DeviceI.ComplianceState                           # : compliant
+                OperatingSystem                         = $DeviceI.OperatingSystem                           # : Windows
+                OperatingSystemVersion                  = $DeviceI.OSVersion                                 # : 10.0.22621.1555
+                FirstSeen                               = $DeviceI.EnrolledDateTime                          # : 2023-01-28 10:34:18
+                LastSeen                                = $DeviceI.LastSyncDateTime                          # : 2023-04-14 04:52:42
+                LastSeenDays                            = $LastSynchronizedDays
+                UserDisplayName                         = $DeviceI.UserDisplayName                           # : Przemysław Kłys
+                UserId                                  = $DeviceI.UserId                                    # : e6a8f1cf-0874-4323-a12f-2bf51bb6dfdd
+                UserPrincipalName                       = $DeviceI.UserPrincipalName                         # : przemyslaw.klys@evotec.pl
+                EmailAddress                            = $DeviceI.EmailAddress                              # : przemyslaw.klys@evotec.pl
+                ManagedDeviceName                       = $DeviceI.ManagedDeviceName                         # : przemyslaw.klys_Windows_1/28/2023_10:34 AM
+                ManagedDeviceOwnerType                  = $DeviceI.ManagedDeviceOwnerType                    # : company
+                ManagementAgent                         = $DeviceI.ManagementAgent                           # : mdm
+                ManagementCertificateExpirationDate     = $DeviceI.ManagementCertificateExpirationDate       # : 2024-01-27 17:58:15
+                AndroidSecurityPatchLevel               = $DeviceI.AndroidSecurityPatchLevel                 # :
+                AzureAdDeviceId                         = $DeviceI.AzureAdDeviceId                           # : aee87706-674b-40be-8120-74e7c469329b
+                AzureAdRegistered                       = $DeviceI.AzureAdRegistered                         # : True
+                ComplianceGracePeriodExpirationDateTime = $DeviceI.ComplianceGracePeriodExpirationDateTime   # : 9999-12-31 23:59:59
+
+                #ConfigurationManagerClientEnabledFeatures = $DeviceI.ConfigurationManagerClientEnabledFeatures # : Microsoft.Graph.PowerShell.Models.MicrosoftGraphConfigurationManagerClientEnabledFeatures
+                DeviceActionResults                     = $DeviceI.DeviceActionResults                       # : {}
+                #DeviceCategory                            = $DeviceI.DeviceCategory                            # : Microsoft.Graph.PowerShell.Models.MicrosoftGraphDeviceCategory
+                DeviceCategoryName                      = $DeviceI.DeviceCategoryDisplayName                 # : Unknown
+                DeviceCompliancePolicyStates            = $DeviceI.DeviceCompliancePolicyStates              # :
+                DeviceConfigurationStates               = $DeviceI.DeviceConfigurationStates                 # :
+                DeviceEnrollmentType                    = $DeviceI.DeviceEnrollmentType                      # : windowsCoManagement
+                #DeviceHealthAttestationState              = $DeviceI.DeviceHealthAttestationState              # : Microsoft.Graph.PowerShell.Models.MicrosoftGraphDeviceHealthAttestationState
+                DeviceRegistrationState                 = $DeviceI.DeviceRegistrationState                   # : registered
+                EasActivated                            = $DeviceI.EasActivated                              # : True
+                EasActivationDateTime                   = $DeviceI.EasActivationDateTime                     # : 0001-01-01 00:00:00
+                EasDeviceId                             = $DeviceI.EasDeviceId                               # : E88398D87BD859566D129F86E2FD722C
+                ExchangeAccessState                     = $DeviceI.ExchangeAccessState                       # : none
+                ExchangeAccessStateReason               = $DeviceI.ExchangeAccessStateReason                 # : none
+                ExchangeLastSuccessfulSyncDateTime      = $DeviceI.ExchangeLastSuccessfulSyncDateTime        # : 0001-01-01 00:00:00
+                FreeStorageSpaceInBytes                 = $DeviceI.FreeStorageSpaceInBytes                   # : 1392111517696
+                Imei                                    = $DeviceI.Imei                                      # :
+                IsEncrypted                             = $DeviceI.IsEncrypted                               # : True
+                IsSupervised                            = $DeviceI.IsSupervised                              # : False
+                IsJailBroken                            = $DeviceI.JailBroken                                # : Unknown
+                Manufacturer                            = $DeviceI.Manufacturer                              # : ASUS
+                Meid                                    = $DeviceI.Meid                                      # :
+                Model                                   = $DeviceI.Model                                     # : System Product Name
+                PartnerReportedThreatState              = $DeviceI.PartnerReportedThreatState                # : unknown
+                PhoneNumber                             = $DeviceI.PhoneNumber                               # :
+                SerialNumber                            = $DeviceI.SerialNumber                              # : SystemSerialNumber
+                SubscriberCarrier                       = $DeviceI.SubscriberCarrier                         # :
+                TotalStorageSpaceInBytes                = $DeviceI.TotalStorageSpaceInBytes                  # : 1999609266176
+                Users                                   = $DeviceI.Users                                     # :
+                WiFiMacAddress                          = $DeviceI.WiFiMacAddress                            # : 8C1D96F0937B
+                RemoteAssistanceSessionErrorDetails     = $DeviceI.RemoteAssistanceSessionErrorDetails       # :
+                RemoteAssistanceSessionUrl              = $DeviceI.RemoteAssistanceSessionUrl                # :
+                RequireUserEnrollmentApproval           = $DeviceI.RequireUserEnrollmentApproval             # :
+                DetailedInventoryLoaded                 = $DetailedInventoryLoaded
+                ActivationLockBypassCode                = $ActivationLockBypassCode
+                EthernetMacAddress                      = $EthernetMacAddress
+                Iccid                                   = $Iccid
+                Notes                                   = $Notes
+                PhysicalMemoryInBytes                   = $PhysicalMemoryInBytes
+                Udid                                    = $Udid
+                AutopilotInventoryLoaded                = if ($IncludeAutopilotInventory) { [bool] $AutopilotLookup.InventoryLoaded } else { $false }
+                AutopilotOnboarded                      = if ($IncludeAutopilotInventory -and $AutopilotLookup.InventoryLoaded) { [bool] $AutopilotDevice } else { $null }
+                AutopilotDeviceId                       = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('Id', 'id') } else { $null }
+                AutopilotManagedDeviceId                = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('ManagedDeviceId', 'managedDeviceId') } else { $null }
+                AutopilotAzureAdDeviceId                = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('AzureAdDeviceId', 'azureAdDeviceId', 'AzureActiveDirectoryDeviceId', 'azureActiveDirectoryDeviceId') } else { $null }
+                AutopilotResourceName                   = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('ResourceName', 'resourceName', 'DisplayName', 'displayName') } else { $null }
+                AutopilotGroupTag                       = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('GroupTag', 'groupTag') } else { $null }
+                AutopilotSerialNumber                   = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('SerialNumber', 'serialNumber') } else { $null }
+                AutopilotEnrollmentState                = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('EnrollmentState', 'enrollmentState') } else { $null }
+                AutopilotLastContacted                  = $AutopilotLastContacted
+                AutopilotLastContactedDays              = $AutopilotLastContactedDays
+                AutopilotUserPrincipalName              = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('UserPrincipalName', 'userPrincipalName') } else { $null }
+                #AdditionalProperties                      = $DeviceI.AdditionalProperties                      # : {}
+            }
+            if ($Type -or $Synchronized) {
+                $DeviceInformation['TrustType'] = $TrustType
+                $DeviceInformation['IsSynchronized'] = $SynchronizedDevice
+            }
+            if ($DeviceI.ConfigurationManagerClientEnabledFeatures) {
+                foreach ($D in $DeviceI.ConfigurationManagerClientEnabledFeatures.PSObject.Properties) {
+                    if ($D.Name -notin 'AdditionalProperties') {
+                        $DeviceInformation["ConfigurationManagerClientEnabledFeatures$($D.Name)"] = $D.Value
+                    }
+                }
+            }
+            if ($DeviceI.DeviceCategory) {
+                foreach ($D in $DeviceI.DeviceCategory.PSObject.Properties) {
+                    if ($D.Name -notin 'AdditionalProperties') {
+                        $DeviceInformation["DeviceCategory$($D.Name)"] = $D.Value
+                    }
+                }
+            }
+            if ($DeviceI.DeviceHealthAttestationState) {
+                foreach ($D in $DeviceI.DeviceHealthAttestationState.PSObject.Properties) {
+                    if ($D.Name -notin 'AdditionalProperties') {
+                        $DeviceInformation["DeviceHealthAttestationState$($D.Name)"] = $D.Value
+                    }
+                }
+            }
+            $NormalizedDevices.Add([PSCustomObject] $DeviceInformation)
         }
-        [PSCustomObject] $DeviceInformation
+    } catch {
+        Write-Warning -Message "Get-MyDeviceIntune - Failed to get intune devices. Error: $($_.Exception.Message)"
+        return
     }
+
+    $NormalizedDevices
 }

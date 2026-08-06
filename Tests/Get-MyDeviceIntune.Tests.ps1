@@ -5,9 +5,9 @@ BeforeAll {
     . (Join-Path $PSScriptRoot '..\Private\Find-GraphEssentialsAutopilotDevice.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyDeviceIntune.ps1')
 
-    function Get-MgDeviceManagementManagedDevice {}
-    function Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {}
-    function Get-MgDevice {}
+    function Get-MgDeviceManagementManagedDevice { param([switch] $All, $Property, $ManagedDeviceId, $ErrorAction) }
+    function Get-MgDeviceManagementWindowsAutopilotDeviceIdentity { param([switch] $All, $Property, $ErrorAction) }
+    function Get-MgDevice { param([switch] $All, $Property, $ErrorAction) }
 }
 
 Describe 'Get-MyDeviceIntune' {
@@ -67,6 +67,86 @@ Describe 'Get-MyDeviceIntune' {
         $devices.Count | Should -Be 1
         $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
         $devices[0].TrustType | Should -Be 'AzureAD registered'
+    }
+
+    It 'continues type-filtered enumeration after a rejected managed device' {
+        Mock Get-MgDevice {
+            @(
+                [PSCustomObject] @{
+                    DeviceId              = 'device-rejected'
+                    Id                    = 'entra-rejected'
+                    TrustType             = 'AzureAD'
+                    OnPremisesSyncEnabled = $false
+                }
+                [PSCustomObject] @{
+                    DeviceId              = 'device-matching'
+                    Id                    = 'entra-matching'
+                    TrustType             = 'Workplace'
+                    OnPremisesSyncEnabled = $false
+                }
+            )
+        }
+        Mock Get-MgDeviceManagementManagedDevice {
+            @(
+                [PSCustomObject] @{
+                    DeviceName       = 'Rejected'
+                    Id               = 'managed-rejected'
+                    AzureAdDeviceId  = 'device-rejected'
+                    LastSyncDateTime = (Get-Date).AddDays(-20)
+                }
+                [PSCustomObject] @{
+                    DeviceName       = 'Matching'
+                    Id               = 'managed-matching'
+                    AzureAdDeviceId  = 'device-matching'
+                    LastSyncDateTime = (Get-Date).AddDays(-10)
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -Type 'AzureAD registered' -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].ManagedDeviceId | Should -Be 'managed-matching'
+    }
+
+    It 'continues synchronized filtering after an unsynchronized managed device' {
+        Mock Get-MgDevice {
+            @(
+                [PSCustomObject] @{
+                    DeviceId              = 'device-unsynchronized'
+                    Id                    = 'entra-unsynchronized'
+                    TrustType             = 'AzureAD'
+                    OnPremisesSyncEnabled = $false
+                }
+                [PSCustomObject] @{
+                    DeviceId              = 'device-synchronized'
+                    Id                    = 'entra-synchronized'
+                    TrustType             = 'ServerAD'
+                    OnPremisesSyncEnabled = $true
+                }
+            )
+        }
+        Mock Get-MgDeviceManagementManagedDevice {
+            @(
+                [PSCustomObject] @{
+                    DeviceName       = 'Unsynchronized'
+                    Id               = 'managed-unsynchronized'
+                    AzureAdDeviceId  = 'device-unsynchronized'
+                    LastSyncDateTime = (Get-Date).AddDays(-20)
+                }
+                [PSCustomObject] @{
+                    DeviceName       = 'Synchronized'
+                    Id               = 'managed-synchronized'
+                    AzureAdDeviceId  = 'device-synchronized'
+                    LastSyncDateTime = (Get-Date).AddDays(-10)
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -Synchronized -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].ManagedDeviceId | Should -Be 'managed-synchronized'
     }
 
     It 'continues Intune enumeration when the default Entra lookup fails' {
@@ -175,5 +255,82 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].AutopilotInventoryLoaded | Should -BeTrue
         $devices[0].AutopilotOnboarded | Should -BeFalse
         $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'uses the compact lifecycle projection when explicitly requested' {
+        $script:CapturedManagedDeviceProperties = $null
+        Mock Get-MgDeviceManagementManagedDevice {
+            param($Property)
+            $script:CapturedManagedDeviceProperties = @($Property)
+            @(
+                [PSCustomObject] @{
+                    DeviceName       = 'iPhone-01'
+                    Id               = 'managed-1'
+                    AzureAdDeviceId  = 'device-1'
+                    LastSyncDateTime = (Get-Date).AddDays(-10)
+                    OperatingSystem  = 'iOS'
+                    OSVersion        = '17.0'
+                }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -PropertySet Lifecycle -Force)
+
+        $devices | Should -HaveCount 1
+        $script:CapturedManagedDeviceProperties | Should -Contain 'azureADDeviceId'
+        $script:CapturedManagedDeviceProperties | Should -Contain 'deviceRegistrationState'
+        $script:CapturedManagedDeviceProperties | Should -Contain 'serialNumber'
+        $script:CapturedManagedDeviceProperties | Should -Not -Contain 'deviceActionResults'
+        $script:CapturedManagedDeviceProperties | Should -Not -Contain 'remoteAssistanceSessionUrl'
+    }
+
+    It 'preserves the existing unprojected managed-device query by default' {
+        $script:CapturedManagedDeviceProperties = $null
+        $script:ManagedDevicePropertyWasBound = $null
+        Mock Get-MgDeviceManagementManagedDevice {
+            param($Property)
+            $script:CapturedManagedDeviceProperties = @($Property)
+            $script:ManagedDevicePropertyWasBound = $PSBoundParameters.ContainsKey('Property')
+            @()
+        }
+
+        Get-MyDeviceIntune -Force | Out-Null
+
+        $script:ManagedDevicePropertyWasBound | Should -BeFalse
+    }
+
+    It 'does not emit partial managed-device output when Graph enumeration fails' {
+        Mock Get-MgDeviceManagementManagedDevice {
+            [PSCustomObject] @{
+                DeviceName       = 'Partial-Device'
+                Id               = 'managed-partial'
+                AzureAdDeviceId  = 'device-partial'
+                LastSyncDateTime = (Get-Date).AddDays(-10)
+            }
+            throw 'managed-device page two failed'
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDeviceIntune -Force -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'managed-device page two failed'
+    }
+
+    It 'requests only Autopilot properties used by device inventory output' {
+        $script:CapturedAutopilotProperties = $null
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            param($Property)
+            $script:CapturedAutopilotProperties = @($Property)
+            @()
+        }
+
+        Get-MyDeviceIntune -IncludeAutopilotInventory -Force | Out-Null
+
+        $script:CapturedAutopilotProperties | Should -Contain 'managedDeviceId'
+        $script:CapturedAutopilotProperties | Should -Contain 'lastContactedDateTime'
+        $script:CapturedAutopilotProperties | Should -Not -Contain 'manufacturer'
+        $script:CapturedAutopilotProperties | Should -Not -Contain 'purchaseOrderIdentifier'
+        $script:CapturedAutopilotProperties | Should -Not -Contain 'displayName'
     }
 }
