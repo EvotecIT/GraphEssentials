@@ -12,9 +12,6 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
         Description          = 'GraphEssentials is a PowerShell module that helps with Office 365 / Azure AD using mostly Graph'
         PowerShellVersion    = '5.1'
         Tags                 = @('Windows')
-        #IconUri              = 'https://evotec.xyz/wp-content/uploads/2023/04/CleanupMonster.png'
-        #ProjectUri           = 'https://github.com/EvotecIT/CleanupMonster'
-        #DotNetFrameworkVersion = '4.5.2'
     }
     New-ConfigurationManifest @Manifest
 
@@ -97,7 +94,7 @@ Invoke-ModuleBuild -ModuleName 'GraphEssentials' {
 
     New-ConfigurationImportModule -ImportSelf
 
-    New-ConfigurationBuild -Enable:$true -SignModule -MergeModuleOnBuild -MergeFunctionsFromApprovedModules -CertificateThumbprint '483292C9E317AA13B07BB7A96AE9D1A5ED9E7703'
+    New-ConfigurationBuild -Enable:$true -SignModule -MergeModuleOnBuild -MergeFunctionsFromApprovedModules -CertificateThumbprint '92e95fb58effa6a4a75e77a33cdd6bfe6dd30f1a'
 
     New-ConfigurationArtefact -Type Unpacked -Enable -Path "$PSScriptRoot\..\Artefacts\Unpacked" -ModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -RequiredModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -AddRequiredModules
     New-ConfigurationArtefact -Type Packed -Enable -Path "$PSScriptRoot\..\Artefacts\Packed" -ArtefactName '<ModuleName>.v<ModuleVersion>.zip'

@@ -8,7 +8,7 @@
     Description          = 'GraphEssentials is a PowerShell module that helps with Office 365 / Azure AD using mostly Graph'
     FunctionsToExport    = @('Disable-MyDevice', 'Get-MgToken', 'Get-MyApp', 'Get-MyAppCredentials', 'Get-MyConditionalAccess', 'Get-MyDefenderDeploymentKey', 'Get-MyDefenderHealthIssues', 'Get-MyDefenderSecureScore', 'Get-MyDefenderSecureScoreProfile', 'Get-MyDefenderSensor', 'Get-MyDefenderSummary', 'Get-MyDevice', 'Get-MyDeviceIntune', 'Get-MyGuest', 'Get-MyLicense', 'Get-MyRole', 'Get-MyRoleHistory', 'Get-MyRoleUsers', 'Get-MyTeam', 'Get-MyTenantName', 'Get-MyUsageReports', 'Get-MyUser', 'Get-MyUserAuthentication', 'Invoke-MyDeviceRetire', 'Invoke-MyGraphEssentials', 'Invoke-MyGraphUsageReports', 'New-MyApp', 'New-MyAppCredentials', 'Register-FIDO2Key', 'Remove-MyAppCredentials', 'Remove-MyAutopilotDevice', 'Remove-MyDevice', 'Remove-MyDeviceIntuneRecord', 'Send-MyApp', 'Show-MyApp', 'Show-MyConditionalAccess', 'Show-MyDefender', 'Show-MyRole', 'Show-MyUserAuthentication')
     GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
-    ModuleVersion        = '0.0.59'
+    ModuleVersion        = '0.0.57'
     PowerShellVersion    = '5.1'
     PrivateData          = @{
         PSData = @{
@@ -18,10 +18,6 @@
         }
     }
     RequiredModules      = @(@{
-            Guid            = 'ee272aa8-baaa-4edf-9f45-b6d6f7d844fe'
-            ModuleName      = 'PSSharedGoods'
-            ModuleVersion   = '0.0.312'
-        }, @{
             Guid            = '0b0ba5c5-ec85-4c2b-a718-874e55a8bc3f'
             ModuleName      = 'PSWriteColor'
             ModuleVersion   = '1.0.3'
@@ -29,6 +25,10 @@
             Guid            = 'a7bdf640-f5cb-4acf-9de0-365b322d245c'
             ModuleName      = 'PSWriteHTML'
             ModuleVersion   = '1.41.0'
+        }, @{
+            Guid            = 'ee272aa8-baaa-4edf-9f45-b6d6f7d844fe'
+            ModuleName      = 'PSSharedGoods'
+            ModuleVersion   = '0.0.312'
         }, @{
             Guid            = '883916f2-9184-46ee-b1f8-b6a2fb784cee'
             ModuleName      = 'Microsoft.Graph.Authentication'
