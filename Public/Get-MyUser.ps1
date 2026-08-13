@@ -166,6 +166,7 @@ function Get-MyUser {
             NeverSuccessfullySignedIn        = $NeverSuccessfullySignedIn
             SignInPattern                    = $SignInPattern
         }
+        $ResolvedLicenses = @(Resolve-GraphEssentialsUserLicenseAssignments -User $User -LicenseLookup $AllLicenses['Licenses'])
 
         if ($PerLicense) {
             $LicensesErrors = [System.Collections.Generic.List[string]]::new()
@@ -174,21 +175,12 @@ function Get-MyUser {
                 $OutputUser[$License] = [System.Collections.Generic.List[string]]::new()
             }
 
-            foreach ($License in $User.LicenseAssignmentStates) {
+            foreach ($License in $ResolvedLicenses) {
                 try {
-                    $LicenseFound = $AllLicenses['Licenses'][$License.SkuId]
-                    if ($LicenseFound) {
-                        if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
-                            $OutputUser[$LicenseFound].Add('Group')
-                        } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
-                            $OutputUser[$LicenseFound].Add('Direct')
-                        }
+                    if ($License.KnownSku) {
+                        $OutputUser[$License.Name].Add($License.Status)
                     } else {
-                        if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
-                            $OutputUser['DifferentLicense'].Add("Group $($License.SkuId)")
-                        } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
-                            $OutputUser['DifferentLicense'].Add("Direct $($License.SkuId)")
-                        }
+                        $OutputUser['DifferentLicense'].Add("$($License.Status) $($License.SkuId)")
                         Write-Warning -Message "$($License.SkuId) not found in AllLicenses"
                         $LicensesErrors.Add("License ID $($License.SkuId) not found in All Licenses")
                     }
@@ -217,30 +209,22 @@ function Get-MyUser {
             $LicensesList = [System.Collections.Generic.List[string]]::new()
             $LicensesStatus = [System.Collections.Generic.List[string]]::new()
             $LicensesErrors = [System.Collections.Generic.List[string]]::new()
-            foreach ($License in $User.LicenseAssignmentStates) {
-                $LicenseFound = $AllLicenses['Licenses'][$License.SkuId]
-                if ($LicenseFound -and $LicensesList -notcontains $LicenseFound) {
-                    $LicensesList.Add($LicenseFound)
-                    if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
-                        $LicensesStatus.Add('Group')
-                    } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
-                        $LicensesStatus.Add('Direct')
-                    } else {
-                        $LicensesStatus.Add($License.State)
-                        if ($License.Error -and $LicensesErrors -notcontains $License.Error) {
-                            $LicensesErrors.Add($License.Error)
-                        }
+            foreach ($License in $ResolvedLicenses) {
+                if ($LicensesList -notcontains $License.Name) {
+                    $LicensesList.Add($License.Name)
+                }
+                if ($LicensesStatus -notcontains $License.Status) {
+                    $LicensesStatus.Add($License.Status)
+                }
+                if ($License.Error -and $LicensesErrors -notcontains $License.Error) {
+                    $LicensesErrors.Add($License.Error)
+                }
+                if (-not $License.KnownSku) {
+                    $MissingLicenseError = "License ID $($License.SkuId) not found in All Licenses"
+                    if ($LicensesErrors -notcontains $MissingLicenseError) {
+                        $LicensesErrors.Add($MissingLicenseError)
                     }
-                } elseif (-not $LicenseFound) {
-                    if ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -gt 0) {
-                        $LicensesStatus.Add('Group')
-                    } elseif ($License.State -eq 'Active' -and $License.AssignedByGroup.Count -eq 0) {
-                        $LicensesStatus.Add('Direct')
-                    }
-                    $LicensesErrors.Add("License ID $($License.SkuId) not found in All Licenses")
                     Write-Warning -Message "Get-MyUser - License ID $($License.SkuId) not found in AllLicenses for $($User.DisplayName)"
-                } else {
-                    $LicensesStatus.Add('Duplicate')
                 }
             }
 

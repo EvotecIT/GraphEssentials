@@ -1,4 +1,4 @@
-$Script:Teams = [ordered] @{
+﻿$Script:Teams = [ordered] @{
     Name       = 'Microsoft Teams Report'
     Enabled    = $true
     Execute    = {
@@ -13,7 +13,10 @@ $Script:Teams = [ordered] @{
         $publicTeams = 0
         $privateTeams = 0
         $teamsWithGuests = 0
+        $teamsWithoutGuests = 0
+        $guestStateUnavailable = 0
         $ownerlessTeams = 0
+        $ownerStateUnavailable = 0
         $multiOwnerTeams = 0
         $guestControlsEnabled = 0
         $guestDeleteEnabled = 0
@@ -42,14 +45,20 @@ $Script:Teams = [ordered] @{
                 $privateTeams++
             }
 
-            if ($team.HasGuests) {
+            if ($team.HasGuests -eq $true) {
                 $teamsWithGuests++
                 $teamsWithGuestsList.Add($team)
+            } elseif ($team.HasGuests -eq $false) {
+                $teamsWithoutGuests++
+            } else {
+                $guestStateUnavailable++
             }
 
-            if (-not $team.HasOwners) {
+            if ($team.HasOwners -eq $false) {
                 $ownerlessTeams++
                 $ownerlessTeamsList.Add($team)
+            } elseif ($null -eq $team.HasOwners) {
+                $ownerStateUnavailable++
             }
 
             if ($team.HasMultipleOwners) {
@@ -89,8 +98,10 @@ $Script:Teams = [ordered] @{
             }
 
             $reviewFlags = [System.Collections.Generic.List[string]]::new()
-            if (-not $team.HasOwners) {
+            if ($team.HasOwners -eq $false) {
                 $reviewFlags.Add('No owners')
+            } elseif ($null -eq $team.HasOwners) {
+                $reviewFlags.Add('Owner state unavailable')
             }
             if ($team.IsPublic) {
                 $reviewFlags.Add('Public team')
@@ -119,7 +130,10 @@ $Script:Teams = [ordered] @{
                 PublicTeams            = $publicTeams
                 PrivateTeams           = $privateTeams
                 TeamsWithGuests        = $teamsWithGuests
+                TeamsWithoutGuests     = $teamsWithoutGuests
+                GuestStateUnavailable  = $guestStateUnavailable
                 OwnerlessTeams         = $ownerlessTeams
+                OwnerStateUnavailable  = $ownerStateUnavailable
                 MultiOwnerTeams        = $multiOwnerTeams
                 GuestControlsEnabled   = $guestControlsEnabled
                 GuestDeleteEnabled     = $guestDeleteEnabled
@@ -141,7 +155,8 @@ $Script:Teams = [ordered] @{
 
         $guestDistribution = @(
             [PSCustomObject]@{ Name = 'Teams with guests'; Count = $teamsWithGuests }
-            [PSCustomObject]@{ Name = 'Teams without guests'; Count = $totalTeams - $teamsWithGuests }
+            [PSCustomObject]@{ Name = 'Teams without guests'; Count = $teamsWithoutGuests }
+            [PSCustomObject]@{ Name = 'Guest state unavailable'; Count = $guestStateUnavailable }
             [PSCustomObject]@{ Name = 'Guest controls enabled'; Count = $guestControlsEnabled }
             [PSCustomObject]@{ Name = 'Guest delete enabled'; Count = $guestDeleteEnabled }
         )
@@ -150,6 +165,7 @@ $Script:Teams = [ordered] @{
             [PSCustomObject]@{ Name = 'Ownerless'; Count = $ownerlessTeams }
             [PSCustomObject]@{ Name = 'Single owner'; Count = @($teamData.Where({ $_.OwnerCount -eq 1 })).Count }
             [PSCustomObject]@{ Name = 'Multiple owners'; Count = $multiOwnerTeams }
+            [PSCustomObject]@{ Name = 'Owner state unavailable'; Count = $ownerStateUnavailable }
         )
 
         $collaborationDistribution = @(
