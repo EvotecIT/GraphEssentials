@@ -1,4 +1,5 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsGroupOwner.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyTeam.ps1')
 
     function Get-MgTeam {
@@ -11,13 +12,10 @@ BeforeAll {
         )
     }
 
-    function Get-MgGroupOwner {
-        param(
-            [string] $GroupId,
-            [switch] $All,
-            $ErrorAction
-        )
+    function Invoke-MgGraphRequest {
+        param([string] $Method, [string] $Uri, [string] $OutputType, $ErrorAction)
     }
+
 }
 
 Describe 'Get-MyTeam' {
@@ -59,12 +57,13 @@ Describe 'Get-MyTeam' {
             }
         }
 
-        Mock Get-MgGroupOwner {
+        Mock Get-GraphEssentialsGroupOwner {
             [PSCustomObject] @{
                 DisplayName       = 'Team Owner'
                 Mail              = 'owner@contoso.com'
                 UserPrincipalName = 'owner@contoso.com'
                 Id                = 'owner-1'
+                ObjectType        = '#microsoft.graph.user'
             }
         }
     }
@@ -74,14 +73,15 @@ Describe 'Get-MyTeam' {
 
         $script:TeamDetailsParameters.Property | Should -Contain 'Summary'
         $script:TeamDetailsParameters.ExpandProperty | Should -BeNullOrEmpty
-        Should -Invoke Get-MgGroupOwner -Times 1 -Exactly -ParameterFilter {
-            $GroupId -eq 'team-1' -and $All
+        Should -Invoke Get-GraphEssentialsGroupOwner -Times 1 -Exactly -ParameterFilter {
+            $GroupId -eq 'team-1'
         }
         $result.MembersCount | Should -Be 8
         $result.GuestsCount | Should -Be 2
         $result.HasGuests | Should -BeTrue
         $result.OwnerCount | Should -Be 1
         $result.OwnerUserPrincipalName | Should -Be 'owner@contoso.com'
+        $result.OwnerObjectType | Should -Be '#microsoft.graph.user'
     }
 
     It 'keeps the team when extended team details fail' {
@@ -107,7 +107,7 @@ Describe 'Get-MyTeam' {
     }
 
     It 'keeps the team and reports owner state as unknown when owner retrieval fails' {
-        Mock Get-MgGroupOwner { throw 'owners unavailable' }
+        Mock Get-GraphEssentialsGroupOwner { throw 'owners unavailable' }
 
         $result = Get-MyTeam -WarningAction SilentlyContinue
 
@@ -117,14 +117,12 @@ Describe 'Get-MyTeam' {
         $result.MembersCount | Should -Be 8
     }
 
-    It 'counts non-user group owners returned through the uncast owner relationship' {
-        Mock Get-MgGroupOwner {
+    It 'counts non-user group owners returned through the beta owner projection' {
+        Mock Get-GraphEssentialsGroupOwner {
             [PSCustomObject] @{
-                AdditionalProperties = @{
-                    '@odata.type' = '#microsoft.graph.servicePrincipal'
-                    displayName   = 'Automation owner'
-                }
-                Id                   = 'service-principal-1'
+                DisplayName = 'Automation owner'
+                Id          = 'service-principal-1'
+                ObjectType  = '#microsoft.graph.servicePrincipal'
             }
         }
 
@@ -134,10 +132,11 @@ Describe 'Get-MyTeam' {
         $result.HasOwners | Should -BeTrue
         $result.OwnerDisplayName | Should -Be 'Automation owner'
         $result.OwnerId | Should -Be 'service-principal-1'
+        $result.OwnerObjectType | Should -Be '#microsoft.graph.servicePrincipal'
     }
 
     It 'keeps a team in the unavailable-owner bucket when per-owner retrieval fails' {
-        Mock Get-MgGroupOwner { throw 'owners unavailable' }
+        Mock Get-GraphEssentialsGroupOwner { throw 'owners unavailable' }
 
         $result = Get-MyTeam -PerOwner -WarningAction SilentlyContinue
 
@@ -147,7 +146,7 @@ Describe 'Get-MyTeam' {
     }
 
     It 'keeps a genuinely ownerless team in a distinct per-owner bucket' {
-        Mock Get-MgGroupOwner { @() }
+        Mock Get-GraphEssentialsGroupOwner { @() }
 
         $result = Get-MyTeam -PerOwner
 
@@ -189,6 +188,50 @@ Describe 'Get-MyTeam' {
         $result.Keys | Should -Contain 'owner@contoso.com'
         $result['owner@contoso.com'].Count | Should -Be 1
         $result['owner@contoso.com'][0].Team | Should -Be 'Operations'
+    }
+}
+
+Describe 'Get-GraphEssentialsGroupOwner' {
+    BeforeEach {
+        $script:OwnerRequest = 0
+        Mock Invoke-MgGraphRequest {
+            $script:OwnerRequest++
+            if ($script:OwnerRequest -eq 1) {
+                [PSCustomObject] @{
+                    value             = @([PSCustomObject] @{
+                            '@odata.type'     = '#microsoft.graph.user'
+                            displayName       = 'Team Owner'
+                            id                = 'owner-1'
+                            mail              = 'owner@contoso.com'
+                            userPrincipalName = 'owner@contoso.com'
+                        })
+                    '@odata.nextLink' = 'https://graph.microsoft.com/beta/groups/team-1/owners?$skiptoken=next'
+                }
+            } else {
+                [PSCustomObject] @{
+                    value = @([PSCustomObject] @{
+                            '@odata.type' = '#microsoft.graph.servicePrincipal'
+                            displayName   = 'Automation owner'
+                            id            = 'service-principal-1'
+                        })
+                }
+            }
+        }
+    }
+
+    It 'pages the beta relationship and retains user and service-principal owners' {
+        $result = @(Get-GraphEssentialsGroupOwner -GroupId 'team-1')
+
+        Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly
+        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
+            $Method -eq 'GET' -and
+            $Uri -eq '/beta/groups/team-1/owners' -and
+            $OutputType -eq 'PSObject'
+        }
+        $result.Count | Should -Be 2
+        $result[0].UserPrincipalName | Should -Be 'owner@contoso.com'
+        $result[1].ObjectType | Should -Be '#microsoft.graph.servicePrincipal'
+        $result[1].Id | Should -Be 'service-principal-1'
     }
 }
 

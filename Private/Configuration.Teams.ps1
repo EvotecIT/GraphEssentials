@@ -1,4 +1,4 @@
-$Script:Teams = [ordered] @{
+﻿$Script:Teams = [ordered] @{
     Name       = 'Microsoft Teams Report'
     Enabled    = $true
     Execute    = {

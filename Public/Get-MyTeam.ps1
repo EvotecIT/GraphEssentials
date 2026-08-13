@@ -28,7 +28,7 @@ function Get-MyTeam {
     Returns Teams information as a hashtable for easier programmatic access.
 
     .NOTES
-    This function requires the Microsoft.Graph.Teams and Microsoft.Graph.Groups modules.
+    This function requires the Microsoft.Graph.Teams and Microsoft.Graph.Authentication modules.
     Reading team settings typically requires TeamSettings.Read.All. Reading owners requires
     GroupMember.Read.All or another permission that can read Microsoft 365 group owners.
     #>
@@ -59,32 +59,7 @@ function Get-MyTeam {
         $Owners = @()
         $OwnersRetrieved = $false
         try {
-            $Owners = @(
-                foreach ($Owner in @(Get-MgGroupOwner -GroupId $Team.Id -All -ErrorAction Stop)) {
-                    $AdditionalProperties = $Owner.AdditionalProperties
-                    $DisplayName = $Owner.DisplayName
-                    $Mail = $Owner.Mail
-                    $UserPrincipalName = $Owner.UserPrincipalName
-                    if ($AdditionalProperties) {
-                        if (-not $DisplayName) {
-                            $DisplayName = $AdditionalProperties['displayName']
-                        }
-                        if (-not $Mail) {
-                            $Mail = $AdditionalProperties['mail']
-                        }
-                        if (-not $UserPrincipalName) {
-                            $UserPrincipalName = $AdditionalProperties['userPrincipalName']
-                        }
-                    }
-
-                    [PSCustomObject] @{
-                        DisplayName       = $DisplayName
-                        Mail              = $Mail
-                        UserPrincipalName = $UserPrincipalName
-                        Id                = $Owner.Id
-                    }
-                }
-            )
+            $Owners = @(Get-GraphEssentialsGroupOwner -GroupId $Team.Id -ErrorAction Stop)
             $OwnersRetrieved = $true
         } catch {
             Write-Warning -Message "Get-MyTeam - Couldn't get owners for team $($Team.DisplayName) / $($Team.Id): $($_.Exception.Message)"
@@ -152,6 +127,7 @@ function Get-MyTeam {
             OwnerMail                         = $Owners.Mail
             OwnerUserPrincipalName            = $Owners.UserPrincipalName
             OwnerId                           = $Owners.Id
+            OwnerObjectType                   = $Owners.ObjectType
             GuestAllowCreateUpdateChannels    = $GuestAllowCreateUpdateChannels
             GuestAllowDeleteChannels          = $GuestAllowDeleteChannels
             GuestControlsEnabled              = $GuestControlsEnabled
