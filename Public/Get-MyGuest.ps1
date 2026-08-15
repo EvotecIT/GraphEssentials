@@ -13,19 +13,27 @@ function Get-MyGuest {
     Get-MyGuest
     Returns guest and external users in the tenant.
 
+    .PARAMETER IncludeSignInActivity
+    Requests sign-in activity from Microsoft Graph. This is opt-in because it requires
+    AuditLog.Read.All. If that permission is unavailable, the command retries without
+    sign-in activity while retaining guest and license data.
+
     .NOTES
     This function requires the Microsoft.Graph.Users and Microsoft.Graph.Identity modules
     with appropriate permissions. Typically requires User.Read.All permissions.
+    Sign-in activity is not requested by default.
     #>
     [CmdletBinding()]
-    param()
+    param(
+        [switch] $IncludeSignInActivity
+    )
 
     $Today = Get-Date
     $Properties = @(
         'AccountEnabled', 'AssignedPlans', 'CompanyName', 'CreatedDateTime', 'CreationType',
         'DisplayName', 'ExternalUserState', 'ExternalUserStateChangeDateTime', 'Id',
         'LicenseAssignmentStates', 'Mail', 'OnPremisesSyncEnabled', 'OtherMails',
-        'SignInActivity', 'UserPrincipalName', 'UserType'
+        'UserPrincipalName', 'UserType'
     )
 
     Write-Verbose -Message 'Get-MyGuest - Getting list of licenses'
@@ -47,7 +55,8 @@ function Get-MyGuest {
 
     Write-Verbose -Message 'Get-MyGuest - Getting list of guest and external users'
     $StartTime = [System.Diagnostics.Stopwatch]::StartNew()
-    $AllGuests = Get-MgUser @getMgUserSplat
+    $GuestQuery = Get-GraphEssentialsUsers -Query $getMgUserSplat -CommandName 'Get-MyGuest' -IncludeSignInActivity:$IncludeSignInActivity
+    $AllGuests = @($GuestQuery.Users)
     $EndTime = Stop-TimeLog -Time $StartTime -Option OneLiner
     Write-Verbose -Message "Get-MyGuest - Got $($AllGuests.Count) guest users in $EndTime. Now processing them."
 
@@ -188,6 +197,8 @@ function Get-MyGuest {
             NeverSignedIn                     = $NeverSignedIn
             NeverSuccessfullySignedIn         = $NeverSuccessfullySignedIn
             SignInPattern                     = $SignInPattern
+            SignInActivityRequested           = $GuestQuery.SignInActivityRequested
+            SignInActivityAvailable           = $GuestQuery.SignInActivityAvailable
             CreationType                      = $Guest.CreationType
             CompanyName                       = $Guest.CompanyName
             IsSynchronized                    = if ($Guest.OnPremisesSyncEnabled) { $Guest.OnPremisesSyncEnabled } else { $null }

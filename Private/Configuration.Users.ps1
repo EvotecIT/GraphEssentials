@@ -1,8 +1,8 @@
-$Script:Users = [ordered] @{
+﻿$Script:Users = [ordered] @{
     Name       = 'Azure Active Directory Users'
     Enabled    = $true
     Execute    = {
-        Get-MyUser
+        Get-MyUser -IncludeSignInActivity
     }
     Processing = {
 

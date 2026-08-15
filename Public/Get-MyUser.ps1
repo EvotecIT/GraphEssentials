@@ -14,6 +14,11 @@ function Get-MyUser {
     .PARAMETER PerServicePlan
     When specified, organizes user information by service plan instead of by user.
 
+    .PARAMETER IncludeSignInActivity
+    Requests sign-in activity from Microsoft Graph. This is opt-in because it requires
+    AuditLog.Read.All. If that permission is unavailable, the command retries without
+    sign-in activity while retaining user and license data.
+
     .EXAMPLE
     Get-MyUser
     Returns detailed information about all users in the tenant.
@@ -29,12 +34,14 @@ function Get-MyUser {
     .NOTES
     This function requires the Microsoft.Graph.Users and Microsoft.Graph.Identity modules
     with appropriate permissions. Typically requires User.Read.All permissions.
-    Sign-in activity fields may require additional audit-related permissions.
+    Sign-in activity is not requested by default. Use IncludeSignInActivity when those fields
+    are needed and AuditLog.Read.All is available.
     #>
     [CmdletBinding(DefaultParameterSetName = 'Default')]
     param(
         [Parameter(ParameterSetName = 'PerLicense')][switch] $PerLicense,
-        [Parameter(ParameterSetName = 'PerServicePlan')][switch] $PerServicePlan
+        [Parameter(ParameterSetName = 'PerServicePlan')][switch] $PerServicePlan,
+        [switch] $IncludeSignInActivity
     )
 
     $Today = Get-Date
@@ -42,7 +49,7 @@ function Get-MyUser {
         'LicenseAssignmentStates', 'AccountEnabled', 'AssignedLicenses', 'AssignedPlans', 'CreatedDateTime',
         'DisplayName', 'Id', 'GivenName', 'SurName', 'JobTitle', 'LastPasswordChangeDateTime', 'Mail',
         'OnPremisesLastSyncDateTime', 'OnPremisesSyncEnabled', 'OnPremisesDistinguishedName',
-        'SignInActivity', 'UserPrincipalName', 'UserType'
+        'UserPrincipalName', 'UserType'
     )
 
     Write-Verbose -Message 'Get-MyUser - Getting list of licenses'
@@ -57,7 +64,10 @@ function Get-MyUser {
 
     Write-Verbose -Message 'Get-MyUser - Getting list of all users'
     $StartTime = [System.Diagnostics.Stopwatch]::StartNew()
-    $AllUsers = Get-MgUser @getMgUserSplat -ExpandProperty Manager
+    $getMgUserSplat.ExpandProperty = 'Manager'
+    $UserQuery = Get-GraphEssentialsUsers -Query $getMgUserSplat -CommandName 'Get-MyUser' -IncludeSignInActivity:$IncludeSignInActivity
+    $AllUsers = @($UserQuery.Users)
+    $SignInActivityAvailable = $UserQuery.SignInActivityAvailable
     $EndTime = Stop-TimeLog -Time $StartTime -Option OneLiner
     Write-Verbose -Message "Get-MyUser - Got $($AllUsers.Count) users in $EndTime. Now processing them."
 
@@ -165,6 +175,8 @@ function Get-MyUser {
             NeverSignedIn                    = $NeverSignedIn
             NeverSuccessfullySignedIn        = $NeverSuccessfullySignedIn
             SignInPattern                    = $SignInPattern
+            SignInActivityRequested          = $UserQuery.SignInActivityRequested
+            SignInActivityAvailable          = $SignInActivityAvailable
         }
         $ResolvedLicenses = @(Resolve-GraphEssentialsUserLicenseAssignments -User $User -LicenseLookup $AllLicenses['Licenses'])
 

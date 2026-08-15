@@ -1,8 +1,8 @@
-$Script:Guests = [ordered] @{
+﻿$Script:Guests = [ordered] @{
     Name       = 'Azure Active Directory Guests and External Users'
     Enabled    = $true
     Execute    = {
-        Get-MyGuest
+        Get-MyGuest -IncludeSignInActivity
     }
     Processing = {
 
