@@ -1,8 +1,8 @@
-$Script:UsersPerServicePlan = [ordered] @{
+﻿$Script:UsersPerServicePlan = [ordered] @{
     Name       = 'Azure Active Directory Users Per Service Plan'
     Enabled    = $true
     Execute    = {
-        Get-MyUser -PerServicePlan
+        Get-MyUser -PerServicePlan -IncludeSignInActivity
     }
     Processing = {
 
@@ -31,7 +31,10 @@ $Script:UsersPerServicePlan = [ordered] @{
             'ManagerUserPrincipalName', 'ManagerIsSynchronized', 'HasManager', 'LastPasswordChangeDateTime',
             'LastPasswordChangeDays', 'IsSynchronized', 'LastSynchronized', 'LastSynchronizedDays',
             'OnPremisesDistinguishedName', 'LastSignInDateTime', 'LastSignInDaysAgo',
-            'LastNonInteractiveSignInDateTime', 'LastNonInteractiveSignInDaysAgo', 'NeverSignedIn',
+            'LastNonInteractiveSignInDateTime', 'LastNonInteractiveSignInDaysAgo',
+            'LastSuccessfulSignInDateTime', 'LastSuccessfulSignInDaysAgo', 'NeverSignedIn',
+            'NeverSuccessfullySignedIn', 'SignInPattern',
+            'SignInActivityRequested', 'SignInActivityAvailable',
             'DeletedServicePlans'
         )
 
@@ -199,7 +202,10 @@ $Script:UsersPerServicePlan = [ordered] @{
                 'ManagerUserPrincipalName', 'ManagerIsSynchronized', 'HasManager', 'LastPasswordChangeDateTime',
                 'LastPasswordChangeDays', 'IsSynchronized', 'LastSynchronized', 'LastSynchronizedDays',
                 'OnPremisesDistinguishedName', 'LastSignInDateTime', 'LastSignInDaysAgo',
-                'LastNonInteractiveSignInDateTime', 'LastNonInteractiveSignInDaysAgo', 'NeverSignedIn',
+                'LastNonInteractiveSignInDateTime', 'LastNonInteractiveSignInDaysAgo',
+                'LastSuccessfulSignInDateTime', 'LastSuccessfulSignInDaysAgo', 'NeverSignedIn',
+                'NeverSuccessfullySignedIn', 'SignInPattern',
+                'SignInActivityRequested', 'SignInActivityAvailable',
                 'DeletedServicePlans'
             )
 

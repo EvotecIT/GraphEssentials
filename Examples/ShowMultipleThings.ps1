@@ -8,9 +8,10 @@ Get-MyDeviceIntune | Format-Table Name, LastSeen, LastSeenDays, DetailedInventor
 
 Get-MyDeviceIntune -IncludeDetailedInventory | Format-Table Name, DetailedInventoryLoaded, ActivationLockBypassCode, EthernetMacAddress, Iccid, Notes, PhysicalMemoryInBytes, Udid
 
-Get-MyUser | Format-Table DisplayName, UserType, Enabled, LastSignInDateTime, NeverSignedIn, HasLicenses, HasManager
+# Sign-in activity is opt-in and requires AuditLog.Read.All.
+Get-MyUser -IncludeSignInActivity | Format-Table DisplayName, UserType, Enabled, LastSignInDateTime, NeverSignedIn, HasLicenses, HasManager
 
-Get-MyGuest | Format-Table DisplayName, GuestDomain, Enabled, ExternalUserState, LastSignInDateTime, NeverSignedIn, HasRoles, HasLicenses
+Get-MyGuest -IncludeSignInActivity | Format-Table DisplayName, GuestDomain, Enabled, ExternalUserState, LastSignInDateTime, NeverSignedIn, HasRoles, HasLicenses
 
 Get-MyLicense | Format-Table Name, LicensesUsedPercent, LicensesUsedCount, LicenseCountEnabled, UtilizationBand
 

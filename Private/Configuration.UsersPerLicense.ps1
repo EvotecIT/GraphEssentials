@@ -1,8 +1,8 @@
-$Script:UsersPerLicense = [ordered] @{
+﻿$Script:UsersPerLicense = [ordered] @{
     Name       = 'Azure Active Directory Users Per License'
     Enabled    = $true
     Execute    = {
-        Get-MyUser -PerLicense
+        Get-MyUser -PerLicense -IncludeSignInActivity
     }
     Processing = {
 
@@ -32,7 +32,10 @@ $Script:UsersPerLicense = [ordered] @{
             'ManagerUserPrincipalName', 'ManagerIsSynchronized', 'HasManager', 'LastPasswordChangeDateTime',
             'LastPasswordChangeDays', 'IsSynchronized', 'LastSynchronized', 'LastSynchronizedDays',
             'OnPremisesDistinguishedName', 'LastSignInDateTime', 'LastSignInDaysAgo',
-            'LastNonInteractiveSignInDateTime', 'LastNonInteractiveSignInDaysAgo', 'NeverSignedIn',
+            'LastNonInteractiveSignInDateTime', 'LastNonInteractiveSignInDaysAgo',
+            'LastSuccessfulSignInDateTime', 'LastSuccessfulSignInDaysAgo', 'NeverSignedIn',
+            'NeverSuccessfullySignedIn', 'SignInPattern',
+            'SignInActivityRequested', 'SignInActivityAvailable',
             'DifferentLicense', 'LicensesErrors'
         )
 
@@ -274,7 +277,10 @@ $Script:UsersPerLicense = [ordered] @{
                 'ManagerUserPrincipalName', 'ManagerIsSynchronized', 'HasManager', 'LastPasswordChangeDateTime',
                 'LastPasswordChangeDays', 'IsSynchronized', 'LastSynchronized', 'LastSynchronizedDays',
                 'OnPremisesDistinguishedName', 'LastSignInDateTime', 'LastSignInDaysAgo',
-                'LastNonInteractiveSignInDateTime', 'LastNonInteractiveSignInDaysAgo', 'NeverSignedIn',
+                'LastNonInteractiveSignInDateTime', 'LastNonInteractiveSignInDaysAgo',
+                'LastSuccessfulSignInDateTime', 'LastSuccessfulSignInDaysAgo', 'NeverSignedIn',
+                'NeverSuccessfullySignedIn', 'SignInPattern',
+                'SignInActivityRequested', 'SignInActivityAvailable',
                 'DifferentLicense', 'LicensesErrors'
             )
 
