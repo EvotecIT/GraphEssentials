@@ -1,4 +1,5 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsErrorDetails.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsUsers.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyGuest.ps1')
 

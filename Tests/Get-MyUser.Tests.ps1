@@ -1,4 +1,5 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsErrorDetails.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsUsers.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Resolve-GraphEssentialsUserLicenseAssignments.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyUser.ps1')
@@ -128,6 +129,38 @@ Describe 'Get-MyUser license projection' {
             $script:GraphUserCall++
             if ($script:GraphUserCall -eq 1) {
                 throw 'Get-MgUser_List: The principal does not have required Microsoft Graph permission(s): AuditLog.Read.All. Status: 403 (Forbidden)'
+            }
+
+            [PSCustomObject] @{
+                AccountEnabled              = $true
+                AssignedLicenses            = @([PSCustomObject] @{ SkuId = $script:SkuId })
+                AssignedPlans               = @()
+                DisplayName                 = 'Licensed User'
+                Id                          = 'user-1'
+                LicenseAssignmentStates     = @()
+                Mail                        = 'licensed@contoso.com'
+                Manager                     = $null
+                OnPremisesSyncEnabled       = $null
+                UserPrincipalName           = 'licensed@contoso.com'
+                UserType                    = 'Member'
+            }
+        }
+
+        $result = Get-MyUser -IncludeSignInActivity -WarningAction SilentlyContinue
+
+        $result.HasLicenses | Should -BeTrue
+        $result.SignInActivityRequested | Should -BeTrue
+        $result.SignInActivityAvailable | Should -BeFalse
+        Should -Invoke Get-MgUser -Times 1 -Exactly -ParameterFilter { $Property -contains 'SignInActivity' }
+        Should -Invoke Get-MgUser -Times 1 -Exactly -ParameterFilter { $Property -notcontains 'SignInActivity' }
+    }
+
+    It 'retries without sign-in activity for a generic Graph permission denial' {
+        $script:GraphUserCall = 0
+        Mock Get-MgUser {
+            $script:GraphUserCall++
+            if ($script:GraphUserCall -eq 1) {
+                throw 'Authorization_RequestDenied: Insufficient privileges to complete the operation. Status: 403 (Forbidden)'
             }
 
             [PSCustomObject] @{
