@@ -80,6 +80,8 @@ Describe 'Get-MyTeam' {
         $result.GuestsCount | Should -Be 2
         $result.HasGuests | Should -BeTrue
         $result.OwnerCount | Should -Be 1
+        $result.Owners.Count | Should -Be 1
+        $result.Owners[0].Id | Should -Be 'owner-1'
         $result.OwnerUserPrincipalName | Should -Be 'owner@contoso.com'
         $result.OwnerObjectType | Should -Be '#microsoft.graph.user'
     }
@@ -106,6 +108,52 @@ Describe 'Get-MyTeam' {
         $result.HasGuests | Should -BeNullOrEmpty
     }
 
+    It 'stops when extended team details fail and complete data is required' {
+        Mock Get-MgTeam {
+            if ($All) {
+                [PSCustomObject] @{
+                    Id          = 'team-1'
+                    DisplayName = 'Operations'
+                    Description = 'Operations team'
+                    Visibility  = 'Private'
+                }
+            } else {
+                throw 'details unavailable'
+            }
+        }
+
+        { Get-MyTeam -RequireCompleteData } | Should -Throw '*details unavailable*'
+    }
+
+    It 'does not emit earlier team rows when a later team fails in complete-data mode' {
+        Mock Get-MgTeam {
+            if ($All) {
+                @(
+                    [PSCustomObject] @{ Id = 'team-1'; DisplayName = 'Operations'; Visibility = 'Private' }
+                    [PSCustomObject] @{ Id = 'team-2'; DisplayName = 'Broken'; Visibility = 'Private' }
+                )
+            } elseif ($TeamId -eq 'team-2') {
+                throw 'second team details unavailable'
+            } else {
+                [PSCustomObject] @{
+                    CreatedDateTime = (Get-Date).AddDays(-5)
+                    GuestSettings   = [PSCustomObject] @{}
+                    MemberSettings  = [PSCustomObject] @{}
+                    Summary         = [PSCustomObject] @{ MembersCount = 8; GuestsCount = 0 }
+                }
+            }
+        }
+
+        $script:RowsObserved = 0
+        try {
+            Get-MyTeam -RequireCompleteData | ForEach-Object { $script:RowsObserved++ }
+        } catch {
+            $_.Exception.Message | Should -BeLike '*second team details unavailable*'
+        }
+
+        $script:RowsObserved | Should -Be 0
+    }
+
     It 'keeps the team and reports owner state as unknown when owner retrieval fails' {
         Mock Get-GraphEssentialsGroupOwner { throw 'owners unavailable' }
 
@@ -115,6 +163,12 @@ Describe 'Get-MyTeam' {
         $result.OwnerCount | Should -BeNullOrEmpty
         $result.HasOwners | Should -BeNullOrEmpty
         $result.MembersCount | Should -Be 8
+    }
+
+    It 'stops when owner retrieval fails and complete data is required' {
+        Mock Get-GraphEssentialsGroupOwner { throw 'owners unavailable' }
+
+        { Get-MyTeam -RequireCompleteData } | Should -Throw '*owners unavailable*'
     }
 
     It 'counts non-user group owners returned through the beta owner projection' {
@@ -133,6 +187,7 @@ Describe 'Get-MyTeam' {
         $result.OwnerDisplayName | Should -Be 'Automation owner'
         $result.OwnerId | Should -Be 'service-principal-1'
         $result.OwnerObjectType | Should -Be '#microsoft.graph.servicePrincipal'
+        $result.Owners[0].Id | Should -Be 'service-principal-1'
     }
 
     It 'keeps a team in the unavailable-owner bucket when per-owner retrieval fails' {
@@ -188,6 +243,36 @@ Describe 'Get-MyTeam' {
         $result.Keys | Should -Contain 'owner@contoso.com'
         $result['owner@contoso.com'].Count | Should -Be 1
         $result['owner@contoso.com'][0].Team | Should -Be 'Operations'
+    }
+
+    It 'stops when the team list fails and complete data is required' {
+        Mock Get-MgTeam { throw 'team list unavailable' }
+
+        { Get-MyTeam -RequireCompleteData } | Should -Throw '*team list unavailable*'
+    }
+
+    It 'turns a team-list permission failure into a terminating collection error' {
+        Mock Get-MgTeam { throw [System.UnauthorizedAccessException]::new('Team.ReadBasic.All is missing') }
+
+        try {
+            Get-MyTeam -RequireCompleteData
+            throw 'Expected Get-MyTeam to terminate.'
+        } catch {
+            $_.FullyQualifiedErrorId | Should -BeLike 'GetMyTeamListFailed*'
+            $_.CategoryInfo.Category | Should -Be 'ResourceUnavailable'
+            $_.Exception.Message | Should -BeLike '*Team.ReadBasic.All is missing*'
+        }
+    }
+
+    It 'preserves the compatibility warning when the team list fails by default' {
+        Mock Get-MgTeam { throw 'team list unavailable' }
+
+        $warnings = @()
+        $result = Get-MyTeam -WarningVariable warnings -WarningAction SilentlyContinue
+
+        $result | Should -BeNullOrEmpty
+        @($warnings).Count | Should -Be 1
+        [string] $warnings[0] | Should -BeLike '*team list unavailable*'
     }
 }
 
