@@ -15,6 +15,11 @@ function Get-MyTeam {
     .PARAMETER AsHashtable
     When specified, returns data as a hashtable instead of objects.
 
+    .PARAMETER RequireCompleteData
+    Stops with a terminating error when the team list, extended team details, or owner information
+    cannot be collected. Use this for reports and automation that must not treat incomplete data as
+    an empty or authoritative result.
+
     .EXAMPLE
     Get-MyTeam
     Returns a list of all Teams with their properties.
@@ -35,16 +40,27 @@ function Get-MyTeam {
     [CmdletBinding()]
     param(
         [switch] $PerOwner,
-        [switch] $AsHashtable
+        [switch] $AsHashtable,
+        [switch] $RequireCompleteData
     )
 
     $Today = Get-Date
     $OwnerShip = [ordered] @{}
+    $CompleteResults = $null
+    if ($RequireCompleteData -and -not $PerOwner) {
+        $CompleteResults = [System.Collections.Generic.List[object]]::new()
+    }
 
     try {
         $Teams = Get-MgTeam -All -ErrorAction Stop
     } catch {
-        Write-Warning -Message "Get-MyTeam - Couldn't get list of teams. Error: $($_.Exception.Message)"
+        $Message = "Get-MyTeam - Couldn't get list of teams. Error: $($_.Exception.Message)"
+        if ($RequireCompleteData) {
+            $Exception = [System.InvalidOperationException]::new($Message, $_.Exception)
+            $ErrorRecord = [System.Management.Automation.ErrorRecord]::new($Exception, 'GetMyTeamListFailed', [System.Management.Automation.ErrorCategory]::ResourceUnavailable, $null)
+            $PSCmdlet.ThrowTerminatingError($ErrorRecord)
+        }
+        Write-Warning -Message $Message
         return
     }
 
@@ -53,7 +69,13 @@ function Get-MyTeam {
         try {
             $TeamDetails = Get-MgTeam -TeamId $Team.Id -Property DisplayName, Description, CreatedDateTime, GuestSettings, MemberSettings, Summary -ErrorAction Stop
         } catch {
-            Write-Warning -Message "Get-MyTeam - Couldn't get extended details for team $($Team.DisplayName) / $($Team.Id): $($_.Exception.Message)"
+            $Message = "Get-MyTeam - Couldn't get extended details for team $($Team.DisplayName) / $($Team.Id): $($_.Exception.Message)"
+            if ($RequireCompleteData) {
+                $Exception = [System.InvalidOperationException]::new($Message, $_.Exception)
+                $ErrorRecord = [System.Management.Automation.ErrorRecord]::new($Exception, 'GetMyTeamDetailsFailed', [System.Management.Automation.ErrorCategory]::ResourceUnavailable, $Team.Id)
+                $PSCmdlet.ThrowTerminatingError($ErrorRecord)
+            }
+            Write-Warning -Message $Message
         }
 
         $Owners = @()
@@ -62,7 +84,13 @@ function Get-MyTeam {
             $Owners = @(Get-GraphEssentialsGroupOwner -GroupId $Team.Id -ErrorAction Stop)
             $OwnersRetrieved = $true
         } catch {
-            Write-Warning -Message "Get-MyTeam - Couldn't get owners for team $($Team.DisplayName) / $($Team.Id): $($_.Exception.Message)"
+            $Message = "Get-MyTeam - Couldn't get owners for team $($Team.DisplayName) / $($Team.Id): $($_.Exception.Message)"
+            if ($RequireCompleteData) {
+                $Exception = [System.InvalidOperationException]::new($Message, $_.Exception)
+                $ErrorRecord = [System.Management.Automation.ErrorRecord]::new($Exception, 'GetMyTeamOwnersFailed', [System.Management.Automation.ErrorCategory]::ResourceUnavailable, $Team.Id)
+                $PSCmdlet.ThrowTerminatingError($ErrorRecord)
+            }
+            Write-Warning -Message $Message
         }
 
         if ($TeamDetails.CreatedDateTime) {
@@ -123,6 +151,7 @@ function Get-MyTeam {
             GuestsCount                       = $TeamDetails.Summary.GuestsCount
             HasGuests                         = $HasGuests
             Description                       = $Team.Description
+            Owners                            = $Owners
             OwnerDisplayName                  = $Owners.DisplayName
             OwnerMail                         = $Owners.Mail
             OwnerUserPrincipalName            = $Owners.UserPrincipalName
@@ -174,15 +203,22 @@ function Get-MyTeam {
                 }
             }
         } else {
-            if ($AsHashtable) {
+            $Result = if ($AsHashtable) {
                 $TeamInformation
             } else {
                 [PSCustomObject] $TeamInformation
+            }
+            if ($RequireCompleteData) {
+                $CompleteResults.Add($Result)
+            } else {
+                $Result
             }
         }
     }
 
     if ($PerOwner) {
         $OwnerShip
+    } elseif ($RequireCompleteData) {
+        $CompleteResults
     }
 }

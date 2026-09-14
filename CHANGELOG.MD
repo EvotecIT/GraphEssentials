@@ -1,4 +1,9 @@
-﻿### 0.0.58
+﻿### 0.0.61
+
+- Add fail-closed Teams collection for reports that require complete data.
+- Page Microsoft 365 group owners and preserve user, service-principal, ownerless, and unavailable-owner states.
+
+### 0.0.58
 
 - Added `Remove-MyAutopilotDevice` for explicit Windows Autopilot device identity removal.
 
