@@ -1,4 +1,5 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsPagedInventory.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsObjectProperty.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Test-GraphEssentialsAutopilotSerialNumber.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsAutopilotLookup.ps1')
@@ -8,12 +9,14 @@ BeforeAll {
     function Get-MgDeviceManagementManagedDevice { param([switch] $All, $Property, $ManagedDeviceId, $ErrorAction) }
     function Get-MgDeviceManagementWindowsAutopilotDeviceIdentity { param([switch] $All, $Property, $ErrorAction) }
     function Get-MgDevice { param([switch] $All, $Property, $ErrorAction) }
+    function Invoke-MgGraphRequest { param($Method, $Uri, $OutputType, $ErrorAction) }
 }
 
 Describe 'Get-MyDeviceIntune' {
     BeforeEach {
         $script:Devices = $null
         $script:DevicesDate = $null
+        $script:DevicesScope = $null
 
         Mock Get-MgDeviceManagementManagedDevice {
             @(
@@ -143,10 +146,26 @@ Describe 'Get-MyDeviceIntune' {
             )
         }
 
-        $devices = @(Get-MyDeviceIntune -Synchronized -Force)
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*/managedDevices*') {
+                return [PSCustomObject] @{ value = @(
+                    [PSCustomObject] @{ deviceName = 'Unsynchronized'; id = 'managed-unsynchronized'; azureADDeviceId = 'device-unsynchronized'; lastSyncDateTime = (Get-Date).AddDays(-20) }
+                    [PSCustomObject] @{ deviceName = 'Synchronized'; id = 'managed-synchronized'; azureADDeviceId = 'device-synchronized'; lastSyncDateTime = (Get-Date).AddDays(-10) }
+                ) }
+            }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-synchronized'; id = 'entra-synchronized'
+                trustType = 'ServerAD'; onPremisesSyncEnabled = $true
+            }) }
+        }
+
+        $devices = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer -Force)
 
         $devices | Should -HaveCount 1
         $devices[0].ManagedDeviceId | Should -Be 'managed-synchronized'
+        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
+            $Uri -like '*onPremisesSyncEnabled%20eq%20true*'
+        }
     }
 
     It 'continues Intune enumeration when the default Entra lookup fails' {
@@ -159,6 +178,24 @@ Describe 'Get-MyDeviceIntune' {
         $devices.Count | Should -Be 1
         $devices[0].ManagedDeviceId | Should -Be 'managed-1'
         $devices[0].EntraDeviceObjectId | Should -Be $null
+    }
+
+    It 'does not reuse a synchronized-only Entra cache for an unfiltered Intune inventory' {
+        $script:Devices = @([PSCustomObject] @{
+            DeviceId = 'synced-only'; Id = 'entra-synced'
+            OnPremisesSyncEnabled = $true; TrustType = 'ServerAD'
+        })
+        $script:DevicesDate = Get-Date
+        $script:DevicesScope = 'Synchronized'
+        Mock Get-MgDevice {
+            @([PSCustomObject] @{ DeviceId = 'device-1'; Id = 'entra-1' })
+        }
+
+        $devices = @(Get-MyDeviceIntune)
+
+        $devices | Should -HaveCount 1
+        $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
+        Should -Invoke Get-MgDevice -Times 1 -Exactly
     }
 
     It 'does not infer Entra trust from Intune registration state' {
@@ -257,31 +294,56 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].AutopilotDeviceId | Should -Be $null
     }
 
-    It 'uses the compact lifecycle projection when explicitly requested' {
+    It 'uses the SDK lifecycle projection when explicitly requested' {
         $script:CapturedManagedDeviceProperties = $null
         Mock Get-MgDeviceManagementManagedDevice {
             param($Property)
-            $script:CapturedManagedDeviceProperties = @($Property)
-            @(
-                [PSCustomObject] @{
-                    DeviceName       = 'iPhone-01'
-                    Id               = 'managed-1'
-                    AzureAdDeviceId  = 'device-1'
-                    LastSyncDateTime = (Get-Date).AddDays(-10)
-                    OperatingSystem  = 'iOS'
-                    OSVersion        = '17.0'
-                }
-            )
+            $script:CapturedManagedDeviceProperties = @($Property) -join ','
+            [PSCustomObject] @{
+                DeviceName = 'iPhone-01'; Id = 'managed-1'; AzureAdDeviceId = 'device-1'
+                LastSyncDateTime = [DateTimeOffset]::UtcNow.AddDays(-10)
+            }
         }
+        Mock Invoke-MgGraphRequest { throw 'REST must not be used for Lifecycle' }
 
         $devices = @(Get-MyDeviceIntune -PropertySet Lifecycle -Force)
 
         $devices | Should -HaveCount 1
-        $script:CapturedManagedDeviceProperties | Should -Contain 'azureADDeviceId'
-        $script:CapturedManagedDeviceProperties | Should -Contain 'deviceRegistrationState'
-        $script:CapturedManagedDeviceProperties | Should -Contain 'serialNumber'
-        $script:CapturedManagedDeviceProperties | Should -Not -Contain 'deviceActionResults'
-        $script:CapturedManagedDeviceProperties | Should -Not -Contain 'remoteAssistanceSessionUrl'
+        $script:CapturedManagedDeviceProperties | Should -Match 'azureADDeviceId'
+        $script:CapturedManagedDeviceProperties | Should -Match 'deviceRegistrationState'
+        $script:CapturedManagedDeviceProperties | Should -Match 'serialNumber'
+        $script:CapturedManagedDeviceProperties | Should -Not -Match 'deviceActionResults'
+        $script:CapturedManagedDeviceProperties | Should -Not -Match 'remoteAssistanceSessionUrl'
+        $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
+    }
+
+    It 'returns only computer correlation fields for a large synchronized inventory' {
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*/managedDevices*') {
+                return [PSCustomObject] @{ value = @([PSCustomObject] @{
+                    azureADDeviceId = 'device-1'; deviceName = 'DEVICE-01'
+                    emailAddress = 'owner@example.com'; id = 'managed-1'
+                    lastSyncDateTime = '2026-09-01T10:00:00Z'
+                    userDisplayName = 'Owner One'; userPrincipalName = 'owner@example.com'
+                }) }
+            }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-1'; id = 'entra-1'
+                trustType = 'ServerAD'; onPremisesSyncEnabled = $true
+            }) }
+        }
+
+        $devices = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
+        $devices[0].UserPrincipalName | Should -Be 'owner@example.com'
+        $devices[0].LastSeenDays | Should -BeGreaterThan 0
+        $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
+        $devices[0].PSObject.Properties.Name | Should -Not -Contain 'RemoteAssistanceSessionUrl'
+        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
+            $Uri -like '*/managedDevices*' -and $Uri -like '*$select=azureADDeviceId,deviceName,emailAddress,id,lastSyncDateTime,userDisplayName,userPrincipalName*'
+        }
     }
 
     It 'preserves the existing unprojected managed-device query by default' {

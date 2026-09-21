@@ -27,6 +27,7 @@
     .PARAMETER PropertySet
     Selects the managed-device property projection. Full preserves the existing rich output.
     Lifecycle requests only the fields needed for inventory correlation and lifecycle actions.
+    Computer returns only the dates, user fields, and identifiers needed for computer inventory correlation.
 
     .EXAMPLE
     Get-MyDeviceIntune
@@ -53,9 +54,12 @@
         [switch] $Force,
         [switch] $IncludeDetailedInventory,
         [switch] $IncludeAutopilotInventory,
-        [ValidateSet('Full', 'Lifecycle')]
+        [ValidateSet('Full', 'Lifecycle', 'Computer')]
         [string] $PropertySet = 'Full'
     )
+    if ($PropertySet -eq 'Computer' -and ($IncludeDetailedInventory -or $IncludeAutopilotInventory)) {
+        throw 'Computer property set does not include detailed or Autopilot information.'
+    }
     $CachedAzure = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $Today = Get-Date
     $LifecycleProperties = @(
@@ -64,17 +68,34 @@
         'managedDeviceOwnerType', 'managementAgent', 'operatingSystem', 'osVersion', 'serialNumber',
         'userDisplayName', 'userPrincipalName'
     )
+    $ComputerProperties = @(
+        'azureADDeviceId', 'deviceName', 'emailAddress', 'id', 'lastSyncDateTime',
+        'userDisplayName', 'userPrincipalName'
+    )
     $AutopilotLookup = $null
     if ($IncludeAutopilotInventory) {
         $AutopilotLookup = Get-GraphEssentialsAutopilotLookup
     }
 
+    $cacheIsCurrent = $Script:Devices -and -not $Force -and
+        $Script:DevicesDate -ge (Get-Date).AddMinutes(-$CacheMinutes)
+    $cacheCoversQuery = $Script:DevicesScope -ne 'Synchronized' -or $Synchronized
+
     # Always build a deviceId -> Entra object id lookup so lifecycle actions can
     # resolve Microsoft Entra targets directly from Get-MyDeviceIntune output.
     if ($Type -or $Synchronized) {
         try {
-            if (-not $Script:Devices -or $Force -or $Script:DevicesDate -lt (Get-Date).AddMinutes(-$CacheMinutes)) {
-                Get-MgDevice -All -Property 'deviceId,id,onPremisesSyncEnabled,trustType' -ErrorAction Stop | ForEach-Object {
+            if (-not $cacheIsCurrent -or -not $cacheCoversQuery) {
+                if ($PropertySet -eq 'Computer') {
+                    $entraQuery = '/v1.0/devices?$select=deviceId,id,onPremisesSyncEnabled,trustType&$top=200'
+                    if ($Synchronized) {
+                        $entraQuery += '&$filter=onPremisesSyncEnabled%20eq%20true'
+                    }
+                    $entraInventory = { Get-GraphEssentialsPagedInventory -Uri $entraQuery }
+                } else {
+                    $entraInventory = { Get-MgDevice -All -Property 'deviceId,id,onPremisesSyncEnabled,trustType' -ErrorAction Stop }
+                }
+                & $entraInventory | ForEach-Object {
                     if ($_.DeviceId) {
                         $CachedAzure[$_.DeviceId] = $_
                     }
@@ -90,7 +111,7 @@
             Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure devices. Error: $($_.Exception.Message)"
             return
         }
-    } elseif ($Script:Devices -and -not $Force -and $Script:DevicesDate -ge (Get-Date).AddMinutes(-$CacheMinutes)) {
+    } elseif ($cacheIsCurrent -and $cacheCoversQuery) {
         foreach ($DeviceA in $Script:Devices) {
             if ($DeviceA.DeviceId) {
                 $CachedAzure[$DeviceA.DeviceId] = $DeviceA
@@ -98,7 +119,12 @@
         }
     } else {
         try {
-            Get-MgDevice -All -Property 'deviceId,id' -ErrorAction Stop | ForEach-Object {
+            if ($PropertySet -eq 'Computer') {
+                $entraInventory = { Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?$select=deviceId,id&$top=200' }
+            } else {
+                $entraInventory = { Get-MgDevice -All -Property 'deviceId,id' -ErrorAction Stop }
+            }
+            & $entraInventory | ForEach-Object {
                 if ($_.DeviceId) {
                     $CachedAzure[$_.DeviceId] = $_
                 }
@@ -121,13 +147,20 @@
             All         = $true
             ErrorAction = 'Stop'
         }
-        if ($PropertySet -eq 'Lifecycle') {
+        if ($PropertySet -ne 'Full') {
             $ManagedDeviceParameters.Property = $LifecycleProperties
         }
-        Get-MgDeviceManagementManagedDevice @ManagedDeviceParameters | ForEach-Object {
+        $getManagedDevices = if ($PropertySet -eq 'Computer') {
+            $managedQuery = '/v1.0/deviceManagement/managedDevices?$top=200&$select=' + ($ComputerProperties -join ',')
+            { Get-GraphEssentialsPagedInventory -Uri $managedQuery }
+        } else {
+            { Get-MgDeviceManagementManagedDevice @ManagedDeviceParameters }
+        }
+        & $getManagedDevices | ForEach-Object {
             $DeviceI = $_
             if ($DeviceI.LastSyncDateTime) {
-                $LastSynchronizedDays = [math]::Floor((New-TimeSpan -Start $DeviceI.LastSyncDateTime -End $Today).TotalDays)
+                $lastSyncStart = if ($DeviceI.LastSyncDateTime -is [DateTimeOffset]) { $DeviceI.LastSyncDateTime.UtcDateTime } else { $DeviceI.LastSyncDateTime }
+                $LastSynchronizedDays = [math]::Floor((New-TimeSpan -Start $lastSyncStart -End $Today).TotalDays)
             } else {
                 $LastSynchronizedDays = $null
             }
@@ -157,6 +190,25 @@
                 if (-not $SynchronizedDevice) {
                     return
                 }
+            }
+
+            if ($PropertySet -eq 'Computer') {
+                $lastSeen = if ($DeviceI.LastSyncDateTime) { [DateTimeOffset] $DeviceI.LastSyncDateTime } else { $null }
+                $NormalizedDevices.Add([PSCustomObject] @{
+                    Name                = $DeviceI.DeviceName
+                    Id                  = $DeviceI.Id
+                    ManagedDeviceId     = $DeviceI.Id
+                    EntraDeviceObjectId = if ($DeviceA) { $DeviceA.Id } else { $null }
+                    AzureAdDeviceId     = $DeviceI.AzureAdDeviceId
+                    TrustType           = $TrustType
+                    IsSynchronized      = [bool] $SynchronizedDevice
+                    LastSeen            = $lastSeen
+                    LastSeenDays        = $LastSynchronizedDays
+                    UserDisplayName     = $DeviceI.UserDisplayName
+                    UserPrincipalName   = $DeviceI.UserPrincipalName
+                    EmailAddress        = $DeviceI.EmailAddress
+                })
+                return
             }
 
             $AutopilotDevice = Find-GraphEssentialsAutopilotDevice -Lookup $AutopilotLookup -ManagedDeviceId $DeviceI.Id -AzureAdDeviceId $DeviceI.AzureAdDeviceId -SerialNumber $DeviceI.SerialNumber
