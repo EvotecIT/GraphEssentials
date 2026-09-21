@@ -131,12 +131,25 @@
             $OwnerDisplayName = [System.Collections.Generic.List[string]]::new()
             $OwnerEnabled = [System.Collections.Generic.List[string]]::new()
             $OwnerUserPrincipalName = [System.Collections.Generic.List[string]]::new()
+            $OwnerCount = 0
+            if ($PropertySet -eq 'Computer' -and
+                (($null -eq $Device.PSObject.Properties['registeredOwners'] -and
+                    -not ($Device -is [System.Collections.IDictionary] -and $Device.Contains('registeredOwners'))) -or
+                    $null -eq $Device.RegisteredOwners)) {
+                throw "Graph omitted registeredOwners for device '$($Device.Id)'."
+            }
             foreach ($Owner in $Device.RegisteredOwners) {
+                if ($null -eq $Owner) {
+                    continue
+                }
+                $OwnerCount++
                 $ownerProperties = if ($Owner.AdditionalProperties) { $Owner.AdditionalProperties } else { $Owner }
-                if ($PropertySet -eq 'Computer' -and
-                    $null -eq $ownerProperties.PSObject.Properties['accountEnabled'] -and
-                    -not ($ownerProperties -is [System.Collections.IDictionary] -and $ownerProperties.Contains('accountEnabled'))) {
-                    throw "Graph omitted accountEnabled for a registered owner of device '$($Device.Id)'."
+                if ($PropertySet -eq 'Computer') {
+                    $hasOwnerStatus = $null -ne $ownerProperties.PSObject.Properties['accountEnabled'] -or
+                        ($ownerProperties -is [System.Collections.IDictionary] -and $ownerProperties.Contains('accountEnabled'))
+                    if (-not $hasOwnerStatus -or $ownerProperties.accountEnabled -isnot [bool]) {
+                        throw "Graph omitted a Boolean accountEnabled for a registered owner of device '$($Device.Id)'."
+                    }
                 }
                 if ($ownerProperties.displayName) {
                     $OwnerDisplayName.Add($ownerProperties.displayName)
@@ -187,7 +200,7 @@
                     LastSeen                   = $Device.ApproximateLastSignInDateTime
                     LastSeenDays               = $LastSeenDays
                     Status                     = $Device.DeviceOwnership
-                    OwnerCount                 = @($Device.RegisteredOwners | Where-Object { $null -ne $_ }).Count
+                    OwnerCount                 = $OwnerCount
                     OwnerDisplayName           = $OwnerDisplayName
                     OwnerEnabled               = $OwnerEnabled
                     OwnerUserPrincipalName     = $OwnerUserPrincipalName

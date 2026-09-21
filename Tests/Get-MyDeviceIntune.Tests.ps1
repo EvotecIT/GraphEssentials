@@ -180,6 +180,22 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].EntraDeviceObjectId | Should -Be $null
     }
 
+    It 'rejects computer inventory when an unfiltered Entra lookup fails' {
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*/devices?*') {
+                throw 'Entra page two failed'
+            }
+            throw 'Managed inventory should not run'
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDeviceIntune -PropertySet Computer -Force -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'Computer inventory is incomplete'
+        Should -Invoke Invoke-MgGraphRequest -Times 0 -Exactly -ParameterFilter { $Uri -like '*/managedDevices*' }
+    }
+
     It 'does not reuse a synchronized-only Entra cache for an unfiltered Intune inventory' {
         $script:Devices = @([PSCustomObject] @{
             DeviceId = 'synced-only'; Id = 'entra-synced'
@@ -343,6 +359,30 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].PSObject.Properties.Name | Should -Not -Contain 'RemoteAssistanceSessionUrl'
         Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
             $Uri -like '*/managedDevices*' -and $Uri -like '*$select=azureADDeviceId,deviceName,emailAddress,id,lastSyncDateTime,userDisplayName,userPrincipalName*'
+        }
+    }
+
+    It 'retains trust and sync metadata for an unfiltered computer inventory' {
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*/managedDevices*') {
+                return [PSCustomObject] @{ value = @([PSCustomObject] @{
+                    azureADDeviceId = 'device-1'; deviceName = 'DEVICE-01'
+                    id = 'managed-1'; lastSyncDateTime = '2026-09-01T10:00:00Z'
+                }) }
+            }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-1'; id = 'entra-1'
+                trustType = 'ServerAD'; onPremisesSyncEnabled = $true
+            }) }
+        }
+
+        $devices = @(Get-MyDeviceIntune -PropertySet Computer -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].TrustType | Should -Be 'Hybrid AzureAD'
+        $devices[0].IsSynchronized | Should -BeTrue
+        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
+            $Uri -like '*/devices?*' -and $Uri -like '*$select=deviceId,id,onPremisesSyncEnabled,trustType*'
         }
     }
 

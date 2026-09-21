@@ -47,6 +47,38 @@ Describe 'Get-GraphEssentialsPagedInventory' {
         Should -Invoke Start-Sleep -Times 0 -Exactly
     }
 
+    It 'retries a wrapped transport failure at the same page' {
+        $script:requests = 0
+        Mock Invoke-MgGraphRequest {
+            $script:requests++
+            if ($script:requests -eq 1) {
+                throw [System.Exception]::new('An error occurred while sending the request',
+                    [System.IO.IOException]::new('The response ended prematurely'))
+            }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{ id = 'device-1' }) }
+        }
+        Mock Start-Sleep {}
+
+        $items = @(Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices')
+
+        $items | Should -HaveCount 1
+        Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly
+        Should -Invoke Start-Sleep -Times 1 -Exactly
+    }
+
+    It 'does not retry an HTTP authorization error with a nested transport exception' {
+        Mock Invoke-MgGraphRequest {
+            $exception = [System.Exception]::new('Forbidden', [System.IO.IOException]::new('Connection closed'))
+            $exception | Add-Member -NotePropertyName Response -NotePropertyValue ([PSCustomObject] @{ StatusCode = 403 })
+            throw $exception
+        }
+        Mock Start-Sleep {}
+
+        { Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices' } | Should -Throw '*failed after 1 attempt*'
+        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly
+        Should -Invoke Start-Sleep -Times 0 -Exactly
+    }
+
     It 'stops when Graph repeats a next page URL' {
         Mock Invoke-MgGraphRequest {
             [PSCustomObject] @{

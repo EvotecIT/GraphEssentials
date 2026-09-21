@@ -120,7 +120,7 @@
     } else {
         try {
             if ($PropertySet -eq 'Computer') {
-                $entraInventory = { Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?$select=deviceId,id&$top=200' }
+                $entraInventory = { Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?$select=deviceId,id,onPremisesSyncEnabled,trustType&$top=200' }
             } else {
                 $entraInventory = { Get-MgDevice -All -Property 'deviceId,id' -ErrorAction Stop }
             }
@@ -130,6 +130,10 @@
                 }
             }
         } catch {
+            if ($PropertySet -eq 'Computer') {
+                Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure device identifiers. Computer inventory is incomplete. Error: $($_.Exception.Message)"
+                return
+            }
             Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure device identifiers. Continuing without Entra device object IDs. Error: $($_.Exception.Message)"
             $CachedAzure.Clear()
         }

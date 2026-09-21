@@ -28,6 +28,7 @@ Describe 'Get-MyDevice' {
                     OnPremisesSyncEnabled         = $false
                     OperatingSystem               = 'Windows'
                     RegisteredOwners              = @(
+                        $null
                         [PSCustomObject] @{
                             AdditionalProperties = @{
                                 accountEnabled    = $true
@@ -48,6 +49,7 @@ Describe 'Get-MyDevice' {
         $devices | Should -HaveCount 1
         $devices[0].Name | Should -Be 'DEVICE-01'
         $devices[0].OwnerUserPrincipalName | Should -Be @('user.one@contoso.com')
+        $devices[0].OwnerCount | Should -Be 1
         @($script:Devices) | Should -HaveCount 1
         $script:Devices[0].PSObject.Properties.Name | Should -Be @(
             'DeviceId'
@@ -215,7 +217,59 @@ Describe 'Get-MyDevice' {
         $devices = @(Get-MyDevice -PropertySet Computer -WarningAction SilentlyContinue -WarningVariable warning)
 
         $devices | Should -HaveCount 0
-        [string] $warning | Should -Match 'omitted accountEnabled'
+        [string] $warning | Should -Match 'omitted a Boolean accountEnabled'
+        $script:Devices | Should -BeNullOrEmpty
+    }
+
+    It 'rejects a computer inventory if Graph omits the expanded owner relationship' {
+        Mock Invoke-MgGraphRequest {
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-1'; id = 'object-1'; displayName = 'DEVICE-01'
+                onPremisesSyncEnabled = $true; trustType = 'ServerAD'
+            }) }
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDevice -PropertySet Computer -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'omitted registeredOwners'
+        $script:Devices | Should -BeNullOrEmpty
+    }
+
+    It 'rejects a computer inventory if Graph returns a null owner relationship' {
+        Mock Invoke-MgGraphRequest {
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-1'; id = 'object-1'; displayName = 'DEVICE-01'
+                onPremisesSyncEnabled = $true; trustType = 'ServerAD'
+                registeredOwners = $null
+            }) }
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDevice -PropertySet Computer -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'omitted registeredOwners'
+        $script:Devices | Should -BeNullOrEmpty
+    }
+
+    It 'rejects a computer inventory if a returned owner has null account status' {
+        Mock Invoke-MgGraphRequest {
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-1'; id = 'object-1'; displayName = 'DEVICE-01'
+                onPremisesSyncEnabled = $true; trustType = 'ServerAD'
+                registeredOwners = @([PSCustomObject] @{
+                    displayName = 'Owner One'; accountEnabled = $null
+                })
+            }) }
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDevice -PropertySet Computer -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'omitted a Boolean accountEnabled'
         $script:Devices | Should -BeNullOrEmpty
     }
 

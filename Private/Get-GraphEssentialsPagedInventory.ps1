@@ -34,20 +34,42 @@ function Get-GraphEssentialsPagedInventory {
             } catch {
                 $errorRecord = $_
                 $statusCode = $null
-                if ($errorRecord.Exception.Response -and $errorRecord.Exception.Response.StatusCode) {
-                    $statusCode = [int] $errorRecord.Exception.Response.StatusCode
+                $httpResponse = $null
+                $transportFailure = $false
+                $exceptionMessages = [System.Collections.Generic.List[string]]::new()
+                $exception = $errorRecord.Exception
+                while ($exception) {
+                    if ($exception.Message) {
+                        $exceptionMessages.Add($exception.Message)
+                    }
+                    if (-not $httpResponse -and $exception.Response) {
+                        $httpResponse = $exception.Response
+                    }
+                    if ($exception.GetType().FullName -in @(
+                        'System.Net.Http.HttpRequestException', 'System.IO.IOException',
+                        'System.Net.Sockets.SocketException', 'System.Threading.Tasks.TaskCanceledException'
+                    )) {
+                        $transportFailure = $true
+                    }
+                    $exception = $exception.InnerException
                 }
-                $message = [string] $errorRecord.Exception.Message
-                $transient = $statusCode -in @(408, 429, 500, 502, 503, 504) -or
-                    $message -match '(?i)timed?\s*out|timeout|cancell?ed.*300 seconds|connection.*(closed|reset)|transport stream'
+                if ($httpResponse -and $httpResponse.StatusCode) {
+                    $statusCode = [int] $httpResponse.StatusCode
+                }
+                $message = $exceptionMessages -join ' --> '
+                $transient = if ($null -ne $statusCode) {
+                    $statusCode -in @(408, 429, 500, 502, 503, 504)
+                } else {
+                    $transportFailure -or $message -match '(?i)timed?\s*out|timeout|cancell?ed.*300 seconds|connection.*(closed|reset)|transport stream|premature EOF'
+                }
 
                 if (-not $transient -or $attempt -ge $MaxPageAttempts) {
                     throw "Graph inventory page $pageNumber failed after $attempt attempt(s): $message"
                 }
 
                 $delaySeconds = [Math]::Min(30, [int] [Math]::Pow(2, $attempt - 1))
-                if ($statusCode -eq 429 -and $errorRecord.Exception.Response.Headers) {
-                    $headers = $errorRecord.Exception.Response.Headers
+                if ($statusCode -eq 429 -and $httpResponse.Headers) {
+                    $headers = $httpResponse.Headers
                     $retryAfter = $null
                     if ($headers.GetType().FullName -eq 'System.Net.Http.Headers.HttpResponseHeaders') {
                         if ($headers.RetryAfter) {
