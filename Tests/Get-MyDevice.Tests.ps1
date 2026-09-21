@@ -1,5 +1,6 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsPagedInventory.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Resolve-MyDeviceActionTarget.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyDevice.ps1')
 
     function Get-MgDevice {
@@ -130,9 +131,13 @@ Describe 'Get-MyDevice' {
         $devices | Should -HaveCount 2
         $devices[0].OwnerDisplayName | Should -Be @('Owner One')
         $devices[0].OwnerUserPrincipalName | Should -Be @('owner@example.com')
+        $devices[0].OwnerEnabled | Should -Be @('True')
+        $devices[0].EntraDeviceObjectId | Should -Be 'object-1'
+        (Resolve-MyDeviceActionTarget -InputObject $devices[0] -TargetType Entra).EntraDeviceObjectId |
+            Should -Be 'object-1'
         $devices[1].OwnerDisplayName.Count | Should -Be 0
         $script:requestedUris[0] | Should -Match 'onPremisesSyncEnabled%20eq%20true'
-        $script:requestedUris[0] | Should -Match '\$expand=registeredOwners'
+        $script:requestedUris[0] | Should -Match '\$expand=registeredOwners\(\$select=id,displayName,userPrincipalName,accountEnabled\)'
         $script:requestedUris[1] | Should -Be 'https://graph.microsoft.com/v1.0/devices?$skiptoken=page2'
         @($script:Devices) | Should -HaveCount 2
         $script:DevicesScope | Should -Be 'Synchronized'
@@ -182,6 +187,7 @@ Describe 'Get-MyDevice' {
 
         $devices | Should -HaveCount 1
         $devices[0].Name | Should -Be 'DEVICE-01'
+        $devices[0].EntraDeviceObjectId | Should -Be 'object-1'
         $devices[0].OwnerUserPrincipalName | Should -Be @('owner@example.com')
         $devices[0].LastSeenDays | Should -BeGreaterThan 0
         $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
@@ -190,8 +196,27 @@ Describe 'Get-MyDevice' {
         $devices[0].PSObject.Properties.Name | Should -Not -Contain 'AutopilotSerialNumber'
         Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
             $Uri -like '*$select=approximateLastSignInDateTime,deviceId,displayName,id,onPremisesLastSyncDateTime,onPremisesSyncEnabled,trustType*' -and
-            $Uri -like '*$expand=registeredOwners*'
+            $Uri -like '*$expand=registeredOwners($select=id,displayName,userPrincipalName,accountEnabled)*'
         }
+    }
+
+    It 'rejects a computer inventory if Graph omits owner account status' {
+        Mock Invoke-MgGraphRequest {
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-1'; id = 'object-1'; displayName = 'DEVICE-01'
+                onPremisesSyncEnabled = $true; trustType = 'ServerAD'
+                registeredOwners = @([PSCustomObject] @{
+                    displayName = 'Owner One'; userPrincipalName = 'owner@example.com'
+                })
+            }) }
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDevice -PropertySet Computer -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'omitted accountEnabled'
+        $script:Devices | Should -BeNullOrEmpty
     }
 
     It 'preserves SDK output types for existing synchronized full requests' {

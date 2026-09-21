@@ -49,7 +49,15 @@ function Get-GraphEssentialsPagedInventory {
                 if ($statusCode -eq 429 -and $errorRecord.Exception.Response.Headers) {
                     $headers = $errorRecord.Exception.Response.Headers
                     $retryAfter = $null
-                    try { $retryAfter = @($headers['Retry-After'])[0] } catch { }
+                    if ($headers.GetType().FullName -eq 'System.Net.Http.Headers.HttpResponseHeaders') {
+                        if ($headers.RetryAfter) {
+                            $retryAfter = [string] $headers.RetryAfter
+                        }
+                    } elseif ($headers -is [System.Collections.IDictionary]) {
+                        $retryAfter = @($headers['Retry-After'])[0]
+                    } else {
+                        $retryAfter = $headers.'Retry-After'
+                    }
                     $retryAfterSeconds = 0
                     if ($retryAfter -and [int]::TryParse([string] $retryAfter, [ref] $retryAfterSeconds)) {
                         $delaySeconds = [Math]::Max(1, $retryAfterSeconds)

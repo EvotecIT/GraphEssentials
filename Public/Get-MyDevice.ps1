@@ -81,7 +81,7 @@
             if ($Synchronized) {
                 $query += '&$filter=onPremisesSyncEnabled%20eq%20true'
             }
-            $query += '&$expand=registeredOwners'
+            $query += '&$expand=registeredOwners($select=id,displayName,userPrincipalName,accountEnabled)'
             { Get-GraphEssentialsPagedInventory -Uri $query }
         } elseif ($PropertySet -eq 'Lifecycle') {
             { Get-MgDevice -All -Property $FullProperties -ErrorAction Stop }
@@ -133,6 +133,11 @@
             $OwnerUserPrincipalName = [System.Collections.Generic.List[string]]::new()
             foreach ($Owner in $Device.RegisteredOwners) {
                 $ownerProperties = if ($Owner.AdditionalProperties) { $Owner.AdditionalProperties } else { $Owner }
+                if ($PropertySet -eq 'Computer' -and
+                    $null -eq $ownerProperties.PSObject.Properties['accountEnabled'] -and
+                    -not ($ownerProperties -is [System.Collections.IDictionary] -and $ownerProperties.Contains('accountEnabled'))) {
+                    throw "Graph omitted accountEnabled for a registered owner of device '$($Device.Id)'."
+                }
                 if ($ownerProperties.displayName) {
                     $OwnerDisplayName.Add($ownerProperties.displayName)
                 }
@@ -150,6 +155,7 @@
                 $NormalizedDevices.Add([PSCustomObject] @{
                     Name                   = $Device.DisplayName
                     Id                     = $Device.Id
+                    EntraDeviceObjectId    = $Device.Id
                     DeviceId               = $Device.DeviceId
                     TrustType              = $TrustType
                     IsSynchronized         = [bool] $Device.OnPremisesSyncEnabled

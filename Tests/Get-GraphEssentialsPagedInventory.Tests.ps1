@@ -1,4 +1,5 @@
 BeforeAll {
+    Add-Type -AssemblyName System.Net.Http
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsPagedInventory.ps1')
     function Invoke-MgGraphRequest { param($Method, $Uri, $OutputType, $ErrorAction) }
 }
@@ -80,6 +81,32 @@ Describe 'Get-GraphEssentialsPagedInventory' {
 
         $items | Should -HaveCount 1
         $script:delays | Should -Be @(7)
+        Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly
+    }
+
+    It 'honors Retry-After from a real HttpResponseHeaders object' {
+        $script:requests = 0
+        $script:delays = [System.Collections.Generic.List[int]]::new()
+        Mock Invoke-MgGraphRequest {
+            $script:requests++
+            if ($script:requests -eq 1) {
+                $response = [System.Net.Http.HttpResponseMessage]::new()
+                $response.Headers.RetryAfter = [System.Net.Http.Headers.RetryConditionHeaderValue]::new([TimeSpan]::FromSeconds(11))
+                $exception = [System.Exception]::new('throttled')
+                $exception | Add-Member -NotePropertyName Response -NotePropertyValue ([PSCustomObject] @{
+                    StatusCode = 429
+                    Headers = $response.Headers
+                })
+                throw $exception
+            }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{ id = 'device-1' }) }
+        }
+        Mock Start-Sleep { $script:delays.Add($Seconds) }
+
+        $items = @(Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices')
+
+        $items | Should -HaveCount 1
+        $script:delays | Should -Be @(11)
         Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly
     }
 }
