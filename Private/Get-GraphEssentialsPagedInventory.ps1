@@ -68,7 +68,7 @@ function Get-GraphEssentialsPagedInventory {
                 }
 
                 $delaySeconds = [Math]::Min(30, [int] [Math]::Pow(2, $attempt - 1))
-                if ($statusCode -eq 429 -and $httpResponse.Headers) {
+                if ($null -ne $statusCode -and $httpResponse.Headers) {
                     $headers = $httpResponse.Headers
                     $retryAfter = $null
                     if ($headers.GetType().FullName -eq 'System.Net.Http.Headers.HttpResponseHeaders') {
@@ -90,7 +90,7 @@ function Get-GraphEssentialsPagedInventory {
                         }
                     }
                     if ($delaySeconds -gt 3600) {
-                        throw "Graph inventory page $pageNumber was throttled for $delaySeconds seconds; this run cannot complete within the retry limit."
+                        throw "Graph inventory page $pageNumber requested a retry after $delaySeconds seconds; this run cannot complete within the retry limit."
                     }
                 }
                 Write-Verbose "Graph inventory page $pageNumber failed ($message). Retrying in $delaySeconds seconds."

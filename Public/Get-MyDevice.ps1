@@ -20,7 +20,8 @@
     Full retains the complete device information. Lifecycle omits registered owners.
     Computer returns only the dates, identifiers, and owner fields needed for computer
     inventory correlation. Computer requests retry individual Graph pages, so a failed
-    page does not restart a large inventory.
+    page does not restart a large inventory. Owner continuations are read when present;
+    a possibly truncated owner expansion makes the inventory fail.
 
     .EXAMPLE
     Get-MyDevice
@@ -138,7 +139,24 @@
                     $null -eq $Device.RegisteredOwners)) {
                 throw "Graph omitted registeredOwners for device '$($Device.Id)'."
             }
-            foreach ($Owner in $Device.RegisteredOwners) {
+            $RegisteredOwners = $Device.RegisteredOwners
+            if ($PropertySet -eq 'Computer') {
+                $ownerNextLink = $Device.'registeredOwners@odata.nextLink'
+                if ($ownerNextLink) {
+                    $RegisteredOwners = [System.Collections.Generic.List[object]]::new()
+                    foreach ($Owner in $Device.RegisteredOwners) {
+                        if ($null -ne $Owner) {
+                            $RegisteredOwners.Add($Owner)
+                        }
+                    }
+                    foreach ($Owner in (Get-GraphEssentialsPagedInventory -Uri $ownerNextLink)) {
+                        $RegisteredOwners.Add($Owner)
+                    }
+                } elseif ($Device.RegisteredOwners.Count -ge 20) {
+                    throw "Graph may have truncated registeredOwners for device '$($Device.Id)'."
+                }
+            }
+            foreach ($Owner in $RegisteredOwners) {
                 if ($null -eq $Owner) {
                     continue
                 }

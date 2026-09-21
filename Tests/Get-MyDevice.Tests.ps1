@@ -273,6 +273,79 @@ Describe 'Get-MyDevice' {
         $script:Devices | Should -BeNullOrEmpty
     }
 
+    It 'follows an expanded owner continuation before accepting computer inventory' {
+        $script:requestedUris = [System.Collections.Generic.List[string]]::new()
+        Mock Invoke-MgGraphRequest {
+            $script:requestedUris.Add($Uri)
+            if ($Uri -like '*/registeredOwners?*') {
+                return [PSCustomObject] @{ value = @([PSCustomObject] @{
+                    id = 'owner-2'; displayName = 'Owner Two'; accountEnabled = $false
+                    userPrincipalName = 'owner.two@example.com'
+                }) }
+            }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-1'; id = 'object-1'; displayName = 'DEVICE-01'
+                onPremisesSyncEnabled = $true; trustType = 'ServerAD'
+                registeredOwners = @([PSCustomObject] @{
+                    id = 'owner-1'; displayName = 'Owner One'; accountEnabled = $true
+                    userPrincipalName = 'owner.one@example.com'
+                })
+                'registeredOwners@odata.nextLink' = 'https://graph.microsoft.com/v1.0/devices/object-1/registeredOwners?$skiptoken=owners2'
+            }) }
+        }
+
+        $devices = @(Get-MyDevice -PropertySet Computer)
+
+        $devices | Should -HaveCount 1
+        $devices[0].OwnerDisplayName | Should -Be @('Owner One', 'Owner Two')
+        $devices[0].OwnerEnabled | Should -Be @('True', 'False')
+        $script:requestedUris | Should -HaveCount 2
+        $script:requestedUris[1] | Should -Be 'https://graph.microsoft.com/v1.0/devices/object-1/registeredOwners?$skiptoken=owners2'
+    }
+
+    It 'rejects a possibly truncated owner expansion without a continuation' {
+        $owners = @(1..20 | ForEach-Object {
+            [PSCustomObject] @{ id = "owner-$_"; accountEnabled = $true }
+        })
+        Mock Invoke-MgGraphRequest {
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-1'; id = 'object-1'; displayName = 'DEVICE-01'
+                onPremisesSyncEnabled = $true; trustType = 'ServerAD'
+                registeredOwners = $owners
+            }) }
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDevice -PropertySet Computer -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'may have truncated registeredOwners'
+        $script:Devices | Should -BeNullOrEmpty
+    }
+
+    It 'does not emit an inventory when an expanded owner continuation fails' {
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*/registeredOwners?*') {
+                throw 'owner continuation failed'
+            }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                deviceId = 'device-1'; id = 'object-1'; displayName = 'DEVICE-01'
+                onPremisesSyncEnabled = $true; trustType = 'ServerAD'
+                registeredOwners = @([PSCustomObject] @{
+                    id = 'owner-1'; accountEnabled = $true
+                })
+                'registeredOwners@odata.nextLink' = 'https://graph.microsoft.com/v1.0/devices/object-1/registeredOwners?$skiptoken=owners2'
+            }) }
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDevice -PropertySet Computer -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'owner continuation failed'
+        $script:Devices | Should -BeNullOrEmpty
+    }
+
     It 'preserves SDK output types for existing synchronized full requests' {
         Mock Get-MgDevice {
             [PSCustomObject] @{
