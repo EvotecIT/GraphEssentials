@@ -233,6 +233,7 @@
                     ManagementType             = $Device.ManagementType
                     EnrollmentType             = $Device.EnrollmentType
                     AutopilotInventoryLoaded   = if ($IncludeAutopilotInventory) { [bool] $AutopilotLookup.InventoryLoaded } else { $false }
+                    AutopilotMatchAmbiguous    = [bool] ($AutopilotDevice -and $AutopilotDevice.MatchAmbiguous)
                     AutopilotOnboarded         = if ($IncludeAutopilotInventory -and $AutopilotLookup.InventoryLoaded) { [bool] $AutopilotDevice } else { $null }
                     AutopilotDeviceId          = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('Id', 'id') } else { $null }
                     AutopilotManagedDeviceId   = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('ManagedDeviceId', 'managedDeviceId') } else { $null }

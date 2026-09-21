@@ -1,6 +1,7 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsPagedInventory.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Resolve-MyDeviceActionTarget.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsObjectProperty.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyDevice.ps1')
 
     function Get-MgDevice {
@@ -41,6 +42,19 @@ Describe 'Get-MyDevice' {
                 }
             )
         }
+    }
+
+    It 'projects an ambiguous Autopilot association without an identity ID' {
+        Mock Get-GraphEssentialsAutopilotLookup { [PSCustomObject] @{ InventoryLoaded = $true } }
+        Mock Find-GraphEssentialsAutopilotDevice { [PSCustomObject] @{ Id = $null; MatchAmbiguous = $true } }
+
+        $devices = @(Get-MyDevice -IncludeAutopilotInventory)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotInventoryLoaded | Should -BeTrue
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotOnboarded | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
     }
 
     It 'retains only compact Entra correlation metadata in the shared cache' {

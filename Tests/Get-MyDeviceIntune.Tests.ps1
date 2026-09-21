@@ -306,7 +306,53 @@ Describe 'Get-MyDeviceIntune' {
 
         $devices.Count | Should -Be 1
         $devices[0].AutopilotInventoryLoaded | Should -BeTrue
-        $devices[0].AutopilotOnboarded | Should -BeFalse
+        $devices[0].AutopilotOnboarded | Should -BeTrue
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'marks duplicate managed-device associations as ambiguous' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-1' }
+                [PSCustomObject] @{ Id = 'autopilot-2'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-2' }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'marks duplicate Entra-device associations as ambiguous' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-other-1'; AzureActiveDirectoryDeviceId = 'device-1' }
+                [PSCustomObject] @{ Id = 'autopilot-2'; ManagedDeviceId = 'managed-other-2'; AzureActiveDirectoryDeviceId = 'device-1' }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'marks conflicting unique association keys as ambiguous' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-other' }
+                [PSCustomObject] @{ Id = 'autopilot-2'; ManagedDeviceId = 'managed-other'; AzureActiveDirectoryDeviceId = 'device-1' }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
         $devices[0].AutopilotDeviceId | Should -Be $null
     }
 
