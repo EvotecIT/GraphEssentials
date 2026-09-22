@@ -51,5 +51,17 @@ function Find-GraphEssentialsAutopilotDevice {
         }
     }
 
-    $matches[0]
+    $selectedMatch = $matches[0]
+    $matchedManagedDeviceId = Get-GraphEssentialsObjectProperty -InputObject $selectedMatch -Name @('ManagedDeviceId', 'managedDeviceId')
+    $matchedAzureAdDeviceId = Get-GraphEssentialsObjectProperty -InputObject $selectedMatch -Name @('AzureAdDeviceId', 'azureAdDeviceId', 'AzureActiveDirectoryDeviceId', 'azureActiveDirectoryDeviceId')
+    $matchedSerialNumber = Get-GraphEssentialsObjectProperty -InputObject $selectedMatch -Name @('SerialNumber', 'serialNumber')
+    if (($ManagedDeviceId -and $matchedManagedDeviceId -and $ManagedDeviceId -ine $matchedManagedDeviceId) -or
+        ($AzureAdDeviceId -and $matchedAzureAdDeviceId -and $AzureAdDeviceId -ine $matchedAzureAdDeviceId) -or
+        ($SerialNumber -and (Test-GraphEssentialsAutopilotSerialNumber -SerialNumber $SerialNumber) -and
+            $matchedSerialNumber -and (Test-GraphEssentialsAutopilotSerialNumber -SerialNumber $matchedSerialNumber) -and
+            $SerialNumber -ine $matchedSerialNumber)) {
+        return $ambiguousMatch
+    }
+
+    $selectedMatch
 }

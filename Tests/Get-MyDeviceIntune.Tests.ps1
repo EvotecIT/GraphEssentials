@@ -378,6 +378,63 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].AutopilotDeviceId | Should -Be $null
     }
 
+    It 'marks a serial-only match with contradictory device IDs as ambiguous' {
+        Mock Get-MgDeviceManagementManagedDevice {
+            [PSCustomObject] @{ DeviceName = 'Windows-01'; Id = 'managed-1'; AzureAdDeviceId = 'device-1'; SerialNumber = 'serial-1'; OperatingSystem = 'Windows' }
+        }
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            [PSCustomObject] @{ Id = 'autopilot-other'; ManagedDeviceId = 'managed-2'; AzureActiveDirectoryDeviceId = 'device-2'; SerialNumber = 'serial-1' }
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'marks a managed-device match with contradictory Entra ID as ambiguous' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            [PSCustomObject] @{ Id = 'autopilot-other'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-2' }
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'ignores a placeholder managed-device serial when IDs identify one Autopilot record' {
+        Mock Get-MgDeviceManagementManagedDevice {
+            [PSCustomObject] @{ DeviceName = 'Windows-01'; Id = 'managed-1'; AzureAdDeviceId = 'device-1'; SerialNumber = 'SystemSerialNumber'; OperatingSystem = 'Windows' }
+        }
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-1'; SerialNumber = 'real-serial' }
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeFalse
+        $devices[0].AutopilotDeviceId | Should -Be 'autopilot-1'
+    }
+
+    It 'ignores a placeholder Autopilot serial when IDs identify one record' {
+        Mock Get-MgDeviceManagementManagedDevice {
+            [PSCustomObject] @{ DeviceName = 'Windows-01'; Id = 'managed-1'; AzureAdDeviceId = 'device-1'; SerialNumber = 'real-serial'; OperatingSystem = 'Windows' }
+        }
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-1'; SerialNumber = 'SystemSerialNumber' }
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeFalse
+        $devices[0].AutopilotDeviceId | Should -Be 'autopilot-1'
+    }
+
     It 'uses the SDK lifecycle projection when explicitly requested' {
         $script:CapturedManagedDeviceProperties = $null
         Mock Get-MgDeviceManagementManagedDevice {
