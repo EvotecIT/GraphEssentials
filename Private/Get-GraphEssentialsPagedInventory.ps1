@@ -67,7 +67,7 @@ function Get-GraphEssentialsPagedInventory {
                 $transient = if ($null -ne $statusCode) {
                     $statusCode -in @(408, 429, 500, 502, 503, 504)
                 } else {
-                    $transportFailure -or $message -match '(?i)timed?\s*out|timeout|cancell?ed.*300 seconds|connection.*(closed|reset)|transport stream|premature EOF'
+                    $transportFailure -or $message -match '(?i)timed?\s*out|timeout|cancell?ed.*300 seconds|connection.*(closed|reset)|transport stream|premature EOF|stream does not support reading'
                 }
 
                 if (-not $transient -or $attempt -ge $MaxPageAttempts) {

@@ -89,6 +89,25 @@ Describe 'Get-GraphEssentialsPagedInventory' {
         Should -Invoke Start-Sleep -Times 1 -Exactly
     }
 
+    It 'retries the reported unreadable response stream on the same page' {
+        $script:requests = 0
+        Mock Invoke-MgGraphRequest {
+            $script:requests++
+            if ($script:requests -eq 1) {
+                throw [System.Exception]::new('One or more errors occurred.',
+                    [System.ArgumentException]::new('Stream does not support reading. (Parameter ''stream'')'))
+            }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{ id = 'device-1' }) }
+        }
+        Mock Start-Sleep {}
+
+        $items = @(Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices')
+
+        $items | Should -HaveCount 1
+        Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly
+        Should -Invoke Start-Sleep -Times 1 -Exactly
+    }
+
     It 'does not retry an HTTP authorization error with a nested transport exception' {
         Mock Invoke-MgGraphRequest {
             $exception = [System.Exception]::new('Forbidden', [System.IO.IOException]::new('Connection closed'))

@@ -214,6 +214,28 @@ Describe 'Get-MyDeviceIntune' {
         Should -Invoke Get-MgDevice -Times 1 -Exactly
     }
 
+    It 'reuses the synchronized Entra cache during the computer cleanup Intune read' {
+        $script:Devices = @([PSCustomObject] @{
+            DeviceId = 'device-1'; Id = 'entra-1'
+            OnPremisesSyncEnabled = $true; TrustType = 'ServerAD'
+        })
+        $script:DevicesDate = Get-Date
+        $script:DevicesScope = 'Synchronized'
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*/devices?*') { throw 'Entra inventory should be reused' }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                azureADDeviceId = 'device-1'; deviceName = 'DEVICE-01'
+                id = 'managed-1'; lastSyncDateTime = '2026-09-01T10:00:00Z'
+            }) }
+        }
+
+        $devices = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer)
+
+        $devices | Should -HaveCount 1
+        $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
+        Should -Invoke Invoke-MgGraphRequest -Times 0 -Exactly -ParameterFilter { $Uri -like '*/devices?*' }
+    }
+
     It 'does not infer Entra trust from Intune registration state' {
         Mock Get-MgDevice {
             @()
@@ -395,7 +417,9 @@ Describe 'Get-MyDeviceIntune' {
             }) }
         }
 
-        $devices = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer -Force)
+        $records = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer -Force -ReportProgress 6>&1)
+        $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $progressMessages = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
 
         $devices | Should -HaveCount 1
         $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
@@ -403,9 +427,35 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].LastSeenDays | Should -BeGreaterThan 0
         $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
         $devices[0].PSObject.Properties.Name | Should -Not -Contain 'RemoteAssistanceSessionUrl'
+        @($progressMessages | Where-Object { $_ -match 'complete' }) | Should -HaveCount 2
         Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
             $Uri -like '*/managedDevices*' -and $Uri -like '*$select=azureADDeviceId,deviceName,emailAddress,id,lastSyncDateTime,userDisplayName,userPrincipalName*'
         }
+    }
+
+    It 'does not return a partial computer inventory when a later Intune page fails' {
+        $script:Devices = @([PSCustomObject] @{
+            DeviceId = 'device-1'; Id = 'entra-1'
+            OnPremisesSyncEnabled = $true; TrustType = 'ServerAD'
+        })
+        $script:DevicesDate = Get-Date
+        $script:DevicesScope = 'Synchronized'
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*page2*') { throw 'Intune page two failed' }
+            [PSCustomObject] @{
+                value = @([PSCustomObject] @{
+                    azureADDeviceId = 'device-1'; deviceName = 'DEVICE-01'
+                    id = 'managed-1'; lastSyncDateTime = '2026-09-01T10:00:00Z'
+                })
+                '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?page2'
+            }
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'Intune page two failed'
     }
 
     It 'retains trust and sync metadata for an unfiltered computer inventory' {
