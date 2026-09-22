@@ -29,6 +29,19 @@ Install-Module -Name GraphEssentials -AllowClobber -Force
 
 Force and AllowClobber aren't necessary, but they do skip errors in case some appear.
 
+### PowerShell version
+
+GraphEssentials requires Microsoft Graph SDK 2.40.0 or later. Keep the required Graph SDK modules on the same version, including `Microsoft.Graph.Authentication`, and start a new PowerShell session after updating them.
+
+PowerShell 7 is recommended. In Windows PowerShell 5.1, increase the session's function limit before importing GraphEssentials so the required Graph SDK commands can load:
+
+```powershell
+$MaximumFunctionCount = 32768
+Import-Module GraphEssentials
+```
+
+The default Windows PowerShell limit is 4,096 functions; the Graph SDK can exceed it. See [Microsoft's guidance on this limit](https://learn.microsoft.com/en-ca/answers/questions/964238/azure-automation-account-adding-microsoft-graph-mo).
+
 ## And to update
 
 ```powershell
