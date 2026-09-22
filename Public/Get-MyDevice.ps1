@@ -23,6 +23,10 @@
     page does not restart a large inventory. Owner continuations are read when present;
     a possibly truncated owner expansion makes the inventory fail.
 
+    .PARAMETER ReportProgress
+    With the Computer property set, writes page and record counts to the information
+    stream for transcripts while Graph inventory is being fetched.
+
     .EXAMPLE
     Get-MyDevice
     Returns all devices from the Microsoft Graph API.
@@ -44,7 +48,8 @@
         [switch] $Synchronized,
         [switch] $IncludeAutopilotInventory,
         [ValidateSet('Full', 'Lifecycle', 'Computer')]
-        [string] $PropertySet = 'Full'
+        [string] $PropertySet = 'Full',
+        [switch] $ReportProgress
     )
 
     if ($PropertySet -eq 'Computer' -and $IncludeAutopilotInventory) {
@@ -83,7 +88,7 @@
                 $query += '&$filter=onPremisesSyncEnabled%20eq%20true'
             }
             $query += '&$expand=registeredOwners($select=id,displayName,userPrincipalName,accountEnabled)'
-            { Get-GraphEssentialsPagedInventory -Uri $query }
+            { Get-GraphEssentialsPagedInventory -Uri $query -ReportProgress:$ReportProgress }
         } elseif ($PropertySet -eq 'Lifecycle') {
             { Get-MgDevice -All -Property $FullProperties -ErrorAction Stop }
         } else {

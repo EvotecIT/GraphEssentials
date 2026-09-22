@@ -14,17 +14,24 @@ function Get-GraphEssentialsPagedInventory {
         [string] $Uri,
 
         [ValidateRange(1, 10)]
-        [int] $MaxPageAttempts = 3
+        [int] $MaxPageAttempts = 3,
+
+        [switch] $ReportProgress
     )
 
     $pageUri = $Uri
     $pageNumber = 0
+    $itemCount = 0
+    $startedAt = Get-Date
     $seenPageUris = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     while ($pageUri) {
         if (-not $seenPageUris.Add($pageUri)) {
             throw "Graph inventory returned a repeated page URL after page $pageNumber."
         }
         $pageNumber++
+        if ($ReportProgress -and $pageNumber -eq 1) {
+            Write-Information -MessageData 'Graph inventory: requesting page 1.' -InformationAction Continue
+        }
         $attempt = 0
         while ($true) {
             $attempt++
@@ -94,6 +101,9 @@ function Get-GraphEssentialsPagedInventory {
                     }
                 }
                 Write-Verbose "Graph inventory page $pageNumber failed ($message). Retrying in $delaySeconds seconds."
+                if ($ReportProgress) {
+                    Write-Information -MessageData "Graph inventory: retrying page $pageNumber in $delaySeconds second(s) after a transient failure." -InformationAction Continue
+                }
                 Start-Sleep -Seconds $delaySeconds
             }
         }
@@ -103,9 +113,15 @@ function Get-GraphEssentialsPagedInventory {
         }
         foreach ($item in $response.value) {
             if ($null -ne $item) {
+                $itemCount++
                 $item
             }
         }
         $pageUri = $response.'@odata.nextLink'
+        if ($ReportProgress -and ($pageNumber % 10 -eq 0 -or -not $pageUri)) {
+            $elapsed = [math]::Round(((Get-Date) - $startedAt).TotalMinutes, 1)
+            $state = if ($pageUri) { 'continuing' } else { 'complete' }
+            Write-Information -MessageData "Graph inventory: $itemCount records across $pageNumber page(s), $elapsed minute(s) elapsed; $state." -InformationAction Continue
+        }
     }
 }

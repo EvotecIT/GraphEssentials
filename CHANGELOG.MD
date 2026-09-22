@@ -1,6 +1,7 @@
 ﻿### 0.0.63
 
 - Mark duplicate or conflicting Windows Autopilot associations as ambiguous instead of choosing an identity for device cleanup.
+- Report page counts, fetched device counts, retries, and completion for large computer inventories when requested.
 
 ### 0.0.62
 

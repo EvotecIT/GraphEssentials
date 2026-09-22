@@ -142,9 +142,12 @@ Describe 'Get-MyDevice' {
             }
         }
 
-        $devices = @(Get-MyDevice -Synchronized -PropertySet Computer)
+        $records = @(Get-MyDevice -Synchronized -PropertySet Computer -ReportProgress 6>&1)
+        $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $progressMessages = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
 
         $devices | Should -HaveCount 2
+        ($progressMessages -join "`n") | Should -Match '2 records across 2 page'
         $devices[0].OwnerDisplayName | Should -Be @('Owner One')
         $devices[0].OwnerUserPrincipalName | Should -Be @('owner@example.com')
         $devices[0].OwnerEnabled | Should -Be @('True')
