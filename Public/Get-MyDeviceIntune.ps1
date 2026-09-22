@@ -29,6 +29,10 @@
     Lifecycle requests only the fields needed for inventory correlation and lifecycle actions.
     Computer returns only the dates, user fields, and identifiers needed for computer inventory correlation.
 
+    .PARAMETER ReportProgress
+    With the Computer property set, writes page and record counts to the information
+    stream for transcripts while Entra and Intune inventories are being fetched.
+
     .EXAMPLE
     Get-MyDeviceIntune
     Returns all Intune managed devices with their properties.
@@ -55,7 +59,8 @@
         [switch] $IncludeDetailedInventory,
         [switch] $IncludeAutopilotInventory,
         [ValidateSet('Full', 'Lifecycle', 'Computer')]
-        [string] $PropertySet = 'Full'
+        [string] $PropertySet = 'Full',
+        [switch] $ReportProgress
     )
     if ($PropertySet -eq 'Computer' -and ($IncludeDetailedInventory -or $IncludeAutopilotInventory)) {
         throw 'Computer property set does not include detailed or Autopilot information.'
@@ -91,7 +96,7 @@
                     if ($Synchronized) {
                         $entraQuery += '&$filter=onPremisesSyncEnabled%20eq%20true'
                     }
-                    $entraInventory = { Get-GraphEssentialsPagedInventory -Uri $entraQuery }
+                    $entraInventory = { Get-GraphEssentialsPagedInventory -Uri $entraQuery -ReportProgress:$ReportProgress }
                 } else {
                     $entraInventory = { Get-MgDevice -All -Property 'deviceId,id,onPremisesSyncEnabled,trustType' -ErrorAction Stop }
                 }
@@ -120,7 +125,7 @@
     } else {
         try {
             if ($PropertySet -eq 'Computer') {
-                $entraInventory = { Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?$select=deviceId,id,onPremisesSyncEnabled,trustType&$top=200' }
+                $entraInventory = { Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?$select=deviceId,id,onPremisesSyncEnabled,trustType&$top=200' -ReportProgress:$ReportProgress }
             } else {
                 $entraInventory = { Get-MgDevice -All -Property 'deviceId,id' -ErrorAction Stop }
             }
@@ -156,7 +161,7 @@
         }
         $getManagedDevices = if ($PropertySet -eq 'Computer') {
             $managedQuery = '/v1.0/deviceManagement/managedDevices?$top=200&$select=' + ($ComputerProperties -join ',')
-            { Get-GraphEssentialsPagedInventory -Uri $managedQuery }
+            { Get-GraphEssentialsPagedInventory -Uri $managedQuery -ReportProgress:$ReportProgress }
         } else {
             { Get-MgDeviceManagementManagedDevice @ManagedDeviceParameters }
         }
@@ -306,6 +311,7 @@
                 PhysicalMemoryInBytes                   = $PhysicalMemoryInBytes
                 Udid                                    = $Udid
                 AutopilotInventoryLoaded                = if ($IncludeAutopilotInventory) { [bool] $AutopilotLookup.InventoryLoaded } else { $false }
+                AutopilotMatchAmbiguous                 = [bool] ($AutopilotDevice -and $AutopilotDevice.MatchAmbiguous)
                 AutopilotOnboarded                      = if ($IncludeAutopilotInventory -and $AutopilotLookup.InventoryLoaded) { [bool] $AutopilotDevice } else { $null }
                 AutopilotDeviceId                       = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('Id', 'id') } else { $null }
                 AutopilotManagedDeviceId                = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('ManagedDeviceId', 'managedDeviceId') } else { $null }

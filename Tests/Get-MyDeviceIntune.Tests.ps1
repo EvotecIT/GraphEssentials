@@ -214,6 +214,28 @@ Describe 'Get-MyDeviceIntune' {
         Should -Invoke Get-MgDevice -Times 1 -Exactly
     }
 
+    It 'reuses the synchronized Entra cache during the computer cleanup Intune read' {
+        $script:Devices = @([PSCustomObject] @{
+            DeviceId = 'device-1'; Id = 'entra-1'
+            OnPremisesSyncEnabled = $true; TrustType = 'ServerAD'
+        })
+        $script:DevicesDate = Get-Date
+        $script:DevicesScope = 'Synchronized'
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*/devices?*') { throw 'Entra inventory should be reused' }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{
+                azureADDeviceId = 'device-1'; deviceName = 'DEVICE-01'
+                id = 'managed-1'; lastSyncDateTime = '2026-09-01T10:00:00Z'
+            }) }
+        }
+
+        $devices = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer)
+
+        $devices | Should -HaveCount 1
+        $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
+        Should -Invoke Invoke-MgGraphRequest -Times 0 -Exactly -ParameterFilter { $Uri -like '*/devices?*' }
+    }
+
     It 'does not infer Entra trust from Intune registration state' {
         Mock Get-MgDevice {
             @()
@@ -306,8 +328,111 @@ Describe 'Get-MyDeviceIntune' {
 
         $devices.Count | Should -Be 1
         $devices[0].AutopilotInventoryLoaded | Should -BeTrue
-        $devices[0].AutopilotOnboarded | Should -BeFalse
+        $devices[0].AutopilotOnboarded | Should -BeTrue
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
         $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'marks duplicate managed-device associations as ambiguous' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-1' }
+                [PSCustomObject] @{ Id = 'autopilot-2'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-2' }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'marks duplicate Entra-device associations as ambiguous' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-other-1'; AzureActiveDirectoryDeviceId = 'device-1' }
+                [PSCustomObject] @{ Id = 'autopilot-2'; ManagedDeviceId = 'managed-other-2'; AzureActiveDirectoryDeviceId = 'device-1' }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'marks conflicting unique association keys as ambiguous' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            @(
+                [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-other' }
+                [PSCustomObject] @{ Id = 'autopilot-2'; ManagedDeviceId = 'managed-other'; AzureActiveDirectoryDeviceId = 'device-1' }
+            )
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'marks a serial-only match with contradictory device IDs as ambiguous' {
+        Mock Get-MgDeviceManagementManagedDevice {
+            [PSCustomObject] @{ DeviceName = 'Windows-01'; Id = 'managed-1'; AzureAdDeviceId = 'device-1'; SerialNumber = 'serial-1'; OperatingSystem = 'Windows' }
+        }
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            [PSCustomObject] @{ Id = 'autopilot-other'; ManagedDeviceId = 'managed-2'; AzureActiveDirectoryDeviceId = 'device-2'; SerialNumber = 'serial-1' }
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'marks a managed-device match with contradictory Entra ID as ambiguous' {
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            [PSCustomObject] @{ Id = 'autopilot-other'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-2' }
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
+    }
+
+    It 'ignores a placeholder managed-device serial when IDs identify one Autopilot record' {
+        Mock Get-MgDeviceManagementManagedDevice {
+            [PSCustomObject] @{ DeviceName = 'Windows-01'; Id = 'managed-1'; AzureAdDeviceId = 'device-1'; SerialNumber = 'SystemSerialNumber'; OperatingSystem = 'Windows' }
+        }
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-1'; SerialNumber = 'real-serial' }
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeFalse
+        $devices[0].AutopilotDeviceId | Should -Be 'autopilot-1'
+    }
+
+    It 'ignores a placeholder Autopilot serial when IDs identify one record' {
+        Mock Get-MgDeviceManagementManagedDevice {
+            [PSCustomObject] @{ DeviceName = 'Windows-01'; Id = 'managed-1'; AzureAdDeviceId = 'device-1'; SerialNumber = 'real-serial'; OperatingSystem = 'Windows' }
+        }
+        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
+            [PSCustomObject] @{ Id = 'autopilot-1'; ManagedDeviceId = 'managed-1'; AzureActiveDirectoryDeviceId = 'device-1'; SerialNumber = 'SystemSerialNumber' }
+        }
+
+        $devices = @(Get-MyDeviceIntune -IncludeAutopilotInventory -Force)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotMatchAmbiguous | Should -BeFalse
+        $devices[0].AutopilotDeviceId | Should -Be 'autopilot-1'
     }
 
     It 'uses the SDK lifecycle projection when explicitly requested' {
@@ -349,7 +474,9 @@ Describe 'Get-MyDeviceIntune' {
             }) }
         }
 
-        $devices = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer -Force)
+        $records = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer -Force -ReportProgress 6>&1)
+        $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $progressMessages = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
 
         $devices | Should -HaveCount 1
         $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
@@ -357,9 +484,35 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].LastSeenDays | Should -BeGreaterThan 0
         $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
         $devices[0].PSObject.Properties.Name | Should -Not -Contain 'RemoteAssistanceSessionUrl'
+        @($progressMessages | Where-Object { $_ -match 'complete' }) | Should -HaveCount 2
         Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
             $Uri -like '*/managedDevices*' -and $Uri -like '*$select=azureADDeviceId,deviceName,emailAddress,id,lastSyncDateTime,userDisplayName,userPrincipalName*'
         }
+    }
+
+    It 'does not return a partial computer inventory when a later Intune page fails' {
+        $script:Devices = @([PSCustomObject] @{
+            DeviceId = 'device-1'; Id = 'entra-1'
+            OnPremisesSyncEnabled = $true; TrustType = 'ServerAD'
+        })
+        $script:DevicesDate = Get-Date
+        $script:DevicesScope = 'Synchronized'
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*page2*') { throw 'Intune page two failed' }
+            [PSCustomObject] @{
+                value = @([PSCustomObject] @{
+                    azureADDeviceId = 'device-1'; deviceName = 'DEVICE-01'
+                    id = 'managed-1'; lastSyncDateTime = '2026-09-01T10:00:00Z'
+                })
+                '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?page2'
+            }
+        }
+
+        $warning = $null
+        $devices = @(Get-MyDeviceIntune -Synchronized -PropertySet Computer -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'Intune page two failed'
     }
 
     It 'retains trust and sync metadata for an unfiltered computer inventory' {

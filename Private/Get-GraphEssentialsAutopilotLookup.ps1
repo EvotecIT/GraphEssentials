@@ -5,7 +5,12 @@ function Get-GraphEssentialsAutopilotLookup {
     $byManagedDeviceId = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $byAzureAdDeviceId = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $bySerialNumber = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $managedDeviceIdCounts = [System.Collections.Generic.Dictionary[string, int]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $azureAdDeviceIdCounts = [System.Collections.Generic.Dictionary[string, int]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $serialNumberCounts = [System.Collections.Generic.Dictionary[string, int]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $ambiguousManagedDeviceIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $ambiguousAzureAdDeviceIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $ambiguousSerialNumbers = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
     try {
         $properties = @(
@@ -34,11 +39,22 @@ function Get-GraphEssentialsAutopilotLookup {
             ByManagedDeviceId = $byManagedDeviceId
             ByAzureAdDeviceId = $byAzureAdDeviceId
             BySerialNumber    = $bySerialNumber
+            AmbiguousManagedDeviceIds = $ambiguousManagedDeviceIds
+            AmbiguousAzureAdDeviceIds = $ambiguousAzureAdDeviceIds
+            AmbiguousSerialNumbers    = $ambiguousSerialNumbers
         }
     }
 
     foreach ($autopilotDevice in $autopilotDevices) {
+        $managedDeviceId = Get-GraphEssentialsObjectProperty -InputObject $autopilotDevice -Name @('ManagedDeviceId', 'managedDeviceId')
+        $azureAdDeviceId = Get-GraphEssentialsObjectProperty -InputObject $autopilotDevice -Name @('AzureAdDeviceId', 'azureAdDeviceId', 'AzureActiveDirectoryDeviceId', 'azureActiveDirectoryDeviceId')
         $serialNumber = Get-GraphEssentialsObjectProperty -InputObject $autopilotDevice -Name @('SerialNumber', 'serialNumber')
+        if ($managedDeviceId) {
+            if ($managedDeviceIdCounts.ContainsKey($managedDeviceId)) { $managedDeviceIdCounts[$managedDeviceId]++ } else { $managedDeviceIdCounts[$managedDeviceId] = 1 }
+        }
+        if ($azureAdDeviceId) {
+            if ($azureAdDeviceIdCounts.ContainsKey($azureAdDeviceId)) { $azureAdDeviceIdCounts[$azureAdDeviceId]++ } else { $azureAdDeviceIdCounts[$azureAdDeviceId] = 1 }
+        }
         if ($serialNumber -and (Test-GraphEssentialsAutopilotSerialNumber -SerialNumber $serialNumber)) {
             if ($serialNumberCounts.ContainsKey($serialNumber)) {
                 $serialNumberCounts[$serialNumber]++
@@ -53,15 +69,25 @@ function Get-GraphEssentialsAutopilotLookup {
         $azureAdDeviceId = Get-GraphEssentialsObjectProperty -InputObject $autopilotDevice -Name @('AzureAdDeviceId', 'azureAdDeviceId', 'AzureActiveDirectoryDeviceId', 'azureActiveDirectoryDeviceId')
         $serialNumber = Get-GraphEssentialsObjectProperty -InputObject $autopilotDevice -Name @('SerialNumber', 'serialNumber')
 
-        if ($managedDeviceId -and -not $byManagedDeviceId.ContainsKey($managedDeviceId)) {
+        if ($managedDeviceId -and $managedDeviceIdCounts[$managedDeviceId] -eq 1) {
             $byManagedDeviceId[$managedDeviceId] = $autopilotDevice
         }
-        if ($azureAdDeviceId -and -not $byAzureAdDeviceId.ContainsKey($azureAdDeviceId)) {
+        if ($azureAdDeviceId -and $azureAdDeviceIdCounts[$azureAdDeviceId] -eq 1) {
             $byAzureAdDeviceId[$azureAdDeviceId] = $autopilotDevice
         }
-        if ($serialNumber -and $serialNumberCounts.ContainsKey($serialNumber) -and $serialNumberCounts[$serialNumber] -eq 1 -and -not $bySerialNumber.ContainsKey($serialNumber)) {
+        if ($serialNumber -and $serialNumberCounts.ContainsKey($serialNumber) -and $serialNumberCounts[$serialNumber] -eq 1) {
             $bySerialNumber[$serialNumber] = $autopilotDevice
         }
+    }
+
+    foreach ($key in $managedDeviceIdCounts.Keys) {
+        if ($managedDeviceIdCounts[$key] -gt 1) { $null = $ambiguousManagedDeviceIds.Add($key) }
+    }
+    foreach ($key in $azureAdDeviceIdCounts.Keys) {
+        if ($azureAdDeviceIdCounts[$key] -gt 1) { $null = $ambiguousAzureAdDeviceIds.Add($key) }
+    }
+    foreach ($key in $serialNumberCounts.Keys) {
+        if ($serialNumberCounts[$key] -gt 1) { $null = $ambiguousSerialNumbers.Add($key) }
     }
 
     [PSCustomObject] @{
@@ -69,5 +95,8 @@ function Get-GraphEssentialsAutopilotLookup {
         ByManagedDeviceId = $byManagedDeviceId
         ByAzureAdDeviceId = $byAzureAdDeviceId
         BySerialNumber    = $bySerialNumber
+        AmbiguousManagedDeviceIds = $ambiguousManagedDeviceIds
+        AmbiguousAzureAdDeviceIds = $ambiguousAzureAdDeviceIds
+        AmbiguousSerialNumbers    = $ambiguousSerialNumbers
     }
 }

@@ -1,6 +1,7 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsPagedInventory.ps1')
     . (Join-Path $PSScriptRoot '..\Private\Resolve-MyDeviceActionTarget.ps1')
+    . (Join-Path $PSScriptRoot '..\Private\Get-GraphEssentialsObjectProperty.ps1')
     . (Join-Path $PSScriptRoot '..\Public\Get-MyDevice.ps1')
 
     function Get-MgDevice {
@@ -41,6 +42,19 @@ Describe 'Get-MyDevice' {
                 }
             )
         }
+    }
+
+    It 'projects an ambiguous Autopilot association without an identity ID' {
+        Mock Get-GraphEssentialsAutopilotLookup { [PSCustomObject] @{ InventoryLoaded = $true } }
+        Mock Find-GraphEssentialsAutopilotDevice { [PSCustomObject] @{ Id = $null; MatchAmbiguous = $true } }
+
+        $devices = @(Get-MyDevice -IncludeAutopilotInventory)
+
+        $devices | Should -HaveCount 1
+        $devices[0].AutopilotInventoryLoaded | Should -BeTrue
+        $devices[0].AutopilotMatchAmbiguous | Should -BeTrue
+        $devices[0].AutopilotOnboarded | Should -BeTrue
+        $devices[0].AutopilotDeviceId | Should -Be $null
     }
 
     It 'retains only compact Entra correlation metadata in the shared cache' {
@@ -128,9 +142,12 @@ Describe 'Get-MyDevice' {
             }
         }
 
-        $devices = @(Get-MyDevice -Synchronized -PropertySet Computer)
+        $records = @(Get-MyDevice -Synchronized -PropertySet Computer -ReportProgress 6>&1)
+        $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $progressMessages = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
 
         $devices | Should -HaveCount 2
+        ($progressMessages -join "`n") | Should -Match '2 records across 2 page'
         $devices[0].OwnerDisplayName | Should -Be @('Owner One')
         $devices[0].OwnerUserPrincipalName | Should -Be @('owner@example.com')
         $devices[0].OwnerEnabled | Should -Be @('True')

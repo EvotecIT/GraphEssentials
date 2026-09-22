@@ -1,4 +1,14 @@
-﻿### 0.0.61
+﻿### 0.0.63
+
+- Mark duplicate or conflicting Windows Autopilot associations as ambiguous instead of choosing an identity for device cleanup.
+- Report page counts, fetched device counts, retries, and completion for large computer inventories when requested.
+- Page and report progress for Intune computer inventory; retry an unreadable Graph response stream on its page.
+
+### 0.0.62
+
+- Page large device inventories for computer cleanup.
+
+### 0.0.61
 
 - Add fail-closed Teams collection for reports that require complete data.
 - Page Microsoft 365 group owners and preserve user, service-principal, ownerless, and unavailable-owner states.

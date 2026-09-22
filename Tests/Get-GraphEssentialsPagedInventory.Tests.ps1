@@ -5,6 +5,24 @@ BeforeAll {
 }
 
 Describe 'Get-GraphEssentialsPagedInventory' {
+    It 'reports an intermediate checkpoint during a long inventory' {
+        Mock Invoke-MgGraphRequest {
+            $page = if ($Uri -match 'page=(\d+)') { [int] $Matches[1] } else { 1 }
+            [PSCustomObject] @{
+                value = @([PSCustomObject] @{ id = "device-$page" })
+                '@odata.nextLink' = if ($page -lt 11) { "https://graph.microsoft.com/v1.0/devices?page=$($page + 1)" } else { $null }
+            }
+        }
+
+        $records = @(Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?page=1' -ReportProgress 6>&1)
+        $items = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $messages = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
+
+        $items | Should -HaveCount 11
+        ($messages -join "`n") | Should -Match '10 records across 10 page\(s\).+continuing'
+        ($messages -join "`n") | Should -Match '11 records across 11 page\(s\).+complete'
+    }
+
     It 'retries only the failed page and returns every device once' {
         $script:requestedUris = [System.Collections.Generic.List[string]]::new()
         Mock Invoke-MgGraphRequest {
@@ -22,9 +40,14 @@ Describe 'Get-GraphEssentialsPagedInventory' {
         }
         Mock Start-Sleep {}
 
-        $items = @(Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?$top=200')
+        $records = @(Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?$top=200' -ReportProgress 6>&1)
+        $items = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $messages = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
 
         @($items.id) | Should -Be @('first', 'second')
+        ($messages -join "`n") | Should -Match 'requesting page 1'
+        ($messages -join "`n") | Should -Match 'retrying page 2'
+        ($messages -join "`n") | Should -Match '2 records across 2 page'
         $script:requestedUris | Should -HaveCount 3
         $script:requestedUris[1] | Should -Be $script:requestedUris[2]
         Should -Invoke Start-Sleep -Times 1 -Exactly
@@ -54,6 +77,25 @@ Describe 'Get-GraphEssentialsPagedInventory' {
             if ($script:requests -eq 1) {
                 throw [System.Exception]::new('An error occurred while sending the request',
                     [System.IO.IOException]::new('The response ended prematurely'))
+            }
+            [PSCustomObject] @{ value = @([PSCustomObject] @{ id = 'device-1' }) }
+        }
+        Mock Start-Sleep {}
+
+        $items = @(Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices')
+
+        $items | Should -HaveCount 1
+        Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly
+        Should -Invoke Start-Sleep -Times 1 -Exactly
+    }
+
+    It 'retries the reported unreadable response stream on the same page' {
+        $script:requests = 0
+        Mock Invoke-MgGraphRequest {
+            $script:requests++
+            if ($script:requests -eq 1) {
+                throw [System.Exception]::new('One or more errors occurred.',
+                    [System.ArgumentException]::new('Stream does not support reading. (Parameter ''stream'')'))
             }
             [PSCustomObject] @{ value = @([PSCustomObject] @{ id = 'device-1' }) }
         }
