@@ -13,12 +13,8 @@ function Get-GraphEssentialsAutopilotLookup {
     $ambiguousSerialNumbers = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
     try {
-        $properties = @(
-            'id', 'groupTag', 'serialNumber', 'enrollmentState', 'lastContactedDateTime',
-            'userPrincipalName', 'resourceName', 'azureActiveDirectoryDeviceId', 'managedDeviceId'
-        )
         $autopilotDevices = [System.Collections.Generic.List[object]]::new()
-        Get-MgDeviceManagementWindowsAutopilotDeviceIdentity -All -Property $properties -ErrorAction Stop | ForEach-Object {
+        Get-MgDeviceManagementWindowsAutopilotDeviceIdentity -All -ErrorAction Stop | ForEach-Object {
             $autopilotDevices.Add([PSCustomObject] @{
                     Id                           = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('Id', 'id')
                     GroupTag                     = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('GroupTag', 'groupTag')
