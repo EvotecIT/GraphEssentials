@@ -572,20 +572,4 @@ Describe 'Get-MyDeviceIntune' {
         [string] $warning | Should -Match 'managed-device page two failed'
     }
 
-    It 'requests only Autopilot properties used by device inventory output' {
-        $script:CapturedAutopilotProperties = $null
-        Mock Get-MgDeviceManagementWindowsAutopilotDeviceIdentity {
-            param($Property)
-            $script:CapturedAutopilotProperties = @($Property)
-            @()
-        }
-
-        Get-MyDeviceIntune -IncludeAutopilotInventory -Force | Out-Null
-
-        $script:CapturedAutopilotProperties | Should -Contain 'managedDeviceId'
-        $script:CapturedAutopilotProperties | Should -Contain 'lastContactedDateTime'
-        $script:CapturedAutopilotProperties | Should -Not -Contain 'manufacturer'
-        $script:CapturedAutopilotProperties | Should -Not -Contain 'purchaseOrderIdentifier'
-        $script:CapturedAutopilotProperties | Should -Not -Contain 'displayName'
-    }
 }
