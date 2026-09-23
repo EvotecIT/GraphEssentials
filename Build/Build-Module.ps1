@@ -14,7 +14,7 @@ Import-Module PSPublishModule -Force -ErrorAction Stop
 Build-Module -ModuleName 'GraphEssentials' {
     # Usual defaults as per standard module
     $Manifest = [ordered] @{
-        ModuleVersion        = '0.0.63'
+        ModuleVersion        = '0.0.64'
         CompatiblePSEditions = @('Desktop', 'Core')
         GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
         Author               = 'Przemyslaw Klys'
