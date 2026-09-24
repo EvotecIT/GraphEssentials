@@ -9,7 +9,7 @@ BeforeAll {
     }
     function Invoke-MgGraphRequest { param($Method, $Uri, $OutputType, $ErrorAction) }
     function Find-GraphEssentialsAutopilotDevice { $null }
-    function Get-GraphEssentialsAutopilotLookup { $null }
+    function Get-GraphEssentialsAutopilotLookup { param([switch] $ReportProgress) $null }
 }
 
 Describe 'Get-MyDevice' {
@@ -188,6 +188,93 @@ Describe 'Get-MyDevice' {
         Should -Invoke Invoke-MgGraphRequest -Times 4 -Exactly
     }
 
+    It 'reads the full cloud property set through retrying pages when progress is requested' {
+        $script:requestedUris = [System.Collections.Generic.List[string]]::new()
+        Mock Invoke-MgGraphRequest {
+            $script:requestedUris.Add($Uri)
+            if ($Uri -like '*skiptoken*') {
+                return [pscustomobject] @{ value = @([pscustomobject] @{
+                    deviceId = 'device-2'; id = 'object-2'; displayName = 'Android-02'
+                    accountEnabled = $false; operatingSystem = 'Android'; trustType = 'Workplace'
+                    registeredOwners = @()
+                }) }
+            }
+            [pscustomobject] @{
+                value = @([pscustomobject] @{
+                    deviceId = 'device-1'; id = 'object-1'; displayName = 'iPhone-01'
+                    accountEnabled = $true; operatingSystem = 'iOS'; trustType = 'Workplace'
+                    registrationDateTime = (Get-Date).AddDays(-200).ToString('o')
+                    approximateLastSignInDateTime = (Get-Date).AddDays(-120).ToString('o')
+                    onPremisesLastSyncDateTime = (Get-Date).AddDays(-30).ToString('o')
+                    registeredOwners = @([pscustomobject] @{ displayName = 'Owner One'; accountEnabled = $true; userPrincipalName = 'owner@example.com' })
+                })
+                '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/devices?$skiptoken=page2'
+            }
+        }
+
+        $records = @(Get-MyDevice -Type 'AzureAD registered' -PropertySet Full -ReportProgress 6>&1)
+        $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $progress = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
+
+        $devices | Should -HaveCount 2
+        $devices[0].OperatingSystem | Should -Be 'iOS'
+        $devices[0].Enabled | Should -BeTrue
+        $devices[0].LastSeenDays | Should -BeGreaterThan 100
+        $devices[0].FirstSeen | Should -BeOfType [DateTimeOffset]
+        $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
+        $devices[0].LastSynchronized | Should -BeOfType [DateTimeOffset]
+        $devices[0].OwnerUserPrincipalName | Should -Be @('owner@example.com')
+        $devices[1].OperatingSystem | Should -Be 'Android'
+        ($progress -join "`n") | Should -Match '2 records across 2 page'
+        ($progress -join "`n") | Should -Match 'Graph inventory \(Entra devices\)'
+        $script:requestedUris[0] | Should -Match '\$top=200'
+        $script:requestedUris[0] | Should -Match '\$select=accountEnabled'
+        $script:requestedUris[0] | Should -Match '\$expand=registeredOwners'
+        Should -Invoke Get-MgDevice -Times 0 -Exactly
+    }
+
+    It 'marks a synchronized progress inventory as a partial Entra cache' {
+        Mock Invoke-MgGraphRequest {
+            [pscustomobject] @{ value = @([pscustomobject] @{
+                deviceId = 'device-1'; id = 'object-1'; displayName = 'PC-01'
+                accountEnabled = $true; trustType = 'ServerAD'; onPremisesSyncEnabled = $true
+                registeredOwners = @()
+            }) }
+        }
+
+        foreach ($propertySet in @('Full', 'Lifecycle')) {
+            $script:DevicesScope = $null
+            $records = @(Get-MyDevice -Synchronized -PropertySet $propertySet -ReportProgress 6>&1)
+            $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+
+            $devices | Should -HaveCount 1
+            $script:DevicesScope | Should -Be 'Synchronized'
+            $script:Devices | Should -HaveCount 1
+        }
+        Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly -ParameterFilter {
+            $Uri -like '*$filter=onPremisesSyncEnabled%20eq%20true*'
+        }
+    }
+
+    It 'returns no cloud devices or cache when a later full-inventory page fails after retries' {
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*skiptoken*') { throw 'Stream does not support reading' }
+            [pscustomobject] @{
+                value = @([pscustomobject] @{ deviceId = 'device-1'; id = 'object-1'; displayName = 'iPhone-01'; trustType = 'Workplace'; registeredOwners = @() })
+                '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/devices?$skiptoken=page2'
+            }
+        }
+        Mock Start-Sleep {}
+
+        $warning = $null
+        $devices = @(Get-MyDevice -Type 'AzureAD registered' -PropertySet Full -ReportProgress -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        $script:Devices | Should -BeNullOrEmpty
+        [string] $warning | Should -Match 'page 2 failed after 3 attempt'
+        Should -Invoke Invoke-MgGraphRequest -Times 4 -Exactly
+    }
+
     It 'returns a compact computer projection with dates and owners' {
         Mock Invoke-MgGraphRequest {
             [PSCustomObject] @{ value = @([PSCustomObject] @{
@@ -311,11 +398,14 @@ Describe 'Get-MyDevice' {
             }) }
         }
 
-        $devices = @(Get-MyDevice -PropertySet Computer)
+        $records = @(Get-MyDevice -PropertySet Computer -ReportProgress 6>&1)
+        $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $progress = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
 
         $devices | Should -HaveCount 1
         $devices[0].OwnerDisplayName | Should -Be @('Owner One', 'Owner Two')
         $devices[0].OwnerEnabled | Should -Be @('True', 'False')
+        ($progress -join "`n") | Should -Match 'Graph inventory \(Entra registered owners for object-1\)'
         $script:requestedUris | Should -HaveCount 2
         $script:requestedUris[1] | Should -Be 'https://graph.microsoft.com/v1.0/devices/object-1/registeredOwners?$skiptoken=owners2'
     }

@@ -19,13 +19,14 @@
     .PARAMETER PropertySet
     Full retains the complete device information. Lifecycle omits registered owners.
     Computer returns only the dates, identifiers, and owner fields needed for computer
-    inventory correlation. Computer requests retry individual Graph pages, so a failed
-    page does not restart a large inventory. Owner continuations are read when present;
-    a possibly truncated owner expansion makes the inventory fail.
+    inventory correlation. Computer requests retry individual Graph pages. Owner
+    continuations are read when present; a possibly truncated owner expansion
+    makes the inventory fail.
 
     .PARAMETER ReportProgress
-    With the Computer property set, writes page and record counts to the information
-    stream for transcripts while Graph inventory is being fetched.
+    Uses retrying Graph pages for any property set and writes page and record
+    counts to the information stream. If a page remains incomplete, no inventory
+    is returned. The default non-Computer route retains SDK enumeration.
 
     .EXAMPLE
     Get-MyDevice
@@ -76,19 +77,29 @@
     )
     $AutopilotLookup = $null
     if ($IncludeAutopilotInventory) {
-        $AutopilotLookup = Get-GraphEssentialsAutopilotLookup
+        $AutopilotLookup = Get-GraphEssentialsAutopilotLookup -ReportProgress:$ReportProgress
+        if ($ReportProgress -and -not $AutopilotLookup.InventoryLoaded) {
+            $Script:Devices = $null
+            $Script:DevicesDate = $null
+            $Script:DevicesScope = $null
+            return
+        }
     }
 
     $DeviceCache = [System.Collections.Generic.List[object]]::new()
     $NormalizedDevices = [System.Collections.Generic.List[object]]::new()
     try {
-        $getDevices = if ($PropertySet -eq 'Computer') {
-            $query = '/v1.0/devices?$select=' + ($ComputerProperties -join ',') + '&$top=200'
+        $getDevices = if ($PropertySet -eq 'Computer' -or $ReportProgress) {
+            $properties = if ($PropertySet -eq 'Computer') { $ComputerProperties } else { $FullProperties }
+            $query = '/v1.0/devices?$select=' + ($properties -join ',') + '&$top=200'
             if ($Synchronized) {
                 $query += '&$filter=onPremisesSyncEnabled%20eq%20true'
             }
-            $query += '&$expand=registeredOwners($select=id,displayName,userPrincipalName,accountEnabled)'
-            { Get-GraphEssentialsPagedInventory -Uri $query -ReportProgress:$ReportProgress }
+            if ($PropertySet -ne 'Lifecycle') {
+                $query += '&$expand=registeredOwners($select=id,displayName,userPrincipalName,accountEnabled)'
+            }
+            $inventoryName = if ($PropertySet -eq 'Computer') { $null } else { 'Entra devices' }
+            { Get-GraphEssentialsPagedInventory -Uri $query -ReportProgress:$ReportProgress -InventoryName $inventoryName }
         } elseif ($PropertySet -eq 'Lifecycle') {
             { Get-MgDevice -All -Property $FullProperties -ErrorAction Stop }
         } else {
@@ -138,14 +149,14 @@
             $OwnerEnabled = [System.Collections.Generic.List[string]]::new()
             $OwnerUserPrincipalName = [System.Collections.Generic.List[string]]::new()
             $OwnerCount = 0
-            if ($PropertySet -eq 'Computer' -and
+            if (($PropertySet -eq 'Computer' -or ($PropertySet -eq 'Full' -and $ReportProgress)) -and
                 (($null -eq $Device.PSObject.Properties['registeredOwners'] -and
                     -not ($Device -is [System.Collections.IDictionary] -and $Device.Contains('registeredOwners'))) -or
                     $null -eq $Device.RegisteredOwners)) {
                 throw "Graph omitted registeredOwners for device '$($Device.Id)'."
             }
             $RegisteredOwners = $Device.RegisteredOwners
-            if ($PropertySet -eq 'Computer') {
+            if ($PropertySet -eq 'Computer' -or ($PropertySet -eq 'Full' -and $ReportProgress)) {
                 $ownerNextLink = $Device.'registeredOwners@odata.nextLink'
                 if ($ownerNextLink) {
                     $RegisteredOwners = [System.Collections.Generic.List[object]]::new()
@@ -154,7 +165,7 @@
                             $RegisteredOwners.Add($Owner)
                         }
                     }
-                    foreach ($Owner in (Get-GraphEssentialsPagedInventory -Uri $ownerNextLink)) {
+                    foreach ($Owner in (Get-GraphEssentialsPagedInventory -Uri $ownerNextLink -ReportProgress:$ReportProgress -InventoryName "Entra registered owners for $($Device.Id)")) {
                         $RegisteredOwners.Add($Owner)
                     }
                 } elseif ($Device.RegisteredOwners.Count -ge 20) {
@@ -185,9 +196,10 @@
                 }
             }
 
+            $firstSeen = if ($Device.RegistrationDateTime) { [DateTimeOffset] $Device.RegistrationDateTime } else { $null }
+            $lastSeen = if ($Device.ApproximateLastSignInDateTime) { [DateTimeOffset] $Device.ApproximateLastSignInDateTime } else { $null }
+            $lastSynchronized = if ($Device.OnPremisesLastSyncDateTime) { [DateTimeOffset] $Device.OnPremisesLastSyncDateTime } else { $null }
             if ($PropertySet -eq 'Computer') {
-                $lastSeen = if ($Device.ApproximateLastSignInDateTime) { [DateTimeOffset] $Device.ApproximateLastSignInDateTime } else { $null }
-                $lastSynchronized = if ($Device.OnPremisesLastSyncDateTime) { [DateTimeOffset] $Device.OnPremisesLastSyncDateTime } else { $null }
                 $NormalizedDevices.Add([PSCustomObject] @{
                     Name                   = $Device.DisplayName
                     Id                     = $Device.Id
@@ -207,8 +219,9 @@
             }
 
             $AutopilotDevice = Find-GraphEssentialsAutopilotDevice -Lookup $AutopilotLookup -AzureAdDeviceId $Device.DeviceId
-            $AutopilotLastContacted = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
-            $AutopilotLastContactedDays = if ($AutopilotLastContacted) { [math]::Floor((New-TimeSpan -Start $AutopilotLastContacted -End $Today).TotalDays) } else { $null }
+            $AutopilotLastContactedValue = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
+            $AutopilotLastContacted = if ($AutopilotLastContactedValue) { [DateTimeOffset] $AutopilotLastContactedValue } else { $null }
+            $AutopilotLastContactedDays = if ($AutopilotLastContacted) { [math]::Floor((New-TimeSpan -Start $AutopilotLastContacted.UtcDateTime -End $Today).TotalDays) } else { $null }
 
             $NormalizedDevices.Add([PSCustomObject] @{
                     Name                       = $Device.DisplayName
@@ -219,8 +232,8 @@
                     OperatingSystemVersion     = $Device.OperatingSystemVersion
                     TrustType                  = $TrustType
                     ProfileType                = $Device.ProfileType
-                    FirstSeen                  = $Device.RegistrationDateTime
-                    LastSeen                   = $Device.ApproximateLastSignInDateTime
+                    FirstSeen                  = $firstSeen
+                    LastSeen                   = $lastSeen
                     LastSeenDays               = $LastSeenDays
                     Status                     = $Device.DeviceOwnership
                     OwnerCount                 = $OwnerCount
@@ -228,7 +241,7 @@
                     OwnerEnabled               = $OwnerEnabled
                     OwnerUserPrincipalName     = $OwnerUserPrincipalName
                     IsSynchronized             = if ($Device.OnPremisesSyncEnabled) { $true } else { $false }
-                    LastSynchronized           = $Device.OnPremisesLastSyncDateTime
+                    LastSynchronized           = $lastSynchronized
                     LastSynchronizedDays       = $LastSynchronizedDays
                     IsCompliant                = $Device.IsCompliant
                     IsManaged                  = $Device.IsManaged
@@ -263,6 +276,6 @@
 
     $Script:Devices = $DeviceCache
     $Script:DevicesDate = Get-Date
-    $Script:DevicesScope = if ($Synchronized -and $PropertySet -eq 'Computer') { 'Synchronized' } else { 'All' }
+    $Script:DevicesScope = if ($Synchronized -and ($PropertySet -eq 'Computer' -or $ReportProgress)) { 'Synchronized' } else { 'All' }
     $NormalizedDevices
 }

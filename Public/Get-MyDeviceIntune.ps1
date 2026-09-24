@@ -30,8 +30,10 @@
     Computer returns only the dates, user fields, and identifiers needed for computer inventory correlation.
 
     .PARAMETER ReportProgress
-    With the Computer property set, writes page and record counts to the information
-    stream for transcripts while Entra and Intune inventories are being fetched.
+    Uses retrying Graph pages for Entra correlation and the Computer or Lifecycle
+    Intune inventory, with page and record counts on the information stream.
+    Full Intune inventory keeps SDK models and their rich property types.
+    If a required inventory is incomplete, no inventory is returned.
 
     .EXAMPLE
     Get-MyDeviceIntune
@@ -79,7 +81,10 @@
     )
     $AutopilotLookup = $null
     if ($IncludeAutopilotInventory) {
-        $AutopilotLookup = Get-GraphEssentialsAutopilotLookup
+        $AutopilotLookup = Get-GraphEssentialsAutopilotLookup -ReportProgress:$ReportProgress
+        if ($ReportProgress -and -not $AutopilotLookup.InventoryLoaded) {
+            return
+        }
     }
 
     $cacheIsCurrent = $Script:Devices -and -not $Force -and
@@ -91,12 +96,12 @@
     if ($Type -or $Synchronized) {
         try {
             if (-not $cacheIsCurrent -or -not $cacheCoversQuery) {
-                if ($PropertySet -eq 'Computer') {
+                if ($PropertySet -eq 'Computer' -or $ReportProgress) {
                     $entraQuery = '/v1.0/devices?$select=deviceId,id,onPremisesSyncEnabled,trustType&$top=200'
                     if ($Synchronized) {
                         $entraQuery += '&$filter=onPremisesSyncEnabled%20eq%20true'
                     }
-                    $entraInventory = { Get-GraphEssentialsPagedInventory -Uri $entraQuery -ReportProgress:$ReportProgress }
+                    $entraInventory = { Get-GraphEssentialsPagedInventory -Uri $entraQuery -ReportProgress:$ReportProgress -InventoryName 'Entra correlation' }
                 } else {
                     $entraInventory = { Get-MgDevice -All -Property 'deviceId,id,onPremisesSyncEnabled,trustType' -ErrorAction Stop }
                 }
@@ -124,8 +129,8 @@
         }
     } else {
         try {
-            if ($PropertySet -eq 'Computer') {
-                $entraInventory = { Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?$select=deviceId,id,onPremisesSyncEnabled,trustType&$top=200' -ReportProgress:$ReportProgress }
+            if ($PropertySet -eq 'Computer' -or $ReportProgress) {
+                $entraInventory = { Get-GraphEssentialsPagedInventory -Uri '/v1.0/devices?$select=deviceId,id,onPremisesSyncEnabled,trustType&$top=200' -ReportProgress:$ReportProgress -InventoryName 'Entra correlation' }
             } else {
                 $entraInventory = { Get-MgDevice -All -Property 'deviceId,id' -ErrorAction Stop }
             }
@@ -135,8 +140,9 @@
                 }
             }
         } catch {
-            if ($PropertySet -eq 'Computer') {
-                Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure device identifiers. Computer inventory is incomplete. Error: $($_.Exception.Message)"
+            if ($PropertySet -eq 'Computer' -or $ReportProgress) {
+                $inventoryName = if ($PropertySet -eq 'Computer') { 'Computer' } else { $PropertySet }
+                Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure device identifiers. $inventoryName inventory is incomplete. Error: $($_.Exception.Message)"
                 return
             }
             Write-Warning -Message "Get-MyDeviceIntune - Failed to get Azure device identifiers. Continuing without Entra device object IDs. Error: $($_.Exception.Message)"
@@ -159,9 +165,14 @@
         if ($PropertySet -ne 'Full') {
             $ManagedDeviceParameters.Property = $LifecycleProperties
         }
-        $getManagedDevices = if ($PropertySet -eq 'Computer') {
-            $managedQuery = '/v1.0/deviceManagement/managedDevices?$top=200&$select=' + ($ComputerProperties -join ',')
-            { Get-GraphEssentialsPagedInventory -Uri $managedQuery -ReportProgress:$ReportProgress }
+        $getManagedDevices = if ($PropertySet -eq 'Computer' -or ($PropertySet -eq 'Lifecycle' -and $ReportProgress)) {
+            $managedQuery = '/v1.0/deviceManagement/managedDevices?$top=200'
+            if ($PropertySet -eq 'Computer') {
+                $managedQuery += '&$select=' + ($ComputerProperties -join ',')
+            } else {
+                $managedQuery += '&$select=' + ($LifecycleProperties -join ',')
+            }
+            { Get-GraphEssentialsPagedInventory -Uri $managedQuery -ReportProgress:$ReportProgress -InventoryName 'Intune managed devices' }
         } else {
             { Get-MgDeviceManagementManagedDevice @ManagedDeviceParameters }
         }
@@ -221,8 +232,9 @@
             }
 
             $AutopilotDevice = Find-GraphEssentialsAutopilotDevice -Lookup $AutopilotLookup -ManagedDeviceId $DeviceI.Id -AzureAdDeviceId $DeviceI.AzureAdDeviceId -SerialNumber $DeviceI.SerialNumber
-            $AutopilotLastContacted = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
-            $AutopilotLastContactedDays = if ($AutopilotLastContacted) { [math]::Floor((New-TimeSpan -Start $AutopilotLastContacted -End $Today).TotalDays) } else { $null }
+            $AutopilotLastContactedValue = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
+            $AutopilotLastContacted = if ($AutopilotLastContactedValue) { [DateTimeOffset] $AutopilotLastContactedValue } else { $null }
+            $AutopilotLastContactedDays = if ($AutopilotLastContacted) { [math]::Floor((New-TimeSpan -Start $AutopilotLastContacted.UtcDateTime -End $Today).TotalDays) } else { $null }
 
             $DetailedInventoryLoaded = $false
             $ActivationLockBypassCode = $null
@@ -246,6 +258,8 @@
                 }
             }
 
+            $firstSeen = if ($DeviceI.EnrolledDateTime) { [DateTimeOffset] $DeviceI.EnrolledDateTime } else { $null }
+            $lastSeen = if ($DeviceI.LastSyncDateTime) { [DateTimeOffset] $DeviceI.LastSyncDateTime } else { $null }
             $DeviceInformation = [ordered] @{
                 Name                                    = $DeviceI.DeviceName                                # : EVOMONSTER
                 Id                                      = $DeviceI.Id                                        # : 83fe122f-c51c-49dc-a0f3-cc11d9e7d045
@@ -254,8 +268,8 @@
                 ComplianceState                         = $DeviceI.ComplianceState                           # : compliant
                 OperatingSystem                         = $DeviceI.OperatingSystem                           # : Windows
                 OperatingSystemVersion                  = $DeviceI.OSVersion                                 # : 10.0.22621.1555
-                FirstSeen                               = $DeviceI.EnrolledDateTime                          # : 2023-01-28 10:34:18
-                LastSeen                                = $DeviceI.LastSyncDateTime                          # : 2023-04-14 04:52:42
+                FirstSeen                               = $firstSeen                                         # : 2023-01-28 10:34:18
+                LastSeen                                = $lastSeen                                          # : 2023-04-14 04:52:42
                 LastSeenDays                            = $LastSynchronizedDays
                 UserDisplayName                         = $DeviceI.UserDisplayName                           # : Przemysław Kłys
                 UserId                                  = $DeviceI.UserId                                    # : e6a8f1cf-0874-4323-a12f-2bf51bb6dfdd
