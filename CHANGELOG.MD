@@ -1,4 +1,10 @@
-﻿### 0.0.64
+﻿### 0.0.65
+
+- Report page counts, fetched records, elapsed time, and retries for Entra, Intune, and Windows Autopilot inventories when progress is requested.
+- Stop and return no inventory when a required cloud page remains unreadable after retries.
+- Preserve date types and synchronized cache scope on the progress path.
+
+### 0.0.64
 
 - Read Windows Autopilot inventory without selected properties so affected Intune tenants can complete device inventory.
 
