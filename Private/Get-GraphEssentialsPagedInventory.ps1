@@ -16,9 +16,12 @@ function Get-GraphEssentialsPagedInventory {
         [ValidateRange(1, 10)]
         [int] $MaxPageAttempts = 3,
 
-        [switch] $ReportProgress
+        [switch] $ReportProgress,
+
+        [string] $InventoryName
     )
 
+    $progressLabel = if ($InventoryName) { "Graph inventory ($InventoryName)" } else { 'Graph inventory' }
     $pageUri = $Uri
     $pageNumber = 0
     $itemCount = 0
@@ -30,7 +33,7 @@ function Get-GraphEssentialsPagedInventory {
         }
         $pageNumber++
         if ($ReportProgress -and $pageNumber -eq 1) {
-            Write-Information -MessageData 'Graph inventory: requesting page 1.' -InformationAction Continue
+            Write-Information -MessageData "$progressLabel`: requesting page 1." -InformationAction Continue
         }
         $attempt = 0
         while ($true) {
@@ -102,7 +105,7 @@ function Get-GraphEssentialsPagedInventory {
                 }
                 Write-Verbose "Graph inventory page $pageNumber failed ($message). Retrying in $delaySeconds seconds."
                 if ($ReportProgress) {
-                    Write-Information -MessageData "Graph inventory: retrying page $pageNumber in $delaySeconds second(s) after a transient failure." -InformationAction Continue
+                    Write-Information -MessageData "$progressLabel`: retrying page $pageNumber in $delaySeconds second(s) after a transient failure." -InformationAction Continue
                 }
                 Start-Sleep -Seconds $delaySeconds
             }
@@ -121,7 +124,7 @@ function Get-GraphEssentialsPagedInventory {
         if ($ReportProgress -and ($pageNumber % 10 -eq 0 -or -not $pageUri)) {
             $elapsed = [math]::Round(((Get-Date) - $startedAt).TotalMinutes, 1)
             $state = if ($pageUri) { 'continuing' } else { 'complete' }
-            Write-Information -MessageData "Graph inventory: $itemCount records across $pageNumber page(s), $elapsed minute(s) elapsed; $state." -InformationAction Continue
+            Write-Information -MessageData "$progressLabel`: $itemCount records across $pageNumber page(s), $elapsed minute(s) elapsed; $state." -InformationAction Continue
         }
     }
 }

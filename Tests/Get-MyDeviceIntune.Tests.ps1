@@ -490,6 +490,114 @@ Describe 'Get-MyDeviceIntune' {
         }
     }
 
+    It 'reads lifecycle Entra correlation and managed-device pages with progress' {
+        $script:requestedUris = [System.Collections.Generic.List[string]]::new()
+        Mock Invoke-MgGraphRequest {
+            $script:requestedUris.Add($Uri)
+            if ($Uri -like '*managedDevices*page2*') {
+                return [pscustomobject] @{ value = @([pscustomobject] @{
+                    id = 'managed-2'; azureADDeviceId = 'device-2'; deviceName = 'Android-02'
+                    operatingSystem = 'Android'; deviceRegistrationState = 'registered'
+                    lastSyncDateTime = (Get-Date).AddDays(-30).ToString('o')
+                }) }
+            }
+            if ($Uri -like '*managedDevices*') {
+                return [pscustomobject] @{
+                    value = @([pscustomobject] @{
+                        id = 'managed-1'; azureADDeviceId = 'device-1'; deviceName = 'iPhone-01'
+                        operatingSystem = 'iOS'; deviceRegistrationState = 'registered'
+                        lastSyncDateTime = (Get-Date).AddDays(-10).ToString('o')
+                    })
+                    '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?page2'
+                }
+            }
+            [pscustomobject] @{ value = @(
+                [pscustomobject] @{ deviceId = 'device-1'; id = 'entra-1'; trustType = 'Workplace'; onPremisesSyncEnabled = $false }
+                [pscustomobject] @{ deviceId = 'device-2'; id = 'entra-2'; trustType = 'Workplace'; onPremisesSyncEnabled = $false }
+            ) }
+        }
+
+        $records = @(Get-MyDeviceIntune -Type 'AzureAD registered' -PropertySet Lifecycle -Force -ReportProgress 6>&1)
+        $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $progress = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
+
+        $devices | Should -HaveCount 2
+        $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
+        $devices[0].OperatingSystem | Should -Be 'iOS'
+        $devices[0].LastSeenDays | Should -BeGreaterThan 0
+        $devices[1].ManagedDeviceId | Should -Be 'managed-2'
+        @($progress | Where-Object { $_ -match 'complete' }) | Should -HaveCount 2
+        ($progress -join "`n") | Should -Match '2 records across 2 page'
+        ($progress -join "`n") | Should -Match 'Graph inventory \(Entra correlation\)'
+        ($progress -join "`n") | Should -Match 'Graph inventory \(Intune managed devices\)'
+        @($script:requestedUris | Where-Object { $_ -like '*managedDevices*' })[0] | Should -Match '\$select=azureADDeviceId'
+        Should -Invoke Get-MgDevice -Times 0 -Exactly
+        Should -Invoke Get-MgDeviceManagementManagedDevice -Times 0 -Exactly
+    }
+
+    It 'preserves full managed-device fields when page progress is requested' {
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*managedDevices*') {
+                return [pscustomobject] @{ value = @([pscustomobject] @{
+                    id = 'managed-1'; deviceName = 'iPhone-01'; operatingSystem = 'iOS'
+                    lastSyncDateTime = (Get-Date).AddDays(-10).ToString('o')
+                    remoteAssistanceSessionUrl = 'https://example.test/session'
+                    deviceActionResults = @('completed')
+                }) }
+            }
+            [pscustomobject] @{ value = @() }
+        }
+
+        $records = @(Get-MyDeviceIntune -PropertySet Full -Force -ReportProgress 6>&1)
+        $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+
+        $devices | Should -HaveCount 1
+        $devices[0].RemoteAssistanceSessionUrl | Should -Be 'https://example.test/session'
+        $devices[0].DeviceActionResults | Should -Contain 'completed'
+        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
+            $Uri -like '*managedDevices*' -and $Uri -notlike '*$select=*'
+        }
+    }
+
+    It 'returns no lifecycle devices after a later managed-device page exhausts retries' {
+        $script:Devices = @([pscustomobject] @{ DeviceId = 'device-1'; Id = 'entra-1'; TrustType = 'Workplace'; OnPremisesSyncEnabled = $false })
+        $script:DevicesDate = Get-Date
+        $script:DevicesScope = 'All'
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*page2*') { throw 'Stream does not support reading' }
+            [pscustomobject] @{
+                value = @([pscustomobject] @{ id = 'managed-1'; azureADDeviceId = 'device-1'; deviceName = 'iPhone-01'; lastSyncDateTime = (Get-Date).AddDays(-10).ToString('o') })
+                '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?page2'
+            }
+        }
+        Mock Start-Sleep {}
+
+        $warning = $null
+        $devices = @(Get-MyDeviceIntune -Type 'AzureAD registered' -PropertySet Lifecycle -ReportProgress -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'page 2 failed after 3 attempt'
+        Should -Invoke Invoke-MgGraphRequest -Times 4 -Exactly
+    }
+
+    It 'does not start lifecycle managed-device reads after an incomplete Entra lookup' {
+        Mock Invoke-MgGraphRequest {
+            if ($Uri -like '*page2*') { throw 'Stream does not support reading' }
+            [pscustomobject] @{
+                value = @([pscustomobject] @{ deviceId = 'device-1'; id = 'entra-1'; trustType = 'Workplace' })
+                '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/devices?page2'
+            }
+        }
+        Mock Start-Sleep {}
+
+        $warning = $null
+        $devices = @(Get-MyDeviceIntune -Type 'AzureAD registered' -PropertySet Lifecycle -Force -ReportProgress -WarningAction SilentlyContinue -WarningVariable warning)
+
+        $devices | Should -HaveCount 0
+        [string] $warning | Should -Match 'page 2 failed after 3 attempt'
+        Should -Invoke Invoke-MgGraphRequest -Times 0 -Exactly -ParameterFilter { $Uri -like '*managedDevices*' }
+    }
+
     It 'does not return a partial computer inventory when a later Intune page fails' {
         $script:Devices = @([PSCustomObject] @{
             DeviceId = 'device-1'; Id = 'entra-1'

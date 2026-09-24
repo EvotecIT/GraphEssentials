@@ -1,6 +1,6 @@
 function Get-GraphEssentialsAutopilotLookup {
     [CmdletBinding()]
-    param()
+    param([switch] $ReportProgress)
 
     $byManagedDeviceId = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $byAzureAdDeviceId = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -14,7 +14,12 @@ function Get-GraphEssentialsAutopilotLookup {
 
     try {
         $autopilotDevices = [System.Collections.Generic.List[object]]::new()
-        Get-MgDeviceManagementWindowsAutopilotDeviceIdentity -All -ErrorAction Stop | ForEach-Object {
+        $getAutopilotDevices = if ($ReportProgress) {
+            { Get-GraphEssentialsPagedInventory -Uri '/v1.0/deviceManagement/windowsAutopilotDeviceIdentities' -ReportProgress -InventoryName 'Windows Autopilot identities' }
+        } else {
+            { Get-MgDeviceManagementWindowsAutopilotDeviceIdentity -All -ErrorAction Stop }
+        }
+        & $getAutopilotDevices | ForEach-Object {
             $autopilotDevices.Add([PSCustomObject] @{
                     Id                           = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('Id', 'id')
                     GroupTag                     = Get-GraphEssentialsObjectProperty -InputObject $_ -Name @('GroupTag', 'groupTag')
