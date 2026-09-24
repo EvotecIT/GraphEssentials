@@ -276,6 +276,6 @@
 
     $Script:Devices = $DeviceCache
     $Script:DevicesDate = Get-Date
-    $Script:DevicesScope = if ($Synchronized -and $PropertySet -eq 'Computer') { 'Synchronized' } else { 'All' }
+    $Script:DevicesScope = if ($Synchronized -and ($PropertySet -eq 'Computer' -or $ReportProgress)) { 'Synchronized' } else { 'All' }
     $NormalizedDevices
 }

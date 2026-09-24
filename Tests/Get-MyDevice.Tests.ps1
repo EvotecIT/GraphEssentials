@@ -233,6 +233,29 @@ Describe 'Get-MyDevice' {
         Should -Invoke Get-MgDevice -Times 0 -Exactly
     }
 
+    It 'marks a synchronized progress inventory as a partial Entra cache' {
+        Mock Invoke-MgGraphRequest {
+            [pscustomobject] @{ value = @([pscustomobject] @{
+                deviceId = 'device-1'; id = 'object-1'; displayName = 'PC-01'
+                accountEnabled = $true; trustType = 'ServerAD'; onPremisesSyncEnabled = $true
+                registeredOwners = @()
+            }) }
+        }
+
+        foreach ($propertySet in @('Full', 'Lifecycle')) {
+            $script:DevicesScope = $null
+            $records = @(Get-MyDevice -Synchronized -PropertySet $propertySet -ReportProgress 6>&1)
+            $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+
+            $devices | Should -HaveCount 1
+            $script:DevicesScope | Should -Be 'Synchronized'
+            $script:Devices | Should -HaveCount 1
+        }
+        Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly -ParameterFilter {
+            $Uri -like '*$filter=onPremisesSyncEnabled%20eq%20true*'
+        }
+    }
+
     It 'returns no cloud devices or cache when a later full-inventory page fails after retries' {
         Mock Invoke-MgGraphRequest {
             if ($Uri -like '*skiptoken*') { throw 'Stream does not support reading' }
