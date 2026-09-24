@@ -506,6 +506,7 @@ Describe 'Get-MyDeviceIntune' {
                     value = @([pscustomobject] @{
                         id = 'managed-1'; azureADDeviceId = 'device-1'; deviceName = 'iPhone-01'
                         operatingSystem = 'iOS'; deviceRegistrationState = 'registered'
+                        enrolledDateTime = (Get-Date).AddDays(-100).ToString('o')
                         lastSyncDateTime = (Get-Date).AddDays(-10).ToString('o')
                     })
                     '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/deviceManagement/managedDevices?page2'
@@ -525,6 +526,8 @@ Describe 'Get-MyDeviceIntune' {
         $devices[0].EntraDeviceObjectId | Should -Be 'entra-1'
         $devices[0].OperatingSystem | Should -Be 'iOS'
         $devices[0].LastSeenDays | Should -BeGreaterThan 0
+        $devices[0].FirstSeen | Should -BeOfType [DateTimeOffset]
+        $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
         $devices[1].ManagedDeviceId | Should -Be 'managed-2'
         @($progress | Where-Object { $_ -match 'complete' }) | Should -HaveCount 2
         ($progress -join "`n") | Should -Match '2 records across 2 page'
@@ -535,17 +538,17 @@ Describe 'Get-MyDeviceIntune' {
         Should -Invoke Get-MgDeviceManagementManagedDevice -Times 0 -Exactly
     }
 
-    It 'preserves full managed-device fields when page progress is requested' {
+    It 'keeps SDK managed-device types for full inventory when progress is requested' {
         Mock Invoke-MgGraphRequest {
-            if ($Uri -like '*managedDevices*') {
-                return [pscustomobject] @{ value = @([pscustomobject] @{
-                    id = 'managed-1'; deviceName = 'iPhone-01'; operatingSystem = 'iOS'
-                    lastSyncDateTime = (Get-Date).AddDays(-10).ToString('o')
-                    remoteAssistanceSessionUrl = 'https://example.test/session'
-                    deviceActionResults = @('completed')
-                }) }
-            }
             [pscustomobject] @{ value = @() }
+        }
+        Mock Get-MgDeviceManagementManagedDevice {
+            [pscustomobject] @{
+                id = 'managed-1'; deviceName = 'iPhone-01'; operatingSystem = 'iOS'
+                lastSyncDateTime = [DateTimeOffset]::UtcNow.AddDays(-10)
+                remoteAssistanceSessionUrl = 'https://example.test/session'
+                deviceActionResults = @('completed')
+            }
         }
 
         $records = @(Get-MyDeviceIntune -PropertySet Full -Force -ReportProgress 6>&1)
@@ -554,9 +557,9 @@ Describe 'Get-MyDeviceIntune' {
         $devices | Should -HaveCount 1
         $devices[0].RemoteAssistanceSessionUrl | Should -Be 'https://example.test/session'
         $devices[0].DeviceActionResults | Should -Contain 'completed'
-        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter {
-            $Uri -like '*managedDevices*' -and $Uri -notlike '*$select=*'
-        }
+        $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
+        Should -Invoke Get-MgDeviceManagementManagedDevice -Times 1 -Exactly
+        Should -Invoke Invoke-MgGraphRequest -Times 0 -Exactly -ParameterFilter { $Uri -like '*managedDevices*' }
     }
 
     It 'returns no lifecycle devices after a later managed-device page exhausts retries' {

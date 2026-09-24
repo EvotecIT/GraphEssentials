@@ -165,7 +165,7 @@
                             $RegisteredOwners.Add($Owner)
                         }
                     }
-                    foreach ($Owner in (Get-GraphEssentialsPagedInventory -Uri $ownerNextLink)) {
+                    foreach ($Owner in (Get-GraphEssentialsPagedInventory -Uri $ownerNextLink -ReportProgress:$ReportProgress -InventoryName "Entra registered owners for $($Device.Id)")) {
                         $RegisteredOwners.Add($Owner)
                     }
                 } elseif ($Device.RegisteredOwners.Count -ge 20) {
@@ -196,9 +196,10 @@
                 }
             }
 
+            $firstSeen = if ($Device.RegistrationDateTime) { [DateTimeOffset] $Device.RegistrationDateTime } else { $null }
+            $lastSeen = if ($Device.ApproximateLastSignInDateTime) { [DateTimeOffset] $Device.ApproximateLastSignInDateTime } else { $null }
+            $lastSynchronized = if ($Device.OnPremisesLastSyncDateTime) { [DateTimeOffset] $Device.OnPremisesLastSyncDateTime } else { $null }
             if ($PropertySet -eq 'Computer') {
-                $lastSeen = if ($Device.ApproximateLastSignInDateTime) { [DateTimeOffset] $Device.ApproximateLastSignInDateTime } else { $null }
-                $lastSynchronized = if ($Device.OnPremisesLastSyncDateTime) { [DateTimeOffset] $Device.OnPremisesLastSyncDateTime } else { $null }
                 $NormalizedDevices.Add([PSCustomObject] @{
                     Name                   = $Device.DisplayName
                     Id                     = $Device.Id
@@ -218,8 +219,9 @@
             }
 
             $AutopilotDevice = Find-GraphEssentialsAutopilotDevice -Lookup $AutopilotLookup -AzureAdDeviceId $Device.DeviceId
-            $AutopilotLastContacted = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
-            $AutopilotLastContactedDays = if ($AutopilotLastContacted) { [math]::Floor((New-TimeSpan -Start $AutopilotLastContacted -End $Today).TotalDays) } else { $null }
+            $AutopilotLastContactedValue = if ($AutopilotDevice) { Get-GraphEssentialsObjectProperty -InputObject $AutopilotDevice -Name @('LastContactedDateTime', 'lastContactedDateTime') } else { $null }
+            $AutopilotLastContacted = if ($AutopilotLastContactedValue) { [DateTimeOffset] $AutopilotLastContactedValue } else { $null }
+            $AutopilotLastContactedDays = if ($AutopilotLastContacted) { [math]::Floor((New-TimeSpan -Start $AutopilotLastContacted.UtcDateTime -End $Today).TotalDays) } else { $null }
 
             $NormalizedDevices.Add([PSCustomObject] @{
                     Name                       = $Device.DisplayName
@@ -230,8 +232,8 @@
                     OperatingSystemVersion     = $Device.OperatingSystemVersion
                     TrustType                  = $TrustType
                     ProfileType                = $Device.ProfileType
-                    FirstSeen                  = $Device.RegistrationDateTime
-                    LastSeen                   = $Device.ApproximateLastSignInDateTime
+                    FirstSeen                  = $firstSeen
+                    LastSeen                   = $lastSeen
                     LastSeenDays               = $LastSeenDays
                     Status                     = $Device.DeviceOwnership
                     OwnerCount                 = $OwnerCount
@@ -239,7 +241,7 @@
                     OwnerEnabled               = $OwnerEnabled
                     OwnerUserPrincipalName     = $OwnerUserPrincipalName
                     IsSynchronized             = if ($Device.OnPremisesSyncEnabled) { $true } else { $false }
-                    LastSynchronized           = $Device.OnPremisesLastSyncDateTime
+                    LastSynchronized           = $lastSynchronized
                     LastSynchronizedDays       = $LastSynchronizedDays
                     IsCompliant                = $Device.IsCompliant
                     IsManaged                  = $Device.IsManaged

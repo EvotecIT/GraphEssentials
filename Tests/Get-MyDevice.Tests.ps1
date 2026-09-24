@@ -203,7 +203,9 @@ Describe 'Get-MyDevice' {
                 value = @([pscustomobject] @{
                     deviceId = 'device-1'; id = 'object-1'; displayName = 'iPhone-01'
                     accountEnabled = $true; operatingSystem = 'iOS'; trustType = 'Workplace'
+                    registrationDateTime = (Get-Date).AddDays(-200).ToString('o')
                     approximateLastSignInDateTime = (Get-Date).AddDays(-120).ToString('o')
+                    onPremisesLastSyncDateTime = (Get-Date).AddDays(-30).ToString('o')
                     registeredOwners = @([pscustomobject] @{ displayName = 'Owner One'; accountEnabled = $true; userPrincipalName = 'owner@example.com' })
                 })
                 '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/devices?$skiptoken=page2'
@@ -218,6 +220,9 @@ Describe 'Get-MyDevice' {
         $devices[0].OperatingSystem | Should -Be 'iOS'
         $devices[0].Enabled | Should -BeTrue
         $devices[0].LastSeenDays | Should -BeGreaterThan 100
+        $devices[0].FirstSeen | Should -BeOfType [DateTimeOffset]
+        $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
+        $devices[0].LastSynchronized | Should -BeOfType [DateTimeOffset]
         $devices[0].OwnerUserPrincipalName | Should -Be @('owner@example.com')
         $devices[1].OperatingSystem | Should -Be 'Android'
         ($progress -join "`n") | Should -Match '2 records across 2 page'
@@ -370,11 +375,14 @@ Describe 'Get-MyDevice' {
             }) }
         }
 
-        $devices = @(Get-MyDevice -PropertySet Computer)
+        $records = @(Get-MyDevice -PropertySet Computer -ReportProgress 6>&1)
+        $devices = @($records | Where-Object { $_ -isnot [System.Management.Automation.InformationRecord] })
+        $progress = @($records | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { [string] $_.MessageData })
 
         $devices | Should -HaveCount 1
         $devices[0].OwnerDisplayName | Should -Be @('Owner One', 'Owner Two')
         $devices[0].OwnerEnabled | Should -Be @('True', 'False')
+        ($progress -join "`n") | Should -Match 'Graph inventory \(Entra registered owners for object-1\)'
         $script:requestedUris | Should -HaveCount 2
         $script:requestedUris[1] | Should -Be 'https://graph.microsoft.com/v1.0/devices/object-1/registeredOwners?$skiptoken=owners2'
     }
