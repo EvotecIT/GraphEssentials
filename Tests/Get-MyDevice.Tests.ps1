@@ -203,6 +203,7 @@ Describe 'Get-MyDevice' {
                 value = @([pscustomobject] @{
                     deviceId = 'device-1'; id = 'object-1'; displayName = 'iPhone-01'
                     accountEnabled = $true; operatingSystem = 'iOS'; trustType = 'Workplace'
+                    mdmAppId = '0000000a-0000-0000-c000-000000000000'
                     registrationDateTime = (Get-Date).AddDays(-200).ToString('o')
                     approximateLastSignInDateTime = (Get-Date).AddDays(-120).ToString('o')
                     onPremisesLastSyncDateTime = (Get-Date).AddDays(-30).ToString('o')
@@ -219,6 +220,7 @@ Describe 'Get-MyDevice' {
         $devices | Should -HaveCount 2
         $devices[0].OperatingSystem | Should -Be 'iOS'
         $devices[0].Enabled | Should -BeTrue
+        $devices[0].MdmEnrollmentAppId | Should -Be '0000000a-0000-0000-c000-000000000000'
         $devices[0].LastSeenDays | Should -BeGreaterThan 100
         $devices[0].FirstSeen | Should -BeOfType [DateTimeOffset]
         $devices[0].LastSeen | Should -BeOfType [DateTimeOffset]
@@ -229,6 +231,7 @@ Describe 'Get-MyDevice' {
         ($progress -join "`n") | Should -Match 'Graph inventory \(Entra devices\)'
         $script:requestedUris[0] | Should -Match '\$top=200'
         $script:requestedUris[0] | Should -Match '\$select=accountEnabled'
+        $script:requestedUris[0] | Should -Match 'mdmAppId'
         $script:requestedUris[0] | Should -Match '\$expand=registeredOwners'
         Should -Invoke Get-MgDevice -Times 0 -Exactly
     }
