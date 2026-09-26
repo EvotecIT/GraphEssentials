@@ -1,4 +1,8 @@
-﻿### 0.0.65
+﻿### 0.0.66
+
+- Include the Entra MDM enrollment app ID in full paged device inventory as MdmEnrollmentAppId for action audit reporting.
+
+### 0.0.65
 
 - Report page counts, fetched records, elapsed time, and retries for Entra, Intune, and Windows Autopilot inventories when progress is requested.
 - Stop and return no inventory when a required cloud page remains unreadable after retries.
