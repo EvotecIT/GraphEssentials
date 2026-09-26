@@ -67,7 +67,7 @@
     $FullProperties = @(
         'accountEnabled', 'approximateLastSignInDateTime', 'deviceId', 'deviceOwnership',
         'displayName', 'enrollmentType', 'id', 'isCompliant', 'isManaged', 'managementType',
-        'manufacturer', 'model', 'onPremisesLastSyncDateTime', 'onPremisesSyncEnabled',
+        'manufacturer', 'mdmAppId', 'model', 'onPremisesLastSyncDateTime', 'onPremisesSyncEnabled',
         'operatingSystem', 'operatingSystemVersion', 'profileType', 'registrationDateTime',
         'trustType'
     )
@@ -249,6 +249,7 @@
                     Model                      = $Device.Model
                     Manufacturer               = $Device.Manufacturer
                     ManagementType             = $Device.ManagementType
+                    MdmEnrollmentAppId         = $Device.MdmAppId
                     EnrollmentType             = $Device.EnrollmentType
                     AutopilotInventoryLoaded   = if ($IncludeAutopilotInventory) { [bool] $AutopilotLookup.InventoryLoaded } else { $false }
                     AutopilotMatchAmbiguous    = [bool] ($AutopilotDevice -and $AutopilotDevice.MatchAmbiguous)
