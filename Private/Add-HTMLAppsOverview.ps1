@@ -1,4 +1,4 @@
-function Add-AppsOverviewContent {
+﻿function Add-AppsOverviewContent {
     <#
     .SYNOPSIS
     Renders the linked Apps + Credentials overview (two DataTables with cross-highlighting).

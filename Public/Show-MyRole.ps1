@@ -1,4 +1,4 @@
-function Show-MyRole {
+﻿function Show-MyRole {
     <#
     .SYNOPSIS
     Generates a comprehensive HTML report for Azure AD roles, users, and PIM history.

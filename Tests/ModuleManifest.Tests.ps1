@@ -20,8 +20,13 @@ Describe 'GraphEssentials module manifest' {
         $moduleManifest.RequiredModules.ModuleName | Should -Contain 'Microsoft.Graph.Identity.Governance'
     }
 
-    It 'keeps merged helper donors out of runtime dependencies' {
-        $moduleManifest.RequiredModules.ModuleName | Should -Not -Contain 'PSWriteColor'
-        $moduleManifest.RequiredModules.ModuleName | Should -Not -Contain 'PSSharedGoods'
+    It 'declares flexible helper dependencies for source checkout imports' {
+        $moduleManifest.RequiredModules.ModuleName | Should -Contain 'PSWriteColor'
+        $moduleManifest.RequiredModules.ModuleName | Should -Contain 'PSSharedGoods'
+        foreach ($dependency in $moduleManifest.RequiredModules) {
+            if ($dependency.ModuleName -in @('PSWriteColor', 'PSSharedGoods')) {
+                $dependency.RequiredVersion | Should -BeNullOrEmpty
+            }
+        }
     }
 }

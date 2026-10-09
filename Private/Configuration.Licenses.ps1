@@ -1,4 +1,4 @@
-$Script:Licenses = [ordered] @{
+﻿$Script:Licenses = [ordered] @{
     Name       = 'Azure Licenses'
     Enabled    = $true
     Execute    = {

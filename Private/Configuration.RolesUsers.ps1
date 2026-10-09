@@ -1,4 +1,4 @@
-$Script:RolesUsers = [ordered] @{
+﻿$Script:RolesUsers = [ordered] @{
     Name       = 'Azure Active Directory Roles Users'
     Enabled    = $true
     Execute    = {

@@ -1,4 +1,4 @@
-$Script:RolesUsersPerColumn = [ordered] @{
+﻿$Script:RolesUsersPerColumn = [ordered] @{
     Name       = 'Azure Active Directory Roles Users Per Column'
     Enabled    = $true
     Execute    = {

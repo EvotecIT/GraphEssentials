@@ -33,14 +33,15 @@ Force and AllowClobber aren't necessary, but they do skip errors in case some ap
 
 GraphEssentials requires Microsoft Graph SDK 2.40.0 or later. Keep the required Graph SDK modules on the same version, including `Microsoft.Graph.Authentication`, and start a new PowerShell session after updating them.
 
-PowerShell 7 is recommended. In Windows PowerShell 5.1, increase the session's function limit before importing GraphEssentials so the required Graph SDK commands can load:
+PowerShell 7 is recommended. In a fresh Windows PowerShell 5.1 session, increase the global function and variable limits before importing GraphEssentials so the required Graph SDK commands can load:
 
 ```powershell
-$MaximumFunctionCount = 32768
+$global:MaximumFunctionCount = 32768
+$global:MaximumVariableCount = 32768
 Import-Module GraphEssentials
 ```
 
-The default Windows PowerShell limit is 4,096 functions; the Graph SDK can exceed it. See [Microsoft's guidance on this limit](https://learn.microsoft.com/en-ca/answers/questions/964238/azure-automation-account-adding-microsoft-graph-mo).
+Windows PowerShell 5.1 defaults to 4,096 functions and variables per scope; the Graph SDK can exceed these limits. Run the assignments in each new session before importing the module. See [Microsoft's preference variable documentation](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-5.1).
 
 ## And to update
 
