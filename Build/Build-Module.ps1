@@ -9,12 +9,12 @@
     [string] $GitHubApiKeyPath = 'C:\Support\Important\GitHubAPI.txt'
 )
 
-Import-Module PSPublishModule -Force -ErrorAction Stop
+Import-Module PSPublishModule -MinimumVersion '3.0.161' -Force -ErrorAction Stop
 
 Build-Module -ModuleName 'GraphEssentials' {
     # Usual defaults as per standard module
     $Manifest = [ordered] @{
-        ModuleVersion        = '0.0.66'
+        ModuleVersion        = '0.0.67'
         CompatiblePSEditions = @('Desktop', 'Core')
         GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
         Author               = 'Przemyslaw Klys'
@@ -26,12 +26,12 @@ Build-Module -ModuleName 'GraphEssentials' {
     }
     New-ConfigurationManifest @Manifest
 
-    New-ConfigurationModule -Type RequiredModule -Name @(
+    New-ConfigurationModule -Type ApprovedModule -Name @(
         'PSWriteColor'
-    ) -Guid Auto -Version Latest
+    ) -Guid Auto -RequiredVersion '1.0.7' -VersionSource PSGallery
 
     New-ConfigurationModule -Type RequiredModule -Name 'PSWriteHTML' -Guid Auto -Version '1.41.0'
-    New-ConfigurationModule -Type RequiredModule -Name 'PSSharedGoods' -Guid Auto -Version '0.0.312'
+    New-ConfigurationModule -Type ApprovedModule -Name 'PSSharedGoods' -Guid Auto -RequiredVersion '0.0.313' -VersionSource PSGallery
 
     New-ConfigurationModule -Type RequiredModule -Name @(
         'Microsoft.Graph.Authentication'
@@ -58,7 +58,7 @@ Build-Module -ModuleName 'GraphEssentials' {
         'Get-PasskeyRegistrationOptions'
         'New-Passkey'
     )
-    New-ConfigurationModule -Type ApprovedModule -Name 'PSSharedGoods', 'PSWriteColor', 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword' #, 'PSPublishModule'
+    New-ConfigurationModule -Type ApprovedModule -Name 'Connectimo', 'PSUnifi', 'PSWebToolbox', 'PSMyPassword'
 
 
     $ConfigurationFormat = [ordered] @{

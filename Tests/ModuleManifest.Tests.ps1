@@ -19,4 +19,9 @@ Describe 'GraphEssentials module manifest' {
         $moduleManifest.RequiredModules.ModuleName | Should -Contain 'Microsoft.Graph.Authentication'
         $moduleManifest.RequiredModules.ModuleName | Should -Contain 'Microsoft.Graph.Identity.Governance'
     }
+
+    It 'keeps merged helper donors out of runtime dependencies' {
+        $moduleManifest.RequiredModules.ModuleName | Should -Not -Contain 'PSWriteColor'
+        $moduleManifest.RequiredModules.ModuleName | Should -Not -Contain 'PSSharedGoods'
+    }
 }
