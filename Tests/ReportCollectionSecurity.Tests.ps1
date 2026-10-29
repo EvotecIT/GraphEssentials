@@ -77,7 +77,7 @@ Describe 'Report entry point security' {
     It 'never collects or emits the Defender deployment key from a mocked key response' {
         Mock Get-MyDefenderDeploymentKey { [pscustomobject]@{ DeploymentAccessKey = 'synthetic-deployment-secret'; DownloadUrl = 'https://example.test' } }
         $path = Join-Path $TestDrive 'defender.html'
-        $streams = Show-MyDefender -FilePath $path -ShowHTML -Verbose -Debug *>&1
+        $streams = Show-MyDefender -FilePath $path -Verbose -Debug *>&1
         Get-Content $path -Raw | Should -Not -Match 'synthetic-deployment-secret|DeploymentAccessKey|Defender Deployment Key'
         Get-Content $path -Raw | Should -Match 'sensor-1'
         $streams | Out-String | Should -Not -Match 'synthetic-deployment-secret'
