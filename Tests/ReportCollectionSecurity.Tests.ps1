@@ -254,6 +254,9 @@ Describe 'Report entry point security' {
         $result.CollectionIssues.Count | Should -BeGreaterThan 0
         $html = Get-Content $path -Raw
         $html | Should -Match '(?s)<header>.*Report selection notice.*Collection notice - report may be incomplete.*</header>|(?s)<header>.*Collection notice - report may be incomplete.*Report selection notice.*</header>'
+        $html | Should -Match '<div(?=[^>]*class="[^"]*graphEssentialsReportNoticeWarning)(?=[^>]*role="alert")[^>]*>'
+        $html | Should -Match '<div(?=[^>]*class="[^"]*graphEssentialsReportNoticeInformation)(?=[^>]*role="note")[^>]*>'
+        $html | Should -Match 'Warning: Collection notice - report may be incomplete'
         $html | Should -Not -Match 'synthetic-secret-value'
     }
 }

@@ -19,11 +19,7 @@
         New-HTMLHeader {
             Add-GraphEssentialsCollectionNotice -Issues $CollectionIssues
             if ($SelectionNotices.Count -gt 0) {
-                New-HTMLSection -HeaderText 'Report selection notice' {
-                    foreach ($notice in $SelectionNotices) {
-                        New-HTMLText -Text "$($notice.TargetName): $($notice.Comment)" -Color DarkSlateGrey
-                    }
-                }
+                New-GraphEssentialsReportNotice -Notices $SelectionNotices -Tone Information
             }
             New-HTMLSection -Invisible {
                 New-HTMLSection {
