@@ -46,31 +46,31 @@
     )
 
     $Script:Reporting = [ordered] @{}
+    $CollectionIssues = [System.Collections.Generic.List[object]]::new()
     $Script:Reporting['Version'] = Get-GitHubVersion -Cmdlet 'Invoke-MyGraphEssentials' -RepositoryOwner 'evotecit' -RepositoryName 'GraphEssentials'
 
     Write-Verbose -Message "Show-MyRole - Getting role definitions and assignments"
-    $RoleData = Get-MyRole
+    $RoleData = @(Invoke-GraphEssentialsReportCollection -Name 'Get-MyRole' -Issues $CollectionIssues -Collect { Get-MyRole })
 
     if (-not $RoleData) {
         Write-Warning -Message "Show-MyRole - Failed to retrieve role data"
-        return
     }
 
     Write-Verbose -Message "Show-MyRole - Getting user role assignments"
-    $UserRoleData = Get-MyRoleUsers
-    $UserRoleDataFiltered = if ($IncludeDisabledUsers) {
+    $UserRoleData = @(Invoke-GraphEssentialsReportCollection -Name 'Get-MyRoleUsers' -Issues $CollectionIssues -Collect { Get-MyRoleUsers })
+    $UserRoleDataFiltered = @(if ($IncludeDisabledUsers) {
         $UserRoleData
     } else {
         $UserRoleData.Where({ $_.Enabled -ne $false })
-    }
+    })
 
     Write-Verbose -Message "Show-MyRole - Getting user role assignments with RolePerColumn"
-    $UserRoleDataPerColumn = Get-MyRoleUsers -RolePerColumn
-    $UserRoleDataPerColumnFiltered = if ($IncludeDisabledUsers) {
+    $UserRoleDataPerColumn = @(Invoke-GraphEssentialsReportCollection -Name 'Get-MyRoleUsers' -Issues $CollectionIssues -Collect { Get-MyRoleUsers -RolePerColumn })
+    $UserRoleDataPerColumnFiltered = @(if ($IncludeDisabledUsers) {
         $UserRoleDataPerColumn
     } else {
         $UserRoleDataPerColumn.Where({ $_.Enabled -ne $false })
-    }
+    })
     $RoleHolderTotal = $UserRoleDataFiltered.Where({ $_.Type -eq 'User' }).Count
     $RoleHolderLicenseSummary = @()
     $RoleHolderServicePlanSummary = @()
@@ -131,7 +131,7 @@
 
     Write-Verbose -Message "Show-MyRole - Getting PIM role history"
     try {
-        $RoleHistory = Get-MyRoleHistory -DaysBack $DaysBack -IncludeAllStatuses -Verbose
+        $RoleHistory = Invoke-GraphEssentialsReportCollection -Name 'Get-MyRoleHistory' -Issues $CollectionIssues -Collect { Get-MyRoleHistory -DaysBack $DaysBack -IncludeAllStatuses -Verbose }
         Write-Verbose -Message "Show-MyRole - Retrieved $($RoleHistory.Count) PIM history entries"
     } catch {
         Write-Warning -Message "Show-MyRole - Failed to get PIM history: $($_.Exception.Message)"
@@ -178,6 +178,7 @@
         New-HTMLTableOption -DataStore JavaScript -BoolAsString -ArrayJoinString ', ' -ArrayJoin
 
         New-HTMLHeader {
+            Add-GraphEssentialsCollectionNotice -Issues $CollectionIssues
             New-HTMLSection -Invisible {
                 New-HTMLSection {
                     New-HTMLText -Text "Report generated on $(Get-Date)" -Color Blue

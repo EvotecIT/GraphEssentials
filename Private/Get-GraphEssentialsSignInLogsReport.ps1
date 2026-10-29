@@ -35,7 +35,7 @@ function Get-GraphEssentialsSignInLogsReport {
 
     # Only proceed with detailed logs if explicitly requested
     Write-Verbose "Get-GraphEssentialsSignInLogsReport: Fetching detailed Service Principal Sign-in Logs (Last $($Days) Days)..."
-    Write-Warning "Get-GraphEssentialsSignInLogsReport: Fetching detailed sign-in logs can be slow for large tenants"
+    Write-Verbose "Get-GraphEssentialsSignInLogsReport: Fetching detailed sign-in logs can be slow for large tenants"
 
     try {
         # Calculate start time for the date filter

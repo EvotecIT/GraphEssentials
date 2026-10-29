@@ -4,7 +4,7 @@ function Get-MySecurityQuestionStatus {
 
     $securityQuestionLookup = [System.Collections.Concurrent.ConcurrentDictionary[string, bool]]::new()
     Write-Verbose "Get-MySecurityQuestionStatus: Starting fetch for ALL user registration details (for Security Question status) using Invoke-MgGraphRequest..."
-    Write-Warning "Get-MySecurityQuestionStatus: Fetching all user registration details can be time-consuming and memory-intensive for large tenants."
+    Write-Verbose "Get-MySecurityQuestionStatus: Fetching all user registration details can be time-consuming and memory-intensive for large tenants."
 
     try {
         # Use Invoke-MgGraphRequest and handle pagination manually
@@ -108,7 +108,7 @@ function Get-MySecurityQuestionStatusOld {
 
     $securityQuestionLookup = [System.Collections.Concurrent.ConcurrentDictionary[string, bool]]::new()
     Write-Verbose "Get-MySecurityQuestionStatus: Starting fetch for ALL user registration details (for Security Question status)..."
-    Write-Warning "Get-MySecurityQuestionStatus: Fetching all user registration details can be time-consuming and memory-intensive for large tenants."
+    Write-Verbose "Get-MySecurityQuestionStatus: Fetching all user registration details can be time-consuming and memory-intensive for large tenants."
 
     try {
         # Fetch all details, selecting only necessary properties

@@ -46,11 +46,12 @@
     )
 
     $Script:Reporting = [ordered] @{}
+    $CollectionIssues = [System.Collections.Generic.List[object]]::new()
     $Script:Reporting['Version'] = Get-GitHubVersion -Cmdlet 'Invoke-MyGraphEssentials' -RepositoryOwner 'evotecit' -RepositoryName 'GraphEssentials'
 
     # --- Get Enhanced Application Data ---
     Write-Verbose "Show-MyApp: Getting application data using Get-MyApp (ApplicationType: $ApplicationType)..."
-    $Applications = Get-MyApp -ApplicationType $ApplicationType -IncludeRealtimeSignIns:$IncludeRealtimeSignIns.IsPresent -IncludeDetailedSignInLogs:$IncludeDetailedSignInLogs.IsPresent -DetailLevel $DetailLevel
+    $Applications = Invoke-GraphEssentialsReportCollection -Name 'Get-MyApp' -Issues $CollectionIssues -Collect { Get-MyApp -ApplicationType $ApplicationType -IncludeRealtimeSignIns:$IncludeRealtimeSignIns.IsPresent -IncludeDetailedSignInLogs:$IncludeDetailedSignInLogs.IsPresent -DetailLevel $DetailLevel }
     if (-not $Applications) {
         Write-Warning "Show-MyApp: No application data received from Get-MyApp. Report will be incomplete."
         # Optionally exit or continue with an empty report
@@ -60,18 +61,20 @@
     # --- Get Detailed Credentials Data (for second table) ---
     # Get-MyApp now includes summary info, but we still need details for the expiry table
     Write-Verbose "Show-MyApp: Getting detailed credentials using Get-MyAppCredentials..."
-    $ApplicationsPassword = Get-MyAppCredentials -IncludeFederated:$IncludeFederated.IsPresent # Fetch details for all apps for the second table
+    $ApplicationsPassword = Invoke-GraphEssentialsReportCollection -Name 'Get-MyAppCredentials' -Issues $CollectionIssues -Collect { Get-MyAppCredentials -IncludeFederated:$IncludeFederated.IsPresent }
     if (-not $ApplicationsPassword) {
         Write-Warning "Show-MyApp: No detailed credential data received from Get-MyAppCredentials. Credentials table will be empty."
     }
 
     New-HTML -TitleText "Entra Application Report" {
+
         New-HTMLTabStyle -BorderRadius 0px -TextTransform capitalize -BackgroundColorActive SlateGrey
         New-HTMLSectionStyle -BorderRadius 0px -HeaderBackGroundColor '#0078d4' -RemoveShadow
         New-HTMLPanelStyle -BorderRadius 0px
         New-HTMLTableOption -DataStore JavaScript -BoolAsString -ArrayJoinString ', ' -ArrayJoin
 
         New-HTMLHeader {
+            Add-GraphEssentialsCollectionNotice -Issues $CollectionIssues
             New-HTMLSection -Invisible {
                 New-HTMLSection {
                     New-HTMLText -Text "Report generated on $(Get-Date)" -Color Blue

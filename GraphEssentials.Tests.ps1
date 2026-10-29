@@ -13,6 +13,12 @@ if (-not $availablePester) {
 
 Import-Module Pester -Force -ErrorAction Stop
 
+# Exercise report failures through the supported renderer, including persistent
+# header placement so tab navigation cannot hide collection notices.
+if (-not (Get-Module -ListAvailable -Name PSWriteHTML | Where-Object { $_.Version -eq [version] '1.41.0' })) {
+    Install-Module -Name PSWriteHTML -RequiredVersion '1.41.0' -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+}
+
 $configuration = [PesterConfiguration]::Default
 $configuration.Run.Path = (Join-Path $PSScriptRoot 'Tests')
 $configuration.Run.Exit = $true

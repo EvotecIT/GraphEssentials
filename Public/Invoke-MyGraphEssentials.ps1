@@ -24,10 +24,10 @@
     When specified, hides the step-by-step details in the console output.
 
     .PARAMETER ShowError
-    When specified, shows error details in the console output.
+    When specified, shows safe error notices in the console output. Collection problems always appear in HTML.
 
     .PARAMETER ShowWarning
-    When specified, shows warning messages in the console output.
+    When specified, shows safe warning notices in the console output. Collection problems always appear in HTML.
 
     .PARAMETER Online
     When specified, opens the generated report in the default web browser.
@@ -165,37 +165,20 @@
 
             $TimeLogGraphEssentials = Start-TimeLog
             Write-Color -Text '[i]', '[Start] ', $($Script:GraphEssentialsConfiguration[$T]['Name']) -Color Yellow, DarkGray, Yellow
-            $OutputCommand = Invoke-Command -ScriptBlock $Script:GraphEssentialsConfiguration[$T]['Execute'] -WarningVariable CommandWarnings -ErrorVariable CommandErrors #-ArgumentList $Forest, $ExcludeDomains, $IncludeDomains
+            $CollectionIssues = [System.Collections.Generic.List[object]]::new()
+            $OutputCommand = Invoke-GraphEssentialsReportCollection -Name $T -Issues $CollectionIssues -Collect $Script:GraphEssentialsConfiguration[$T]['Execute']
             if ($OutputCommand -is [System.Collections.IDictionary]) {
-                # in some cases the return will be wrapped in Hashtable/orderedDictionary and we need to handle this without an array
                 $Script:Reporting[$T]['Data'] = $OutputCommand
             } else {
-                # since sometimes it can be 0 or 1 objects being returned we force it being an array
                 $Script:Reporting[$T]['Data'] = [Array] $OutputCommand
             }
-            Invoke-Command -ScriptBlock $Script:GraphEssentialsConfiguration[$T]['Processing']
-            $Script:Reporting[$T]['WarningsAndErrors'] = @(
-                if ($ShowWarning) {
-                    foreach ($War in $CommandWarnings) {
-                        [PSCustomObject] @{
-                            Type       = 'Warning'
-                            Comment    = $War
-                            Reason     = ''
-                            TargetName = ''
-                        }
-                    }
+            $null = Invoke-GraphEssentialsReportCollection -Name "$T processing" -Issues $CollectionIssues -Collect $Script:GraphEssentialsConfiguration[$T]['Processing']
+            $Script:Reporting[$T]['WarningsAndErrors'] = $CollectionIssues.ToArray()
+            foreach ($issue in $CollectionIssues) {
+                if (($ShowWarning -and $issue.Type -eq 'Warning') -or ($ShowError -and $issue.Type -eq 'Error')) {
+                    Write-Warning -Message "$($issue.TargetName): $($issue.Comment)"
                 }
-                if ($ShowError) {
-                    foreach ($Err in $CommandErrors) {
-                        [PSCustomObject] @{
-                            Type       = 'Error'
-                            Comment    = $Err
-                            Reason     = $Err.CategoryInfo.Reason
-                            TargetName = $Err.CategoryInfo.TargetName
-                        }
-                    }
-                }
-            )
+            }
             $TimeEndGraphEssentials = Stop-TimeLog -Time $TimeLogGraphEssentials -Option OneLiner
             $Script:Reporting[$T]['Time'] = $TimeEndGraphEssentials
             Write-Color -Text '[i]', '[End  ] ', $($Script:GraphEssentialsConfiguration[$T]['Name']), " [Time to execute: $TimeEndGraphEssentials]" -Color Yellow, DarkGray, Yellow, DarkGray
@@ -207,6 +190,19 @@
             & $PostProcess $Script:Reporting
         } catch {
             Write-Warning "Invoke-MyGraphEssentials: PostProcess failed: $($_.Exception.Message)"
+        }
+    }
+
+    # Summaries can make additional Graph requests (for example guest policies).
+    # Complete them before rendering so every notice reaches the persistent header.
+    foreach ($T in $Script:GraphEssentialsConfiguration.Keys) {
+        if ($Script:GraphEssentialsConfiguration[$T].Enabled -and $Script:GraphEssentialsConfiguration[$T]['Summary']) {
+            $CollectionIssues = [System.Collections.Generic.List[object]]::new()
+            foreach ($issue in $Script:Reporting[$T]['WarningsAndErrors']) {
+                $CollectionIssues.Add($issue)
+            }
+            $Script:Reporting[$T]['Summary'] = Invoke-GraphEssentialsReportCollection -Name "$T summary" -Issues $CollectionIssues -Collect $Script:GraphEssentialsConfiguration[$T]['Summary']
+            $Script:Reporting[$T]['WarningsAndErrors'] = $CollectionIssues.ToArray()
         }
     }
 
