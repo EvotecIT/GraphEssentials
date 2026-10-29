@@ -267,7 +267,7 @@
                     }
                 }
             } catch {
-                Write-Verbose "Get-MyAppCredentials: Failed to fetch federated identity credentials for $($App.DisplayName): $($_.Exception.Message)"
+                Write-Warning 'Get-MyAppCredentials: Failed to retrieve federated identity credentials. Credential data may be incomplete.'
             }
         }
     }

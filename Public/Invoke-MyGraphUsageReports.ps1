@@ -128,6 +128,8 @@
     $Script:Reporting = [ordered] @{}
     $Script:Reporting['Version'] = Get-GitHubVersion -Cmdlet 'Invoke-MyGraphEssentials' -RepositoryOwner 'evotecit' -RepositoryName 'GraphEssentials'
     $Script:Reporting['Reports'] = [ordered] @{}
+    $CollectionIssues = [System.Collections.Generic.List[object]]::new()
+    $Script:Reporting['CollectionIssues'] = $CollectionIssues
 
     if ($Report -contains 'All') {
         $ParameterList = (Get-Command -Name Get-MyUsageReports).Parameters
@@ -141,9 +143,10 @@
             DateTime = $DateTime
         }
         Remove-EmptyValue -Hashtable $Splat
-        $Script:Reporting['Reports'][$R] = Get-MyUsageReports @Splat
+        $Script:Reporting['Reports'][$R] = Invoke-GraphEssentialsReportCollection -Name $R -Issues $CollectionIssues -Collect { Get-MyUsageReports @Splat }
     }
     $newHTMLReportGraphUsageSplat = @{
+        CollectionIssues = $CollectionIssues.ToArray()
         Reports  = $Script:Reporting['Reports']
         Online   = $Online
         HideHTML = $HideHTML

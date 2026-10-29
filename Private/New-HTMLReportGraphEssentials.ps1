@@ -14,6 +14,11 @@
         New-HTMLTableOption -DataStore JavaScript -BoolAsString -ArrayJoinString ', ' -ArrayJoin
 
         New-HTMLHeader {
+            foreach ($reportType in $Script:GraphEssentialsConfiguration.Keys) {
+                if ($Script:GraphEssentialsConfiguration[$reportType].Enabled) {
+                    Add-GraphEssentialsCollectionNotice -Issues $Script:Reporting[$reportType]['WarningsAndErrors']
+                }
+            }
             New-HTMLSection -Invisible {
                 New-HTMLSection {
                     New-HTMLText -Text "Report generated on $(Get-Date)" -Color Blue
@@ -27,18 +32,12 @@
         if ($Type.Count -eq 1) {
             foreach ($T in $Script:GraphEssentialsConfiguration.Keys) {
                 if ($Script:GraphEssentialsConfiguration[$T].Enabled -eq $true) {
-                    if ($Script:GraphEssentialsConfiguration[$T]['Summary']) {
-                        $Script:Reporting[$T]['Summary'] = Invoke-Command -ScriptBlock $Script:GraphEssentialsConfiguration[$T]['Summary']
-                    }
                     & $Script:GraphEssentialsConfiguration[$T]['Solution']
                 }
             }
         } else {
             foreach ($T in $Script:GraphEssentialsConfiguration.Keys) {
                 if ($Script:GraphEssentialsConfiguration[$T].Enabled -eq $true) {
-                    if ($Script:GraphEssentialsConfiguration[$T]['Summary']) {
-                        $Script:Reporting[$T]['Summary'] = Invoke-Command -ScriptBlock $Script:GraphEssentialsConfiguration[$T]['Summary']
-                    }
                     New-HTMLTab -Name $Script:GraphEssentialsConfiguration[$T]['Name'] {
                         & $Script:GraphEssentialsConfiguration[$T]['Solution']
                     }

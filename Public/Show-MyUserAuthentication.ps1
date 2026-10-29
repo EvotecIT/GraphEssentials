@@ -58,6 +58,7 @@ function Show-MyUserAuthentication {
     )
 
     $Script:Reporting = [ordered] @{}
+    $CollectionIssues = [System.Collections.Generic.List[object]]::new()
     $Script:Reporting['Version'] = Get-GitHubVersion -Cmdlet 'Invoke-MyGraphEssentials' -RepositoryOwner 'evotecit' -RepositoryName 'GraphEssentials'
 
     # --- Get Data ---
@@ -66,13 +67,13 @@ function Show-MyUserAuthentication {
     if ($UserPrincipalName) { $getAuthParams['UserPrincipalName'] = $UserPrincipalName }
     if ($IncludeDeviceDetails) { $getAuthParams['IncludeDeviceDetails'] = $true }
     if ($IncludeSecurityQuestionStatus) { $getAuthParams['IncludeSecurityQuestionStatus'] = $true }
-    $UserAuth = Get-MyUserAuthentication @getAuthParams
+    $UserAuth = Invoke-GraphEssentialsReportCollection -Name 'Get-MyUserAuthentication' -Issues $CollectionIssues -Collect { Get-MyUserAuthentication @getAuthParams }
 
     Write-Verbose -Message "Show-MyUserAuthentication - Getting authentication methods policy"
-    $AuthMethodsPolicy = Get-MyAuthenticationMethodsPolicy
+    $AuthMethodsPolicy = Invoke-GraphEssentialsReportCollection -Name 'Get-MyAuthenticationMethodsPolicy' -Issues $CollectionIssues -Collect { Get-MyAuthenticationMethodsPolicy }
 
     Write-Verbose -Message "Show-MyUserAuthentication - Getting authentication strength policies"
-    $AuthStrengths = Get-MyAuthenticationStrength
+    $AuthStrengths = Invoke-GraphEssentialsReportCollection -Name 'Get-MyAuthenticationStrength' -Issues $CollectionIssues -Collect { Get-MyAuthenticationStrength }
 
     # --- Prepare User Metrics (Only if User Data exists) ---
     $TotalUsers = 0
@@ -107,14 +108,14 @@ function Show-MyUserAuthentication {
     $LicenseServicesLookup = $null
     if ($IncludeRoles -and ($IncludeLicenses -or $IncludeLicenseServices)) {
         # Single call to reuse both datasets where possible
-        $bothLookups = Get-MyUserRolesAndLicensesLookup -AllUsers
+        $bothLookups = Invoke-GraphEssentialsReportCollection -Name 'Get-MyUserRolesAndLicensesLookup' -Issues $CollectionIssues -Collect { Get-MyUserRolesAndLicensesLookup -AllUsers }
         if ($bothLookups) {
             $RolesLookup = $bothLookups.Roles
             $LicensesLookup = $bothLookups.Licenses
             $LicenseServicesLookup = $bothLookups.LicenseServices
         }
     } elseif ($IncludeRoles) {
-        $rolesOnly = Get-MyUserRolesAndLicensesLookup -AllUsers:$false
+        $rolesOnly = Invoke-GraphEssentialsReportCollection -Name 'Get-MyUserRolesAndLicensesLookup' -Issues $CollectionIssues -Collect { Get-MyUserRolesAndLicensesLookup -AllUsers:$false }
         if ($rolesOnly) {
             $RolesLookup = $rolesOnly.Roles
             if ($IncludeLicenseServices) { $LicenseServicesLookup = $rolesOnly.LicenseServices }
@@ -122,7 +123,7 @@ function Show-MyUserAuthentication {
     } elseif ($IncludeLicenses -or $IncludeLicenseServices) {
         # Get license names per user with existing helper
         try {
-            $allUsersForLicenses = Get-MyUser
+            $allUsersForLicenses = Invoke-GraphEssentialsReportCollection -Name 'Get-MyUser' -Issues $CollectionIssues -Collect { Get-MyUser }
             if ($allUsersForLicenses) {
                 $LicensesLookup = @{}
                 $LicenseServicesLookup = @{}
@@ -198,12 +199,14 @@ function Show-MyUserAuthentication {
     # --- Generate HTML Report ---
     Write-Verbose -Message "Show-MyUserAuthentication - Preparing HTML report"
     New-HTML -TitleText "User Authentication Methods Report" -Online:$Online.IsPresent -FilePath $FilePath -ShowHTML:$ShowHTML.IsPresent {
+
         New-HTMLTabStyle -BorderRadius 0px -TextTransform capitalize -BackgroundColorActive SlateGrey
         New-HTMLSectionStyle -BorderRadius 0px -HeaderBackGroundColor Grey -RemoveShadow
         New-HTMLPanelStyle -BorderRadius 0px
         New-HTMLTableOption -DataStore JavaScript -BoolAsString -ArrayJoinString ', ' -ArrayJoin
 
         New-HTMLHeader {
+            Add-GraphEssentialsCollectionNotice -Issues $CollectionIssues
             New-HTMLSection -Invisible {
                 New-HTMLSection {
                     New-HTMLText -Text "Report generated on $(Get-Date)" -Color Blue

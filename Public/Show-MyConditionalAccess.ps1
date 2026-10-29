@@ -35,21 +35,29 @@
     )
 
     $Script:Reporting = [ordered] @{}
+    $CollectionIssues = [System.Collections.Generic.List[object]]::new()
     $Script:Reporting['Version'] = Get-GitHubVersion -Cmdlet 'Invoke-MyGraphEssentials' -RepositoryOwner 'evotecit' -RepositoryName 'GraphEssentials'
 
     Write-Verbose -Message "Show-MyConditionalAccess - Getting conditional access policies"
-    $CAData = Get-MyConditionalAccess -IncludeStatistics
+    $CAData = Invoke-GraphEssentialsReportCollection -Name 'Get-MyConditionalAccess' -Issues $CollectionIssues -Collect { Get-MyConditionalAccess -IncludeStatistics }
 
     if (-not $CAData) {
         Write-Warning -Message "Show-MyConditionalAccess - Failed to retrieve conditional access policies"
-        return
     }
 
     Write-Verbose -Message "Show-MyConditionalAccess - Getting authentication strength policies"
-    $AuthStrengths = Get-MyAuthenticationStrength
+    $AuthStrengths = Invoke-GraphEssentialsReportCollection -Name 'Get-MyAuthenticationStrength' -Issues $CollectionIssues -Collect { Get-MyAuthenticationStrength }
 
     if (-not $AuthStrengths) {
         Write-Warning -Message "Show-MyConditionalAccess - Failed to retrieve authentication strength policies"
+    }
+
+    if ($CAData) {
+        $AuthMethods = Invoke-GraphEssentialsReportCollection -Name 'Get-MyAuthenticationMethodsPolicy' -Issues $CollectionIssues -Collect { Get-MyAuthenticationMethodsPolicy }
+        $AuthContexts = Invoke-GraphEssentialsReportCollection -Name 'Get-MyAuthenticationContext' -Issues $CollectionIssues -Collect { Get-MyAuthenticationContext }
+        $TermsOfUse = Invoke-GraphEssentialsReportCollection -Name 'Get-MyTermsOfUse' -Issues $CollectionIssues -Collect { Get-MyTermsOfUse }
+        $CrossTenantAccess = Invoke-GraphEssentialsReportCollection -Name 'Get-MyCrossTenantAccess' -Issues $CollectionIssues -Collect { Get-MyCrossTenantAccess }
+        $NamedLocations = Invoke-GraphEssentialsReportCollection -Name 'Get-MyNamedLocation' -Issues $CollectionIssues -Collect { Get-MyNamedLocation }
     }
 
     # Properties to exclude from HTML tables for cleaner display
@@ -88,6 +96,7 @@
         New-HTMLTableOption -DataStore JavaScript -BoolAsString -ArrayJoinString ', ' -ArrayJoin
 
         New-HTMLHeader {
+            Add-GraphEssentialsCollectionNotice -Issues $CollectionIssues
             New-HTMLSection -Invisible {
                 New-HTMLSection {
                     New-HTMLText -Text "Report generated on $(Get-Date)" -Color Blue
@@ -253,7 +262,6 @@
                             }
 
                             # Authentication Methods Policy
-                            $AuthMethods = Get-MyAuthenticationMethodsPolicy
                             if ($AuthMethods) {
                                 New-HTMLSection -HeaderText "General Settings" {
                                     New-HTMLTable -DataTable ([PSCustomObject]@{
@@ -334,7 +342,6 @@
 
                             # Authentication Contexts Section
                             New-HTMLSection -HeaderText "Authentication Contexts" {
-                                $AuthContexts = Get-MyAuthenticationContext
                                 if ($AuthContexts) {
                                     New-HTMLTable -DataTable $AuthContexts -Filtering {
                                         New-HTMLTableCondition -Name 'IsAvailable' -Value $true -BackgroundColor LightGreen -ComparisonType boolean
@@ -358,7 +365,6 @@
                                     "These agreements can be enforced through conditional access policies and can require periodic re-acceptance."
                                 }
 
-                                $TermsOfUse = Get-MyTermsOfUse
                                 if ($TermsOfUse) {
                                     New-HTMLSection -HeaderText "Terms of Use Summary" {
                                         New-HTMLTable -DataTable $($TermsOfUse.Summary) -Filtering -DataStore JavaScript -DataTableID "TableToUSummary" -ScrollX -WarningAction SilentlyContinue -InvokeHTMLTags
@@ -399,7 +405,6 @@
                                             }
                                         }
 
-                                        $CrossTenantAccess = Get-MyCrossTenantAccess
                                         if ($CrossTenantAccess) {
                                             New-HTMLSection -HeaderText "Default Configuration - Inbound Trust Settings" {
                                                 New-HTMLTable -DataTable $([PSCustomObject]@{
@@ -488,7 +493,6 @@
                                 }
                             }
 
-                            $NamedLocations = Get-MyNamedLocation
                             if ($NamedLocations) {
                                 New-HTMLContainer {
                                     New-HTMLTable -DataTable $NamedLocations -Filtering {

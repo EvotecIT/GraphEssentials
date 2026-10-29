@@ -244,7 +244,7 @@
         $ServicePrincipalsToProcess = $ServicePrincipalsToProcess | Where-Object { $_.DisplayName -eq $ApplicationName }
         Write-Verbose "Get-MyApp: Found $($ServicePrincipalsToProcess.Count) matching Service Principals."
         if ($ServicePrincipalsToProcess.Count -eq 0) {
-            Write-Warning "Get-MyApp: No Service Principal found matching DisplayName '$ApplicationName' after type filtering."
+            Write-Verbose "Get-MyApp: No Service Principal found matching DisplayName '$ApplicationName' after type filtering."
             return
         }
     }

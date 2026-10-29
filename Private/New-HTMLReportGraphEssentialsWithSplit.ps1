@@ -25,6 +25,7 @@
                 New-HTMLTableOption -DataStore JavaScript -BoolAsString -ArrayJoinString ', ' -ArrayJoin
 
                 New-HTMLHeader {
+                    Add-GraphEssentialsCollectionNotice -Issues $Script:Reporting[$T]['WarningsAndErrors']
                     New-HTMLSection -Invisible {
                         New-HTMLSection {
                             New-HTMLText -Text "Report generated on $(Get-Date)" -Color Blue
@@ -34,9 +35,7 @@
                         } -JustifyContent flex-end -Invisible
                     }
                 }
-                if ($Script:GraphEssentialsConfiguration[$T]['Summary']) {
-                    $Script:Reporting[$T]['Summary'] = Invoke-Command -ScriptBlock $Script:GraphEssentialsConfiguration[$T]['Summary']
-                }
+
                 & $Script:GraphEssentialsConfiguration[$T]['Solution']
             } -Online:$Online.IsPresent -ShowHTML:(-not $HideHTML) -FilePath $FilePath
         }

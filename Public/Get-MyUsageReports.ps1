@@ -122,7 +122,7 @@
 
     # lets filter out the reports that do not support filtering, and apply some logic to let user get the data anyways
     if ($Report -in 'Office365ActivationCounts', 'Office365ActivationsUserCounts', 'Office365ActivationsUserDetail') {
-        Write-Warning -Message "Get-MyUsageReports - $Report does not support filtering. Processing all data."
+        Write-Verbose -Message "Get-MyUsageReports - $Report does not support filtering. Processing all data."
     } elseif ($Report -eq 'MailboxUsageDetail') {
         if ($Period) {
             $Url += "$Type"

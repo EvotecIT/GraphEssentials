@@ -5,7 +5,7 @@
 
     .DESCRIPTION
     Creates a comprehensive HTML report containing Microsoft Defender for Identity information including
-    sensors, deployment keys, health issues, and secure scores. The report is organized in tabs for
+    sensors, health issues, and secure scores. Deployment keys are never requested or included. The report is organized in tabs for
     easy navigation and analysis.
 
     .PARAMETER FilePath
@@ -37,16 +37,13 @@
     )
 
     $Script:Reporting = [ordered] @{}
+    $CollectionIssues = [System.Collections.Generic.List[object]]::new()
     $Script:Reporting['Version'] = Get-GitHubVersion -Cmdlet 'Invoke-MyGraphEssentials' -RepositoryOwner 'evotecit' -RepositoryName 'GraphEssentials'
 
-    $DefenderHealthIssues = Get-MyDefenderHealthIssues -Status 'open'
-    if ($DefenderHealthIssues -eq $false) {
-        return
-    }
-    $SecureScore = Get-MyDefenderSecureScore
+    $DefenderHealthIssues = Invoke-GraphEssentialsReportCollection -Name 'Get-MyDefenderHealthIssues' -Issues $CollectionIssues -Collect { Get-MyDefenderHealthIssues -Status 'open' }
+    $SecureScore = Invoke-GraphEssentialsReportCollection -Name 'Get-MyDefenderSecureScore' -Issues $CollectionIssues -Collect { Get-MyDefenderSecureScore }
     #$SecureProfile = Get-MyDefenderSecureScoreProfile
-    $DefenderDeploymentKey = Get-MyDefenderDeploymentKey
-    $DefenderSensor = Get-MyDefenderSensor
+    $DefenderSensor = Invoke-GraphEssentialsReportCollection -Name 'Get-MyDefenderSensor' -Issues $CollectionIssues -Collect { Get-MyDefenderSensor }
 
     New-HTML {
         New-HTMLTabStyle -BorderRadius 0px -TextTransform capitalize -BackgroundColorActive SlateGrey
@@ -55,6 +52,7 @@
         New-HTMLTableOption -DataStore JavaScript -BoolAsString -ArrayJoinString ', ' -ArrayJoin
 
         New-HTMLHeader {
+            Add-GraphEssentialsCollectionNotice -Issues $CollectionIssues
             New-HTMLSection -Invisible {
                 New-HTMLSection {
                     New-HTMLText -Text "Report generated on $(Get-Date)" -Color Blue
@@ -72,15 +70,6 @@
                 } -DataStore JavaScript -DataTableID "DefenderSensor" -PagingLength 5 -ScrollX
             }
         }
-        New-HTMLTab -Name "Defender Deployment Key" {
-            New-HTMLSection -HeaderText "Defender Deployment Key" {
-                New-HTMLList {
-                    New-HTMLListItem -Text "DeploymentAccessKey: ", "$($DefenderDeploymentKey.DeploymentAccessKey)" -FontWeight normal, bold -Color None, AlmondFrost
-                    New-HTMLListItem -Text "DownloadUrl: ", "$($DefenderDeploymentKey.DownloadUrl)" -FontWeight normal, bold -Color None, AlmondFrost
-                }
-            }
-        }
-
         New-HTMLTab -Name "Defender Health Issues" {
             New-HTMLSection -HeaderText "Defender Health Issues" {
                 New-HTMLTable -DataTable $DefenderHealthIssues -Filtering {

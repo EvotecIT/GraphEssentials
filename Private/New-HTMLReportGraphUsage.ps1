@@ -2,18 +2,21 @@
     [cmdletBinding()]
     param(
         [System.Collections.IDictionary] $Reports,
+        [object[]] $CollectionIssues,
         [switch] $Online,
         [switch] $HideHTML,
         [string] $FilePath
     )
 
     New-HTML -Author 'Przemysław Kłys @ Evotec' -TitleText 'GraphEssentials Usage Report' {
+
         New-HTMLTabStyle -BorderRadius 0px -TextTransform capitalize -BackgroundColorActive SlateGrey
         New-HTMLSectionStyle -BorderRadius 0px -HeaderBackGroundColor Grey -RemoveShadow
         New-HTMLPanelStyle -BorderRadius 0px
         New-HTMLTableOption -DataStore JavaScript -BoolAsString -ArrayJoinString ', ' -ArrayJoin
 
         New-HTMLHeader {
+            Add-GraphEssentialsCollectionNotice -Issues $CollectionIssues
             New-HTMLSection -Invisible {
                 New-HTMLSection {
                     New-HTMLText -Text "Report generated on $(Get-Date)" -Color Blue
