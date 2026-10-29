@@ -8,12 +8,18 @@ function Invoke-GraphEssentialsReportCollection {
     The existing collection operation to invoke.
     .PARAMETER Issues
     The report-owned list that receives notices without raw Graph response bodies.
+    .PARAMETER Advisory
+    An expected selector warning and its safe explanation for the report.
+    .PARAMETER Notices
+    The report-owned list that receives selector notices separately from collection failures.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string] $Name,
         [Parameter(Mandatory)][scriptblock] $Collect,
-        [Parameter(Mandatory)][AllowEmptyCollection()][System.Collections.Generic.List[object]] $Issues
+        [Parameter(Mandatory)][AllowEmptyCollection()][System.Collections.Generic.List[object]] $Issues,
+        [AllowNull()][object] $Advisory,
+        [AllowNull()][System.Collections.Generic.List[object]] $Notices
     )
 
     # Report coverage must not depend on the caller's console stream preferences.
@@ -21,7 +27,12 @@ function Invoke-GraphEssentialsReportCollection {
     $ErrorActionPreference = 'Continue'
     try {
         & $Collect 2>&1 3>&1 | ForEach-Object {
-            if ($_ -is [System.Management.Automation.ErrorRecord] -or $_ -is [System.Management.Automation.WarningRecord]) {
+            if ($_ -is [System.Management.Automation.WarningRecord] -and $null -ne $Advisory -and $null -ne $Notices -and $_.Message -eq $Advisory.Message) {
+                $Notices.Add([pscustomobject]@{
+                    TargetName = $Name
+                    Comment = $Advisory.Comment
+                })
+            } elseif ($_ -is [System.Management.Automation.ErrorRecord] -or $_ -is [System.Management.Automation.WarningRecord]) {
                 # Response bodies and exception targets can contain credentials. Retain only a
                 # fixed diagnostic and the trusted collector name, never the original record.
                 $kind = if ($_ -is [System.Management.Automation.ErrorRecord]) { 'Error' } else { 'Warning' }

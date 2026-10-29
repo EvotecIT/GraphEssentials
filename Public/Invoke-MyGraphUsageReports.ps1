@@ -13,7 +13,8 @@
 
     .PARAMETER DateTime
     Specifies a specific date to retrieve usage data for. Reports will cover data for the
-    specified date (based on data availability from Microsoft Graph).
+    specified date where supported. Activation reports are unfiltered; reports that
+    require a period use D7 when given a date. The HTML report shows the effective selection.
     Must be used when not using Period parameter.
 
     .PARAMETER Report
@@ -130,6 +131,8 @@
     $Script:Reporting['Reports'] = [ordered] @{}
     $CollectionIssues = [System.Collections.Generic.List[object]]::new()
     $Script:Reporting['CollectionIssues'] = $CollectionIssues
+    $SelectionNotices = [System.Collections.Generic.List[object]]::new()
+    $Script:Reporting['SelectionNotices'] = $SelectionNotices
 
     if ($Report -contains 'All') {
         $ParameterList = (Get-Command -Name Get-MyUsageReports).Parameters
@@ -143,10 +146,31 @@
             DateTime = $DateTime
         }
         Remove-EmptyValue -Hashtable $Splat
-        $Script:Reporting['Reports'][$R] = Invoke-GraphEssentialsReportCollection -Name $R -Issues $CollectionIssues -Collect { Get-MyUsageReports @Splat }
+        $Advisory = $null
+        if ($R -in 'Office365ActivationCounts', 'Office365ActivationsUserCounts', 'Office365ActivationsUserDetail') {
+            $Advisory = [pscustomobject]@{
+                Message = "Get-MyUsageReports - $R does not support filtering. Processing all data."
+                Comment = 'This report does not support date or period filtering. The response contains all available data.'
+            }
+        } elseif ($Splat.ContainsKey('DateTime')) {
+            $Message = $null
+            if ($R -eq 'MailboxUsageDetail') {
+                $Message = "Get-MyUsageReports - $R does not support date filtering. Processing all data for period of 7 days."
+            } elseif ($R -match 'Counts$|Pages$|Storage$') {
+                $Message = "Get-MyUsageReports - $R ending with Counts, Pages or Storage do not support date filtering. Processing data for last 7 days."
+            }
+            if ($Message) {
+                $Advisory = [pscustomobject]@{
+                    Message = $Message
+                    Comment = 'This report does not support date filtering. The response uses period D7 (the last 7 days).'
+                }
+            }
+        }
+        $Script:Reporting['Reports'][$R] = Invoke-GraphEssentialsReportCollection -Name $R -Issues $CollectionIssues -Advisory $Advisory -Notices $SelectionNotices -Collect { Get-MyUsageReports @Splat }
     }
     $newHTMLReportGraphUsageSplat = @{
         CollectionIssues = $CollectionIssues.ToArray()
+        SelectionNotices = $SelectionNotices.ToArray()
         Reports  = $Script:Reporting['Reports']
         Online   = $Online
         HideHTML = $HideHTML

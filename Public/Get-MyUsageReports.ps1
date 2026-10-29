@@ -24,7 +24,7 @@
 
     .EXAMPLE
     Get-MyUsageReports -DateTime "2023-01-01" -Report 'Office365ActivationsUserDetail'
-    Returns Office 365 activation details for the specified date.
+    Returns unfiltered Office 365 activation details and warns that this report does not support date filtering.
 
     .NOTES
     This function requires Microsoft Graph API permissions, typically Reports.Read.All.
@@ -122,7 +122,7 @@
 
     # lets filter out the reports that do not support filtering, and apply some logic to let user get the data anyways
     if ($Report -in 'Office365ActivationCounts', 'Office365ActivationsUserCounts', 'Office365ActivationsUserDetail') {
-        Write-Verbose -Message "Get-MyUsageReports - $Report does not support filtering. Processing all data."
+        Write-Warning -Message "Get-MyUsageReports - $Report does not support filtering. Processing all data."
     } elseif ($Report -eq 'MailboxUsageDetail') {
         if ($Period) {
             $Url += "$Type"
@@ -138,6 +138,7 @@
             } else {
                 Write-Warning -Message "Get-MyUsageReports - $Report ending with Counts, Pages or Storage do not support date filtering. Processing data for last 7 days."
                 $Url += "(period='D7')"
+                $Type = "(period='D7')"
             }
         } else {
             $Url += "$Type"

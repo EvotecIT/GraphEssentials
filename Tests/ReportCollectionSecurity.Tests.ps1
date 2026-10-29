@@ -184,17 +184,76 @@ Describe 'Report entry point security' {
         $issues | ConvertTo-Json | Should -Not -Match 'synthetic-secret-value'
     }
 
-    It 'does not mark successful unfiltered usage collection as a failure' {
+    It 'does not mark successful unfiltered period usage collection as a failure' {
         function Invoke-MgGraphRequest { [CmdletBinding()] param($Method, $Uri, $ContentType, $OutputFilePath) }
         Mock Invoke-MgGraphRequest {
             Set-Content -LiteralPath $OutputFilePath -Value "Count`r`n42" -Encoding Unicode
         }
-        $issues = [System.Collections.Generic.List[object]]::new()
-        $data = @(Invoke-GraphEssentialsReportCollection -Name 'Usage' -Issues $issues -Collect {
-            Get-MyUsageReports -Period 30 -Report Office365ActivationCounts
-        })
-        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly
-        $data[0].Count | Should -Be '42'
-        $issues.Count | Should -Be 0
+        $path = Join-Path $TestDrive 'usage-activation-period.html'
+        $result = Invoke-MyGraphUsageReports -Period 30 -Report Office365ActivationCounts -FilePath $path -DontSuppress -HideHTML
+        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter { $Uri -eq 'https://graph.microsoft.com/v1.0/reports/getOffice365ActivationCounts' }
+        $result.Reports['Office365ActivationCounts'][0].Count | Should -Be '42'
+        $result.CollectionIssues.Count | Should -Be 0
+        $result.SelectionNotices.Count | Should -Be 1
+        Get-Content $path -Raw | Should -Match 'response contains all available data'
+    }
+
+    It 'labels successful date fallback as D7 without a collection failure for <Report>' -ForEach @(
+        @{ Report = 'MailboxUsageDetail' }
+        @{ Report = 'EmailActivityCounts' }
+        @{ Report = 'SharePointActivityPages' }
+        @{ Report = 'OneDriveUsageStorage' }
+    ) {
+        function Invoke-MgGraphRequest { [CmdletBinding()] param($Method, $Uri, $ContentType, $OutputFilePath) }
+        Mock Invoke-MgGraphRequest {
+            Set-Content -LiteralPath $OutputFilePath -Value "Count`r`n42" -Encoding Unicode
+        }
+        $path = Join-Path $TestDrive "$Report-date.html"
+        $result = Invoke-MyGraphUsageReports -DateTime '2026-10-20' -Report $Report -FilePath $path -DontSuppress -HideHTML
+        Should -Invoke Invoke-MgGraphRequest -Times 1 -Exactly -ParameterFilter { $Uri -match "get$Report\(period='D7'\)$" }
+        $result.Reports[$Report][0].Count | Should -Be '42'
+        $result.CollectionIssues.Count | Should -Be 0
+        $result.SelectionNotices.Count | Should -Be 1
+        $html = Get-Content $path -Raw
+        $html | Should -Match '(?s)<header>.*Report selection notice.*</header>'
+        $html | Should -Match 'period D7 \(the last 7 days\)'
+        $html | Should -Not -Match 'Collection notice - report may be incomplete'
+    }
+
+    It 'discloses an ignored date for <Report> as unfiltered data' -ForEach @(
+        @{ Report = 'Office365ActivationCounts' }
+        @{ Report = 'Office365ActivationsUserCounts' }
+        @{ Report = 'Office365ActivationsUserDetail' }
+    ) {
+        function Invoke-MgGraphRequest { [CmdletBinding()] param($Method, $Uri, $ContentType, $OutputFilePath) }
+        Mock Invoke-MgGraphRequest {
+            Set-Content -LiteralPath $OutputFilePath -Value "Count`r`n42" -Encoding Unicode
+        }
+        $warnings = @()
+        $null = Get-MyUsageReports -DateTime '2026-10-20' -Report $Report -WarningVariable warnings -WarningAction SilentlyContinue
+        $warnings.Count | Should -Be 1
+        $warnings[0] | Out-String | Should -Match 'does not support filtering'
+        $path = Join-Path $TestDrive "$Report-date.html"
+        $result = Invoke-MyGraphUsageReports -DateTime '2026-10-20' -Report $Report -FilePath $path -DontSuppress -HideHTML
+        Should -Invoke Invoke-MgGraphRequest -Times 2 -Exactly -ParameterFilter { $Uri -eq "https://graph.microsoft.com/v1.0/reports/get$Report" }
+        $result.Reports[$Report][0].Count | Should -Be '42'
+        $result.CollectionIssues.Count | Should -Be 0
+        $result.SelectionNotices.Count | Should -Be 1
+        $html = Get-Content $path -Raw
+        $html | Should -Match '(?s)<header>.*Report selection notice.*</header>'
+        $html | Should -Match 'response contains all available data'
+        $html | Should -Not -Match 'Collection notice - report may be incomplete'
+    }
+
+    It 'keeps a real Graph failure visible alongside a date fallback notice' {
+        function Invoke-MgGraphRequest { [CmdletBinding()] param($Method, $Uri, $ContentType, $OutputFilePath) }
+        Mock Invoke-MgGraphRequest { throw '403 Forbidden synthetic-secret-value' }
+        $path = Join-Path $TestDrive 'usage-fallback-403.html'
+        $result = Invoke-MyGraphUsageReports -DateTime '2026-10-20' -Report MailboxUsageDetail -FilePath $path -DontSuppress -HideHTML
+        $result.SelectionNotices.Count | Should -Be 1
+        $result.CollectionIssues.Count | Should -BeGreaterThan 0
+        $html = Get-Content $path -Raw
+        $html | Should -Match '(?s)<header>.*Report selection notice.*Collection notice - report may be incomplete.*</header>|(?s)<header>.*Collection notice - report may be incomplete.*Report selection notice.*</header>'
+        $html | Should -Not -Match 'synthetic-secret-value'
     }
 }
