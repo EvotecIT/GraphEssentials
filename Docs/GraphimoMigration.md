@@ -32,6 +32,15 @@ Use `-UserId` for an object ID or UPN lookup. `-Filter` and `-Sort` pass through
 
 `-CountVariable matchingUsers` follows the SDK's global-variable contract and enables eventual consistency. Manager expansion cannot be combined with advanced count/eventual-consistency queries; use separate manager and count queries when both are needed. A query failure terminates without returning an incomplete inventory or silently omitting a requested field. That does not make Graph's eventually consistent directory a transactional snapshot; deletion and cleanup policies still need their own safety checks.
 
+Set `-MinimumCount` when processing must stop if a complete query returns too few users:
+
+```powershell
+$users = @(Get-MyDirectoryUser -Filter "userType eq 'Guest'" `
+    -Property Id, Mail, EmployeeId -MinimumCount $minimumExpectedGuests)
+```
+
+The command checks the returned collection before emitting any records. The threshold belongs to the caller and must match its filter. It does not count unique employee IDs or usable email addresses. Validate those business keys, reject ambiguous duplicates, and enforce deletion limits before using the inventory for changes; do not let a dictionary silently overwrite two users with the same key.
+
 ## Invitations and outcomes
 
 `New-MyGuestInvitation` accepts an array of records. Each needs `EmailAddress`; optional fields are `DisplayName`, `SendInvitationMessage`, `InviteRedirectUrl`, `UserType`, `ResetRedemption`, `InvitedUserId`, and opaque `Context`. CSV text `True` and `False` is parsed as Boolean data. Email delivery defaults to false and the redirect defaults to `https://myapps.microsoft.com`. A redemption reset requires the existing user's object ID. The identity needs permission for its chosen operation; member invitations and redemption resets can require more than an ordinary guest invitation.
@@ -109,6 +118,8 @@ if ($WhatIfPreference) {
 ```
 
 For a lost response to a write, read back the intended state before retrying; a caught transport error is not proof that the operation did nothing. Multi-step user/manager/group workflows need per-step outcomes because they are not an atomic transaction.
+
+Keep `Connect-MgGraph` and ordinary SDK CRUD at the call site. Connection parameters, expected tenant/client, selected properties, and workload permissions should be explicit. Reuse a verified app-only context by its tenant and client identity; an empty `Account` is normal for app-only authentication. Mail delivery belongs to Mailozaurr rather than a directory workflow. Customer-specific matching, deletion limits, invitation schedules, and privileged directory-role policy stay in the application.
 
 ## Build dependencies and retirement
 

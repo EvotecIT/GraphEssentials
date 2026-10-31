@@ -11,7 +11,7 @@ Retrieves selected directory user data, extensions and optional manager details 
 ## SYNTAX
 ### List (Default)
 ```powershell
-Get-MyDirectoryUser [-Property <string[]>] [-Filter <string>] [-Sort <string[]>] [-IncludeManager] [-CountVariable <string>] [-ConsistencyLevel <string>] [<CommonParameters>]
+Get-MyDirectoryUser [-Property <string[]>] [-Filter <string>] [-Sort <string[]>] [-IncludeManager] [-CountVariable <string>] [-ConsistencyLevel <string>] [-MinimumCount <int>] [<CommonParameters>]
 ```
 
 ### User
@@ -46,6 +46,13 @@ Reads one user and a custom directory extension field.
 ```powershell
 PS > $users = Get-MyDirectoryUser -Filter "startsWith(displayName,'A')" -CountVariable matchingUsers -ConsistencyLevel eventual
 Reads all matching users; the SDK sets the global matchingUsers count.
+```
+
+
+### EXAMPLE 4
+```powershell
+PS > $users = Get-MyDirectoryUser -Filter "userType eq 'Guest'" -Property Id, Mail -MinimumCount 100
+Stops without returning an inventory if fewer than 100 guests are returned.
 ```
 
 
@@ -113,6 +120,24 @@ Possible values:
 Required: False
 Position: named
 Default value: False
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -MinimumCount
+Minimum number of users required in a complete list response. Defaults to 0. An undersized response
+terminates before any records are emitted. The caller chooses the threshold for its selected filter.
+This counts returned users, before caller-specific indexing or validation of mail and employee IDs.
+
+```yaml
+Type: Int32
+Parameter Sets: List
+Aliases: None
+Possible values:
+
+Required: False
+Position: named
+Default value: 0
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

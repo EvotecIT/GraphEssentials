@@ -25,6 +25,10 @@ function Get-MyDirectoryUser {
     consistency. The count describes all matching users, not just a projection or a partial page.
     .PARAMETER ConsistencyLevel
     Eventual consistency for an advanced list query. Graph may also require CountVariable for the filter.
+    .PARAMETER MinimumCount
+    Minimum number of users required in a complete list response. Defaults to 0. An undersized response
+    terminates before any records are emitted. The caller chooses the threshold for its selected filter.
+    This counts returned users, before caller-specific indexing or validation of mail and employee IDs.
     .EXAMPLE
     $users = Get-MyDirectoryUser -Filter "userType eq 'Guest'" -Property Id, Mail, EmployeeId, extensionAttribute1 -IncludeManager
     Reads guest identifiers, selected attributes and manager data without report dependencies being queried.
@@ -34,6 +38,9 @@ function Get-MyDirectoryUser {
     .EXAMPLE
     $users = Get-MyDirectoryUser -Filter "startsWith(displayName,'A')" -CountVariable matchingUsers -ConsistencyLevel eventual
     Reads all matching users; the SDK sets the global matchingUsers count.
+    .EXAMPLE
+    $users = Get-MyDirectoryUser -Filter "userType eq 'Guest'" -Property Id, Mail -MinimumCount 100
+    Stops without returning an inventory if fewer than 100 guests are returned.
     .OUTPUTS
     System.Management.Automation.PSCustomObject. Selected directory fields and optional nested Manager.
     .NOTES
@@ -51,7 +58,8 @@ function Get-MyDirectoryUser {
         [switch] $IncludeManager,
         [Parameter(ParameterSetName = 'List')]
         [ValidatePattern('^[A-Za-z_][A-Za-z0-9_]*$')][string] $CountVariable,
-        [Parameter(ParameterSetName = 'List')][ValidateSet('eventual')][string] $ConsistencyLevel
+        [Parameter(ParameterSetName = 'List')][ValidateSet('eventual')][string] $ConsistencyLevel,
+        [Parameter(ParameterSetName = 'List')][ValidateRange(0, 2147483647)][int] $MinimumCount = 0
     )
 
     $fields = [System.Collections.Generic.List[string]]::new()
@@ -100,6 +108,9 @@ function Get-MyDirectoryUser {
         $query.ExpandProperty = 'manager($select=id,displayName,userPrincipalName,mail,onPremisesSyncEnabled)'
     }
     $users = @(Get-MgUser @query -ErrorAction Stop)
+    if ($users.Count -lt $MinimumCount) {
+        throw "Graph returned $($users.Count) users, fewer than MinimumCount $MinimumCount. No inventory was returned."
+    }
     foreach ($user in $users) {
         ConvertTo-GraphEssentialsDirectoryUser -User $user -Property $fields.ToArray() -IncludeManager:$withManager
     }

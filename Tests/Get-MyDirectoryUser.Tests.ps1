@@ -94,4 +94,26 @@ Describe 'Directory user automation projection' {
         { Get-MyDirectoryUser | ForEach-Object { $observed.Add($_) } } | Should -Throw '*second page unavailable*'
         $observed.Count | Should -Be 0
     }
+
+    It 'rejects an inventory of <Returned> users below MinimumCount before emitting records' -ForEach @(
+        @{ Returned = 0; Required = 1 }
+        @{ Returned = 1; Required = 2 }
+    ) {
+        Mock Get-MgUser {
+            for ($index = 0; $index -lt $Returned; $index++) {
+                [pscustomobject] @{ Id = 'user-' + $index }
+            }
+        }
+        $observed = [System.Collections.Generic.List[object]]::new()
+        { Get-MyDirectoryUser -MinimumCount $Required | ForEach-Object { $observed.Add($_) } } | Should -Throw '*fewer than MinimumCount*'
+        $observed.Count | Should -Be 0
+    }
+
+    It 'returns the selected records when the complete inventory meets MinimumCount' {
+        $users = @(Get-MyDirectoryUser -MinimumCount 1 -Property AccountEnabled)
+        $users.Count | Should -Be 1
+        $users[0].Id | Should -Be 'user-1'
+        $users[0].AccountEnabled | Should -BeFalse
+        $users[0].PSObject.Properties.Name | Should -Not -Contain 'DisplayName'
+    }
 }
