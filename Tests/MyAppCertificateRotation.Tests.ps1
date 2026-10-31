@@ -252,6 +252,26 @@ Describe 'Opt-in application certificate rotation' {
         Should -Invoke Invoke-RestMethod -Times 0 -Exactly
     }
 
+    It 'keeps a reader snapshot usable while an atomic checkpoint save completes' {
+        $file = Join-Path $script:Profile 'rotation.dpapi'
+        $before = [IO.File]::ReadAllBytes($file)
+        $snapshot = Open-MyAppCertificateRotationSnapshot -Path $script:Profile
+        $buffer = [IO.MemoryStream]::new()
+        try {
+            $state = Read-MyAppCertificateRotationState -Path $script:Profile
+            $completed = '2026-10-01T12:00:00.0000000Z'
+            $state.LastCompletedAtUtc = $completed
+            Save-MyAppCertificateRotationState -Path $script:Profile -State $state
+            (Get-MyAppCertificateRotation -Path $script:Profile).LastCompletedAtUtc | Should -Be ([datetimeoffset] $completed)
+            $snapshot.CopyTo($buffer)
+            [Convert]::ToBase64String($buffer.ToArray()) | Should -Be ([Convert]::ToBase64String($before))
+            Should -Invoke Invoke-MgGraphRequest -Times 0 -Exactly
+        } finally {
+            $buffer.Dispose()
+            $snapshot.Dispose()
+        }
+    }
+
     It 'refuses a competing process lease without changing the saved profile' {
         $lease = Open-MyAppCertificateRotationLock -Path $script:Profile
         try {

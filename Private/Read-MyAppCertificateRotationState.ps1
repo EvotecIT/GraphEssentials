@@ -3,13 +3,22 @@ function Read-MyAppCertificateRotationState {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string] $Path)
 
-    $file = Join-Path $Path 'rotation.dpapi'
-    $item = Get-Item -LiteralPath $file -Force -ErrorAction Stop
-    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint -or $item.Length -gt 1MB) {
-        throw 'The certificate rotation checkpoint is not a supported regular file.'
+    $stream = Open-MyAppCertificateRotationSnapshot -Path $Path
+    try {
+        $encrypted = [byte[]]::new([int] $stream.Length)
+        $offset = 0
+        while ($offset -lt $encrypted.Length) {
+            $read = $stream.Read($encrypted, $offset, $encrypted.Length - $offset)
+            if ($read -eq 0) {
+                throw 'The certificate rotation checkpoint ended before the snapshot was complete.'
+            }
+            $offset += $read
+        }
+    } finally {
+        $stream.Dispose()
     }
     $bytes = [Security.Cryptography.ProtectedData]::Unprotect(
-        [IO.File]::ReadAllBytes($file), $null, [Security.Cryptography.DataProtectionScope]::CurrentUser)
+        $encrypted, $null, [Security.Cryptography.DataProtectionScope]::CurrentUser)
     try {
         $state = [Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json -ErrorAction Stop
     } finally {
