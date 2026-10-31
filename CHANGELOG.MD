@@ -1,4 +1,10 @@
-﻿### 0.0.66
+﻿### Unreleased
+
+- Add selected-property directory user queries with manager and extension projections for automation.
+- Add a caller-supplied minimum-count safeguard to directory inventories before any records are returned.
+- Add bounded guest invitation workflows with explicit outcomes, checkpoint callbacks, and selective throttling retries.
+
+### 0.0.66
 
 - Include the Entra MDM enrollment app ID in full paged device inventory as MdmEnrollmentAppId for action audit reporting.
 
