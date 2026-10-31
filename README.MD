@@ -55,6 +55,10 @@ That's it. Whenever there's a new version, you run the command, and you can enjo
 
 ### Using Graph
 
+#### Opt-in certificate renewal
+
+`Register-MyAppCertificateRotation`, `Get-MyAppCertificateRotation`, and `Invoke-MyAppCertificateRotation` let scheduled scripts renew an application's own certificate through the official Graph SDK. The Windows profile protects private credentials with DPAPI, verifies fresh authentication before activation, and retains the previous key for a configured overlap. See [certificate rotation](Docs/CertificateRotation.md) for enrollment, scheduling, permissions, and recovery.
+
 #### Connecting with ApplicationID, ApplicationSecret as an application
 
 
