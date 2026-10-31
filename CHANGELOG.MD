@@ -1,4 +1,8 @@
-﻿### 0.0.66
+﻿### Unreleased
+
+- Add opt-in application certificate renewal with protected local profiles, fresh authentication checks, overlap, and explicit recovery after interrupted writes.
+
+### 0.0.66
 
 - Include the Entra MDM enrollment app ID in full paged device inventory as MdmEnrollmentAppId for action audit reporting.
 

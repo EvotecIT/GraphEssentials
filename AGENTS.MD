@@ -11,6 +11,10 @@ alwaysApply: true
 
 # 📏 General Rules
 
+Before adding or changing tests, apply the [shared test-audit authoring gate](skills/test-audit/SKILL.md#authoring-gate)
+and [contract-focused proof guidance](skills/contract-focused-tests/SKILL.md).
+Resolve these procedure links against `CODEX_HOME` (default `~/.codex`).
+
 - Prefer smaller files over large ones.
 - Split large classes using `partial class` where applicable.
 - Always follow `.editorconfig` rules if available.
