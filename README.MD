@@ -55,6 +55,10 @@ That's it. Whenever there's a new version, you run the command, and you can enjo
 
 ### Using Graph
 
+#### Directory automation
+
+`Get-MyDirectoryUser` reads selected user fields, custom extensions and optional manager data without report enrichment. `New-MyGuestInvitation` submits bounded invitation batches with explicit per-input outcomes, throttling handling, and checkpoint callbacks. Both use the current official Graph SDK connection. See [migrating Graphimo workflows](Docs/GraphimoMigration.md) for query shapes, write-result handling, recovery, and dependency configuration.
+
 #### Connecting with ApplicationID, ApplicationSecret as an application
 
 
