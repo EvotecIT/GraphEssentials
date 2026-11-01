@@ -22,6 +22,7 @@ Describe 'Directory user automation projection' {
                     AdditionalProperties = @{
                         displayName = 'Manager One'
                         userPrincipalName = 'manager@example.com'
+                        employeeId = 'employee-manager-1'
                         onPremisesSyncEnabled = $false
                     }
                 }
@@ -50,8 +51,9 @@ Describe 'Directory user automation projection' {
         $user.Manager.Id | Should -Be 'manager-1'
         $user.Manager.DisplayName | Should -Be 'Manager One'
         $user.Manager.UserPrincipalName | Should -Be 'manager@example.com'
+        $user.Manager.EmployeeId | Should -Be 'employee-manager-1'
         $user.Manager.OnPremisesSyncEnabled | Should -BeFalse
-        Should -Invoke Get-MgUser -Times 1 -Exactly -ParameterFilter { $ExpandProperty -like 'manager(*' -and $Property -notcontains 'Manager' }
+        Should -Invoke Get-MgUser -Times 1 -Exactly -ParameterFilter { $ExpandProperty -like 'manager(*employeeId*' -and $Property -notcontains 'Manager' }
     }
 
     It 'flattens requested on-premises extension aliases while preserving an explicitly selected nested value' {

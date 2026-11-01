@@ -18,7 +18,7 @@ function Get-MyDirectoryUser {
     .PARAMETER Sort
     OData ordering forwarded to Get-MgUser.
     .PARAMETER IncludeManager
-    Includes a nested Manager record with identity, name, UPN, mail and synchronization state, or null.
+    Includes a nested Manager record with identity, employee ID, name, UPN, mail and synchronization state, or null.
     Manager expansion cannot be combined with advanced count/eventual-consistency queries.
     .PARAMETER CountVariable
     SDK variable name receiving the matching collection count in global scope. Enables eventual
@@ -105,7 +105,7 @@ function Get-MyDirectoryUser {
         }
     }
     if ($withManager) {
-        $query.ExpandProperty = 'manager($select=id,displayName,userPrincipalName,mail,onPremisesSyncEnabled)'
+        $query.ExpandProperty = 'manager($select=id,displayName,userPrincipalName,mail,employeeId,onPremisesSyncEnabled)'
     }
     $users = @(Get-MgUser @query -ErrorAction Stop)
     if ($users.Count -lt $MinimumCount) {

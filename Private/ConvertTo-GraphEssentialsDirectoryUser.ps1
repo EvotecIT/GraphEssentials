@@ -28,6 +28,7 @@ function ConvertTo-GraphEssentialsDirectoryUser {
                 DisplayName             = Get-GraphEssentialsObjectValue -InputObject $manager -Name 'DisplayName'
                 UserPrincipalName       = Get-GraphEssentialsObjectValue -InputObject $manager -Name 'UserPrincipalName'
                 Mail                    = Get-GraphEssentialsObjectValue -InputObject $manager -Name 'Mail'
+                EmployeeId              = Get-GraphEssentialsObjectValue -InputObject $manager -Name 'EmployeeId'
                 OnPremisesSyncEnabled   = Get-GraphEssentialsObjectValue -InputObject $manager -Name 'OnPremisesSyncEnabled'
             }
         } else {

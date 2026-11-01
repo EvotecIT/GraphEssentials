@@ -108,7 +108,7 @@ Accept wildcard characters: False
 ```
 
 ### -IncludeManager
-Includes a nested Manager record with identity, name, UPN, mail and synchronization state, or null.
+Includes a nested Manager record with identity, employee ID, name, UPN, mail and synchronization state, or null.
 Manager expansion cannot be combined with advanced count/eventual-consistency queries.
 
 ```yaml
