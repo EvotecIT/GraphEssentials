@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet('Manifest', 'Build', 'Publish', 'Documentation')]
     [string] $RunMode = 'Build',
 

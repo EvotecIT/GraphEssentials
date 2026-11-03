@@ -1,4 +1,4 @@
-### Unreleased
+### 0.0.71
 
 - Add a JSON-friendly certificate session that enrolls once, connects with the protected active credential, maintains renewal and reconnects before running a workload. Preserve disabled authentication and WhatIf, own credential lifetime through the callback, and emit bounded lifecycle/failure events.
 
