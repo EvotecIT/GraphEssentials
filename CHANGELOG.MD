@@ -1,3 +1,7 @@
+### Unreleased
+
+- Add a JSON-friendly certificate session that enrolls once, connects with the protected active credential, maintains renewal and reconnects before running a workload. Preserve disabled authentication and WhatIf, own credential lifetime through the callback, and emit bounded lifecycle/failure events.
+
 ### 0.0.70
 
 - Add opt-in application certificate renewal with protected local profiles, fresh authentication checks, overlap, and explicit recovery after interrupted writes.

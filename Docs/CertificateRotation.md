@@ -4,6 +4,58 @@ GraphEssentials maintains an application's own certificate using the official Mi
 
 The feature supports Windows PowerShell 5.1 and PowerShell 7 on Windows. It uses the existing `Microsoft.Graph.Authentication` and `Microsoft.Graph.Applications` dependencies, Windows DPAPI, and .NET cryptography. It does not require an additional engine, a new assembly, a certificate-store installation, or a new scheduled task.
 
+## Workload session and JSON configuration
+
+`Invoke-MyAppCertificateSession` owns the connection and credential lifetime for one synchronous workload. It loads the active certificate, connects, advances maintenance when due and reconnects if the active credential changes, including a replacement activated by another process. It disconnects and disposes its loaded certificate when the workload completes or throws. Use a dedicated PowerShell process; this command does not restore a previous SDK session or support background work retaining its certificate.
+
+```powershell
+$settings = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+$rotation = @{}
+foreach ($property in $settings.CertificateRotation.PSObject.Properties) {
+    $rotation[$property.Name] = $property.Value
+}
+$connection = @{
+    TenantId = $tenantId
+    ClientId = $clientId
+    CertificateThumbprint = $initialThumbprint
+}
+Invoke-MyAppCertificateSession -ConnectionParameters $connection `
+    -Rotation $rotation -ConfigurationDirectory (Split-Path -Parent $configPath) `
+    -ScriptBlock {
+        param($activeConnection, $maintenance)
+        # Graph is already connected. The certificate is valid only in this callback.
+        Get-MyDirectoryUser
+    }
+```
+
+The JSON-friendly rotation map is disabled by default:
+
+```json
+{
+  "CertificateRotation": {
+    "Enabled": false,
+    "ProfilePath": "Credentials/Graph",
+    "ApplicationObjectId": "11111111-1111-4111-8111-111111111111",
+    "KeyId": "22222222-2222-4222-8222-222222222222",
+    "CertificateLifetimeDays": 30,
+    "RenewBeforeDays": 14,
+    "OverlapDays": 1
+  }
+}
+```
+
+For a new profile, replace the example IDs with the app registration object ID and existing certificate credential key ID from provisioning. Supply the currently valid exportable software certificate through `ConnectionParameters.Certificate`, or its thumbprint. Thumbprint enrollment checks that exact certificate under CurrentUser/My, then LocalMachine/My; it never selects an arbitrary certificate. Existing profiles ignore the obsolete bootstrap thumbprint/PFX and supply their own active credential. The command does not alter the caller's connection map or original certificate.
+
+Omitting `Rotation` or setting `Enabled` to false invokes the workload with the original connection map, without opening a profile, certificate store or Graph connection. The workload remains responsible for its ordinary authentication in this disabled mode. For enabled sessions, tenant and client GUIDs identify the enrolled app; client-secret, access-token, managed-identity and reused-session authentication are rejected. This prevents silent fallback to another credential.
+
+The three day values are enrollment policy. Explicit values that disagree with an existing protected profile are rejected; omitting policy values retains that profile's policy. Changing the bootstrap `KeyId` does not replace an existing profile's active key. Tenant policy and administrative recovery remain outside this configuration.
+
+An optional `OnEvent` scriptblock receives an object with `Event`, `Message` and public `Data`. Without it, events appear on the Information stream. Events distinguish disabled/enrolled/preview/status/failure, with public thumbprints, expiry, renewal/overlap deadlines and bounded failure codes. Raw provider errors, certificates, tokens and assertions are omitted. Authentication or maintenance failure stops the workload and retains the protected state; it does not fall back to the bootstrap credential. `-WhatIf` previews credential changes while allowing ordinary authenticated workload reads; no profile enrollment, generated replacement or Graph key mutation occurs.
+
+Updating a thumbprint in JSON after every rotation is unnecessary: the profile is the stable credential reference. Every consumer of the enrolled certificate must load the profile before the old key is retired. Separate applications or machines need their own appropriate profiles and provisioning; a DPAPI profile is not a remote secret store.
+
+Client-secret rotation uses Graph's distinct `addPassword` and `removePassword` authorization model and returns a new secret value only once. This session does not rotate secrets, manage secret-store access or update external consumers.
+
 ## Enrollment
 
 Start with an application registration and a currently valid, exportable RSA software certificate already registered on that application. Record the Graph credential key ID during provisioning: it is different from the certificate thumbprint, application client ID, application object ID and service principal ID.

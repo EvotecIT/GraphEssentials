@@ -88,6 +88,9 @@ Retrieves detailed authentication method information for users from Microsoft Gr
 ### [Invoke-MyAppCertificateRotation](Invoke-MyAppCertificateRotation.md)
 Advances opt-in application certificate renewal using the Microsoft Graph PowerShell SDK.
 
+### [Invoke-MyAppCertificateSession](Invoke-MyAppCertificateSession.md)
+Runs a workload with the active certificate from an opt-in renewal profile.
+
 ### [Invoke-MyDeviceRetire](Invoke-MyDeviceRetire.md)
 Retires an Intune managed device.
 
