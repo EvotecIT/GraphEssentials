@@ -75,7 +75,7 @@ Possible values:
 
 Required: False
 Position: 7
-Default value: [timespan]::FromDays(30)
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -123,7 +123,7 @@ Possible values:
 
 Required: False
 Position: 8
-Default value: [timespan]::FromDays(1)
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -155,7 +155,7 @@ Possible values:
 
 Required: False
 Position: 6
-Default value: [timespan]::FromDays(14)
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

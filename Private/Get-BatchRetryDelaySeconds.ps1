@@ -1,4 +1,5 @@
 function Get-BatchRetryDelaySeconds {
+    <# Honor JSON batch retry headers from SDK dictionaries or objects, including HTTP dates and millisecond hints. #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -6,27 +7,33 @@ function Get-BatchRetryDelaySeconds {
     )
 
     $delaySeconds = 0
-    if (-not $BatchResponse -or -not $BatchResponse.headers) {
+    $headers = $BatchResponse.headers
+    if (-not $BatchResponse -or -not $headers) {
         return 5
     }
 
-    foreach ($headerName in @('Retry-After', 'retry-after')) {
-        $headerProperty = $BatchResponse.headers.PSObject.Properties[$headerName]
-        if ($headerProperty -and $headerProperty.Value) {
-            $parsedDelay = 0
-            if ([int]::TryParse($headerProperty.Value.ToString(), [ref] $parsedDelay)) {
-                $delaySeconds = [Math]::Max($delaySeconds, $parsedDelay)
-            }
+    $entries = if ($headers -is [System.Collections.IDictionary]) {
+        $headers.GetEnumerator()
+    } else {
+        foreach ($property in $headers.PSObject.Properties) {
+            [pscustomobject] @{ Key = $property.Name; Value = $property.Value }
         }
     }
-
-    foreach ($headerName in @('x-ms-retry-after-ms', 'X-MS-Retry-After-MS')) {
-        $headerProperty = $BatchResponse.headers.PSObject.Properties[$headerName]
-        if ($headerProperty -and $headerProperty.Value) {
-            $parsedDelayMs = 0
-            if ([int]::TryParse($headerProperty.Value.ToString(), [ref] $parsedDelayMs)) {
-                $delaySeconds = [Math]::Max($delaySeconds, [Math]::Ceiling($parsedDelayMs / 1000))
+    foreach ($entry in $entries) {
+        $value = [string] @($entry.Value)[0]
+        $parsed = 0L
+        if ([string] $entry.Key -ieq 'Retry-After') {
+            if ([long]::TryParse($value, [ref] $parsed)) {
+                $delaySeconds = [math]::Max($delaySeconds, $parsed)
+            } else {
+                $retryAt = [datetimeoffset]::MinValue
+                if ([datetimeoffset]::TryParse($value, [Globalization.CultureInfo]::InvariantCulture,
+                        [Globalization.DateTimeStyles]::AssumeUniversal, [ref] $retryAt)) {
+                    $delaySeconds = [math]::Max($delaySeconds, [math]::Ceiling(($retryAt - [datetimeoffset]::UtcNow).TotalSeconds))
+                }
             }
+        } elseif ([string] $entry.Key -ieq 'x-ms-retry-after-ms' -and [long]::TryParse($value, [ref] $parsed)) {
+            $delaySeconds = [math]::Max($delaySeconds, [math]::Ceiling($parsed / 1000))
         }
     }
 
@@ -34,5 +41,5 @@ function Get-BatchRetryDelaySeconds {
         $delaySeconds = 5
     }
 
-    return $delaySeconds
+    return [long] $delaySeconds
 }

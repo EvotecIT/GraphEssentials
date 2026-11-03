@@ -4,42 +4,50 @@ Module Name: GraphEssentials
 online version:
 schema: 2.0.0
 ---
-
 # Get-MyRole
-
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Retrieves Azure AD directory roles and their assignments.
 
 ## SYNTAX
-
-```
+### __AllParameterSets
+```powershell
 Get-MyRole [-OnlyWithMembers] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Gets detailed information about Azure AD/Entra ID directory roles, including role assignments
+for users, groups, and service principals. Categorizes assignments as direct or eligible
+and provides statistics about the number of members in each role.
 
 ## EXAMPLES
 
-### Example 1
+### EXAMPLE 1
 ```powershell
-PS C:\> {{ Add example code here }}
+PS > Get-MyRole
+Returns all Azure AD directory roles along with member information.
 ```
 
-{{ Add example description here }}
+
+### EXAMPLE 2
+```powershell
+PS > Get-MyRole -OnlyWithMembers
+Returns only Azure AD directory roles that have at least one member assigned.
+```
+
 
 ## PARAMETERS
 
 ### -OnlyWithMembers
-{{ Fill OnlyWithMembers Description }}
+When specified, returns only roles that have at least one member (direct or eligible).
 
 ```yaml
 Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -50,11 +58,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### None
+- `None`
 
 ## OUTPUTS
 
-### System.Object
-## NOTES
+- `None`
 
 ## RELATED LINKS
+
+- None

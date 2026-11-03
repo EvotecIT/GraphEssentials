@@ -4,29 +4,26 @@ Module Name: GraphEssentials
 online version:
 schema: 2.0.0
 ---
-
 # Get-MyLicense
-
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Get-MyLicense [<CommonParameters>]
 
 ## SYNTAX
-
-```
+### __AllParameterSets
+```powershell
 Get-MyLicense [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Get-MyLicense [<CommonParameters>]
 
 ## EXAMPLES
 
-### Example 1
+### EXAMPLE 1
 ```powershell
-PS C:\> {{ Add example code here }}
+Get-MyLicense
 ```
 
-{{ Add example description here }}
 
 ## PARAMETERS
 
@@ -35,11 +32,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### None
+- `None`
 
 ## OUTPUTS
 
-### System.Object
-## NOTES
+- `System.Object`
 
 ## RELATED LINKS
+
+- None

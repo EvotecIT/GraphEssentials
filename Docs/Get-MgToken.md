@@ -4,36 +4,29 @@ Module Name: GraphEssentials
 online version:
 schema: 2.0.0
 ---
-
 # Get-MgToken
-
 ## SYNOPSIS
 Provides a way to get a token for Microsoft Graph API to be used with Connect-MGGraph
 
 ## SYNTAX
-
 ### Domain (Default)
-```
-Get-MgToken -ClientID <String> -ClientSecret <String> -Domain <String> [-Proxy <String>]
- [-ProxyCredential <PSCredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
+```powershell
+Get-MgToken -ClientID <string> -ClientSecret <string> -Domain <string> [-Proxy <string>] [-ProxyCredential <pscredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
 ```
 
 ### DomainEncrypted
-```
-Get-MgToken -ClientID <String> -ClientSecretEncrypted <String> -Domain <String> [-Proxy <String>]
- [-ProxyCredential <PSCredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
+```powershell
+Get-MgToken -ClientID <string> -ClientSecretEncrypted <string> -Domain <string> [-Proxy <string>] [-ProxyCredential <pscredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
 ```
 
 ### TenantIDEncrypted
-```
-Get-MgToken -ClientID <String> -ClientSecretEncrypted <String> -TenantID <String> [-Proxy <String>]
- [-ProxyCredential <PSCredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
+```powershell
+Get-MgToken -ClientID <string> -ClientSecretEncrypted <string> -TenantID <string> [-Proxy <string>] [-ProxyCredential <pscredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
 ```
 
 ### TenantID
-```
-Get-MgToken -ClientID <String> -ClientSecret <String> -TenantID <String> [-Proxy <String>]
- [-ProxyCredential <PSCredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
+```powershell
+Get-MgToken -ClientID <string> -ClientSecret <string> -TenantID <string> [-Proxy <string>] [-ProxyCredential <pscredential>] [-ProxyUseDefaultCredentials] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
@@ -42,22 +35,24 @@ Provides a way to get a token for Microsoft Graph API to be used with Connect-MG
 ## EXAMPLES
 
 ### EXAMPLE 1
+```powershell
+PS > Get-MgToken -ClientID 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' -ClientSecret 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' -TenantID 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 ```
-Get-MgToken -ClientID 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' -ClientSecret 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' -TenantID 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
-```
+
 
 ### EXAMPLE 2
+```powershell
+PS > Get-MgToken -ClientID 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' -ClientSecret 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' -Domain 'contoso.com'
 ```
-Get-MgToken -ClientID 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' -ClientSecret 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' -Domain 'contoso.com'
-```
+
 
 ### EXAMPLE 3
-```
-$ClientSecretEncrypted = 'ClientSecretToEncrypt' | ConvertTo-SecureString -AsPlainText | ConvertFrom-SecureString
-```
-
+```powershell
+PS > $ClientSecretEncrypted = 'ClientSecretToEncrypt' | ConvertTo-SecureString -AsPlainText | ConvertFrom-SecureString
 $AccessToken = Get-MgToken -Domain 'evotec.pl' -ClientID 'ClientID' -ClientSecretEncrypted $ClientSecretEncrypted
 Connect-MgGraph -AccessToken $AccessToken
+```
+
 
 ## PARAMETERS
 
@@ -66,11 +61,12 @@ Provide the Application ID of the App Registration
 
 ```yaml
 Type: String
-Parameter Sets: (All)
+Parameter Sets: Domain, DomainEncrypted, TenantIDEncrypted, TenantID
 Aliases: ApplicationID
+Possible values:
 
 Required: True
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -82,40 +78,27 @@ Provide the Client Secret of the App Registration
 ```yaml
 Type: String
 Parameter Sets: Domain, TenantID
-Aliases:
+Aliases: None
+Possible values:
 
 Required: True
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -ClientSecretEncrypted
-{{ Fill ClientSecretEncrypted Description }}
+Specifies a value for client secret encrypted.
 
 ```yaml
 Type: String
 Parameter Sets: DomainEncrypted, TenantIDEncrypted
-Aliases:
+Aliases: None
+Possible values:
 
 Required: True
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -TenantID
-Provide the Tenant ID of the App Registration
-
-```yaml
-Type: String
-Parameter Sets: TenantIDEncrypted, TenantID
-Aliases:
-
-Required: True
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -127,56 +110,76 @@ Provide the Domain of the tenant where the App is registred
 ```yaml
 Type: String
 Parameter Sets: Domain, DomainEncrypted
-Aliases:
+Aliases: None
+Possible values:
 
 Required: True
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -Proxy
-{{ Fill Proxy Description }}
+Specifies a value for proxy.
 
 ```yaml
 Type: String
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: Domain, DomainEncrypted, TenantIDEncrypted, TenantID
+Aliases: None
+Possible values:
 
 Required: False
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -ProxyCredential
-{{ Fill ProxyCredential Description }}
+Specifies a value for proxy credential.
 
 ```yaml
 Type: PSCredential
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: Domain, DomainEncrypted, TenantIDEncrypted, TenantID
+Aliases: None
+Possible values:
 
 Required: False
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -ProxyUseDefaultCredentials
-{{ Fill ProxyUseDefaultCredentials Description }}
+Specifies the proxy use default credentials switch.
 
 ```yaml
 Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: Domain, DomainEncrypted, TenantIDEncrypted, TenantID
+Aliases: None
+Possible values:
 
 Required: False
-Position: Named
-Default value: False
+Position: named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -TenantID
+Provide the Tenant ID of the App Registration
+
+```yaml
+Type: String
+Parameter Sets: TenantIDEncrypted, TenantID
+Aliases: None
+Possible values:
+
+Required: True
+Position: named
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -186,9 +189,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
+- `None`
+
 ## OUTPUTS
 
-## NOTES
-General notes
+- `None`
 
 ## RELATED LINKS
+
+- None

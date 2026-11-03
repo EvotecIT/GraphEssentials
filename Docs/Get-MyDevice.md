@@ -4,55 +4,123 @@ Module Name: GraphEssentials
 online version:
 schema: 2.0.0
 ---
-
 # Get-MyDevice
-
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Gets device information from Microsoft Graph API.
 
 ## SYNTAX
-
-```
-Get-MyDevice [[-Type] <String[]>] [-Synchronized] [<CommonParameters>]
+### __AllParameterSets
+```powershell
+Get-MyDevice [[-Type] <string[]>] [[-PropertySet] <string>] [-Synchronized] [-IncludeAutopilotInventory] [-ReportProgress] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Retrieves device information from Microsoft Graph API and formats it for easy consumption.
+Allows filtering by device type (Hybrid, AzureAD joined, etc.) and synchronization status.
 
 ## EXAMPLES
 
-### Example 1
+### EXAMPLE 1
 ```powershell
-PS C:\> {{ Add example code here }}
+PS > Get-MyDevice
+Returns all devices from the Microsoft Graph API.
 ```
 
-{{ Add example description here }}
+
+### EXAMPLE 2
+```powershell
+PS > Get-MyDevice -Type 'AzureAD joined'
+Returns only AzureAD joined devices.
+```
+
+
+### EXAMPLE 3
+```powershell
+PS > Get-MyDevice -Synchronized
+Returns only synchronized devices.
+```
+
 
 ## PARAMETERS
 
-### -Synchronized
-{{ Fill Synchronized Description }}
+### -IncludeAutopilotInventory
+When specified, enriches devices with Windows Autopilot identity metadata.
 
 ```yaml
 Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
-Position: Named
+Position: named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -PropertySet
+Full retains the complete device information. Lifecycle omits registered owners.
+Computer returns only the dates, identifiers, and owner fields needed for computer
+inventory correlation. Computer requests retry individual Graph pages. Owner
+continuations are read when present; a possibly truncated owner expansion
+makes the inventory fail.
+
+```yaml
+Type: String
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values: Full, Lifecycle, Computer
+
+Required: False
+Position: 1
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -ReportProgress
+Uses retrying Graph pages for any property set and writes page and record
+counts to the information stream. If a page remains incomplete, no inventory
+is returned. The default non-Computer route retains SDK enumeration.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
+
+Required: False
+Position: named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -Synchronized
+Returns only synchronized devices when specified (OnPremisesSyncEnabled is true).
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
+
+Required: False
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -Type
-{{ Fill Type Description }}
+Filter devices by type. Valid values are 'Hybrid AzureAD', 'AzureAD joined', 'AzureAD registered', and 'Not available'.
 
 ```yaml
 Type: String[]
-Parameter Sets: (All)
-Aliases:
-Accepted values: Hybrid AzureAD, AzureAD joined, AzureAD registered, Not available
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values: Hybrid AzureAD, AzureAD joined, AzureAD registered, Not available
 
 Required: False
 Position: 0
@@ -66,11 +134,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### None
+- `None`
 
 ## OUTPUTS
 
-### System.Object
-## NOTES
+- `None`
 
 ## RELATED LINKS
+
+- None

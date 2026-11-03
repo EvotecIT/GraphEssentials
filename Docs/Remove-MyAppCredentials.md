@@ -4,41 +4,53 @@ Module Name: GraphEssentials
 online version:
 schema: 2.0.0
 ---
-
 # Remove-MyAppCredentials
-
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Removes credentials from an Azure AD application.
 
 ## SYNTAX
-
-```
-Remove-MyAppCredentials [[-ApplicationName] <String>] [[-LessThanDaysToExpire] <Int32>]
- [[-GreaterThanDaysToExpire] <Int32>] [-Expired] [[-DisplayNameCredentials] <String>] [-WhatIf] [-Confirm]
- [<CommonParameters>]
+### __AllParameterSets
+```powershell
+Remove-MyAppCredentials [[-ApplicationName] <string>] [[-LessThanDaysToExpire] <int>] [[-GreaterThanDaysToExpire] <int>] [[-DisplayNameCredentials] <string>] [-Expired] [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Removes client secret credentials from Azure AD/Entra applications based on various filtering criteria.
+This function can remove credentials from one or multiple applications at once.
 
 ## EXAMPLES
 
-### Example 1
+### EXAMPLE 1
 ```powershell
-PS C:\> {{ Add example code here }}
+PS > Remove-MyAppCredentials -ApplicationName "MyAPI" -Expired
+Removes all expired credentials from the application named "MyAPI".
 ```
 
-{{ Add example description here }}
+
+### EXAMPLE 2
+```powershell
+PS > Remove-MyAppCredentials -LessThanDaysToExpire 30
+Removes credentials from all applications that expire in less than 30 days.
+```
+
+
+### EXAMPLE 3
+```powershell
+PS > Remove-MyAppCredentials -DisplayNameCredentials "Old API Access"
+Removes all credentials with the display name "Old API Access" from all applications.
+```
+
 
 ## PARAMETERS
 
 ### -ApplicationName
-{{ Fill ApplicationName Description }}
+The name of the application to remove credentials from. If not provided, checks all applications.
 
 ```yaml
 Type: String
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
 Position: 0
@@ -47,28 +59,14 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### -Confirm
-Prompts you for confirmation before running the cmdlet.
-
-```yaml
-Type: SwitchParameter
-Parameter Sets: (All)
-Aliases: cf
-
-Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
 ### -DisplayNameCredentials
-{{ Fill DisplayNameCredentials Description }}
+When specified, removes only credentials with the specified display name or description.
 
 ```yaml
 Type: String
-Parameter Sets: (All)
-Aliases: DescriptionCredentials
+Parameter Sets: __AllParameterSets
+Aliases: DescriptionCredentials, ClientSecretName
+Possible values:
 
 Required: False
 Position: 3
@@ -78,27 +76,29 @@ Accept wildcard characters: False
 ```
 
 ### -Expired
-{{ Fill Expired Description }}
+When specified, removes only already expired credentials.
 
 ```yaml
 Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -GreaterThanDaysToExpire
-{{ Fill GreaterThanDaysToExpire Description }}
+When specified, removes only credentials that expire in more than the specified number of days.
 
 ```yaml
 Type: Int32
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
 Position: 2
@@ -108,30 +108,16 @@ Accept wildcard characters: False
 ```
 
 ### -LessThanDaysToExpire
-{{ Fill LessThanDaysToExpire Description }}
+When specified, removes only credentials that expire in less than the specified number of days.
 
 ```yaml
 Type: Int32
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
 Position: 1
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -WhatIf
-Shows what would happen if the cmdlet runs. The cmdlet is not run.
-
-```yaml
-Type: SwitchParameter
-Parameter Sets: (All)
-Aliases: wi
-
-Required: False
-Position: Named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -142,11 +128,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### None
+- `None`
 
 ## OUTPUTS
 
-### System.Object
-## NOTES
+- `None`
 
 ## RELATED LINKS
+
+- None

@@ -4,6 +4,10 @@
 
     [bool] $SignModule = ($RunMode -eq 'Publish'),
 
+    [string] $CertificateThumbprint = '',
+
+    [string[]] $AllowedCertificateThumbprints = @('92e95fb58effa6a4a75e77a33cdd6bfe6dd30f1a'),
+
     [bool] $PublishGitHub = $true,
 
     [string] $PowerShellGalleryApiKeyPath = 'C:\Support\Important\PowerShellGalleryAPI.txt',
@@ -11,12 +15,12 @@
     [string] $GitHubApiKeyPath = 'C:\Support\Important\GitHubAPI.txt'
 )
 
-Import-Module PSPublishModule -MinimumVersion '3.0.164' -Force -ErrorAction Stop
+Import-Module PSPublishModule -MinimumVersion '3.0.185' -Force -ErrorAction Stop
 
 Build-Module -ModuleName 'GraphEssentials' {
     # Usual defaults as per standard module
     $Manifest = [ordered] @{
-        ModuleVersion        = '0.0.68'
+        ModuleVersion        = '0.0.69'
         CompatiblePSEditions = @('Desktop', 'Core')
         GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
         Author               = 'Przemyslaw Klys'
@@ -107,7 +111,7 @@ Build-Module -ModuleName 'GraphEssentials' {
 
     New-ConfigurationImportModule -ImportSelf
 
-    New-ConfigurationBuild -Enable:$true -SignModule:$SignModule -MergeModuleOnBuild -MergeFunctionsFromApprovedModules -CertificateThumbprint '92e95fb58effa6a4a75e77a33cdd6bfe6dd30f1a'
+    New-ConfigurationBuild -Enable:$true -SignModule:$SignModule -MergeModuleOnBuild -MergeFunctionsFromApprovedModules -CertificateThumbprint $CertificateThumbprint -AllowedCertificateThumbprints $AllowedCertificateThumbprints
 
     New-ConfigurationArtefact -Type Unpacked -Enable -Path "$PSScriptRoot\..\Artefacts\Unpacked" -ModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -RequiredModulesPath "$PSScriptRoot\..\Artefacts\Unpacked\Modules" -AddRequiredModules -RequiredModulesSource Download -RequiredModulesTool PowerShellGet -RequiredModulesRepository PSGallery
     New-ConfigurationArtefact -Type Packed -Enable -Path "$PSScriptRoot\..\Artefacts\Packed" -ArtefactName '<ModuleName>.v<ModuleVersion>.zip'
