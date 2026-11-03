@@ -4299,6 +4299,189 @@ Confirms remote public-key evidence before resolving a saved in-flight operation
   </command:command>
   <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10" xmlns:MSHelp="http://msdn.microsoft.com/mshelp" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
     <command:details>
+      <command:name>Invoke-MyAppCertificateSession</command:name>
+      <command:verb>Invoke</command:verb>
+      <command:noun>MyAppCertificateSession</command:noun>
+      <maml:description>
+        <maml:para>Runs a workload with the active certificate from an opt-in renewal profile.</maml:para>
+      </maml:description>
+    </command:details>
+    <maml:description>
+      <maml:para>Uses the existing certificate only to enroll a new profile. Later runs load the profile's&#xD;
+active certificate, connect, maintain renewal and reconnect after activation before invoking&#xD;
+the workload. Owns its Graph connection and loaded certificate until the workload completes.&#xD;
+Disabled configuration passes the original connection map to the workload without accessing&#xD;
+credentials or Graph. Bootstrap and maintenance honor WhatIf; ordinary workload reads can run.</maml:para>
+    </maml:description>
+    <command:syntax>
+      <command:syntaxItem parameterSetName="__AllParameterSets">
+        <maml:name>Invoke-MyAppCertificateSession</maml:name>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="2" aliases="none">
+          <maml:name>ConfigurationDirectory</maml:name>
+          <maml:description>
+            <maml:para>Base directory for a relative ProfilePath. Required unless ProfilePath is absolute.</maml:para>
+          </maml:description>
+          <command:parameterValue required="false" variableLength="false">String</command:parameterValue>
+          <dev:type>
+            <maml:name>String</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="False" position="0" aliases="none">
+          <maml:name>ConnectionParameters</maml:name>
+          <maml:description>
+            <maml:para>Existing Graph connection settings, including TenantId and ClientId (or AppId). Certificate&#xD;
+or CertificateThumbprint is required only for enrollment. Secret/access-token connections&#xD;
+cannot be combined with enabled certificate rotation. The supplied map is never modified.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">IDictionary</command:parameterValue>
+          <dev:type>
+            <maml:name>IDictionary</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="4" aliases="none">
+          <maml:name>OnEvent</maml:name>
+          <maml:description>
+            <maml:para>Optional logging callback receiving Event, Message and public Data. It receives no private&#xD;
+certificate, assertion, token or raw provider error. Without it, events use Information.</maml:para>
+          </maml:description>
+          <command:parameterValue required="false" variableLength="false">ScriptBlock</command:parameterValue>
+          <dev:type>
+            <maml:name>ScriptBlock</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="1" aliases="none">
+          <maml:name>Rotation</maml:name>
+          <maml:description>
+            <maml:para>JSON-friendly map: Enabled (false by default), ProfilePath, optional bootstrap&#xD;
+ApplicationObjectId/KeyId and CertificateLifetimeDays/RenewBeforeDays/OverlapDays.&#xD;
+The bootstrap identifiers are required only when creating a new profile.</maml:para>
+          </maml:description>
+          <command:parameterValue required="false" variableLength="false">IDictionary</command:parameterValue>
+          <dev:type>
+            <maml:name>IDictionary</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+        <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="False" position="3" aliases="none">
+          <maml:name>ScriptBlock</maml:name>
+          <maml:description>
+            <maml:para>Workload called with the effective connection map and a safe maintenance summary. A loaded&#xD;
+Certificate remains valid only inside this callback. Do not retain it or start background work.</maml:para>
+          </maml:description>
+          <command:parameterValue required="true" variableLength="false">ScriptBlock</command:parameterValue>
+          <dev:type>
+            <maml:name>ScriptBlock</maml:name>
+            <maml:uri />
+          </dev:type>
+          <dev:defaultValue>None</dev:defaultValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="2" aliases="none">
+        <maml:name>ConfigurationDirectory</maml:name>
+        <maml:description>
+          <maml:para>Base directory for a relative ProfilePath. Required unless ProfilePath is absolute.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">String</command:parameterValue>
+        <dev:type>
+          <maml:name>String</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="False" position="0" aliases="none">
+        <maml:name>ConnectionParameters</maml:name>
+        <maml:description>
+          <maml:para>Existing Graph connection settings, including TenantId and ClientId (or AppId). Certificate&#xD;
+or CertificateThumbprint is required only for enrollment. Secret/access-token connections&#xD;
+cannot be combined with enabled certificate rotation. The supplied map is never modified.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">IDictionary</command:parameterValue>
+        <dev:type>
+          <maml:name>IDictionary</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="4" aliases="none">
+        <maml:name>OnEvent</maml:name>
+        <maml:description>
+          <maml:para>Optional logging callback receiving Event, Message and public Data. It receives no private&#xD;
+certificate, assertion, token or raw provider error. Without it, events use Information.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">ScriptBlock</command:parameterValue>
+        <dev:type>
+          <maml:name>ScriptBlock</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="false" variableLength="false" globbing="false" pipelineInput="False" position="1" aliases="none">
+        <maml:name>Rotation</maml:name>
+        <maml:description>
+          <maml:para>JSON-friendly map: Enabled (false by default), ProfilePath, optional bootstrap&#xD;
+ApplicationObjectId/KeyId and CertificateLifetimeDays/RenewBeforeDays/OverlapDays.&#xD;
+The bootstrap identifiers are required only when creating a new profile.</maml:para>
+        </maml:description>
+        <command:parameterValue required="false" variableLength="false">IDictionary</command:parameterValue>
+        <dev:type>
+          <maml:name>IDictionary</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+      <command:parameter required="true" variableLength="false" globbing="false" pipelineInput="False" position="3" aliases="none">
+        <maml:name>ScriptBlock</maml:name>
+        <maml:description>
+          <maml:para>Workload called with the effective connection map and a safe maintenance summary. A loaded&#xD;
+Certificate remains valid only inside this callback. Do not retain it or start background work.</maml:para>
+        </maml:description>
+        <command:parameterValue required="true" variableLength="false">ScriptBlock</command:parameterValue>
+        <dev:type>
+          <maml:name>ScriptBlock</maml:name>
+          <maml:uri />
+        </dev:type>
+        <dev:defaultValue>None</dev:defaultValue>
+      </command:parameter>
+    </command:parameters>
+    <command:inputTypes />
+    <command:returnValues>
+      <command:returnValue>
+        <dev:type>
+          <maml:name>The workload's output. Session events and ordinary status contain no private credentials.</maml:name>
+        </dev:type>
+      </command:returnValue>
+    </command:returnValues>
+    <maml:alertSet>
+      <maml:alert>
+        <maml:para></maml:para>
+      </maml:alert>
+    </maml:alertSet>
+    <command:examples>
+      <command:example>
+        <maml:title>-------------------------- EXAMPLE 1 --------------------------</maml:title>
+        <maml:introduction>
+          <maml:para>PS &gt; </maml:para>
+        </maml:introduction>
+        <dev:code>Invoke-MyAppCertificateSession -ConnectionParameters $graph -Rotation $settings.CertificateRotation -ConfigurationDirectory $configDirectory -ScriptBlock { param($connection, $status) Get-MyDirectoryUser }
+Connects and maintains an enrolled identity, then runs the workload with the active credential.</dev:code>
+        <dev:remarks>
+          <maml:para></maml:para>
+        </dev:remarks>
+      </command:example>
+    </command:examples>
+    <command:relatedLinks />
+  </command:command>
+  <command:command xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10" xmlns:MSHelp="http://msdn.microsoft.com/mshelp" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
+    <command:details>
       <command:name>Invoke-MyDeviceRetire</command:name>
       <command:verb>Invoke</command:verb>
       <command:noun>MyDeviceRetire</command:noun>
