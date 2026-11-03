@@ -1,4 +1,4 @@
-﻿param(
+param(
     [ValidateSet('Manifest', 'Build', 'Publish', 'Documentation')]
     [string] $RunMode = 'Build',
 
@@ -20,7 +20,7 @@ Import-Module PSPublishModule -MinimumVersion '3.0.185' -Force -ErrorAction Stop
 Build-Module -ModuleName 'GraphEssentials' {
     # Usual defaults as per standard module
     $Manifest = [ordered] @{
-        ModuleVersion        = '0.0.70'
+        ModuleVersion        = '0.0.71'
         CompatiblePSEditions = @('Desktop', 'Core')
         GUID                 = '75ef812f-6d8e-4898-81bb-8029e0560ef3'
         Author               = 'Przemyslaw Klys'
