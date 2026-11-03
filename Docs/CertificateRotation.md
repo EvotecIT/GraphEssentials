@@ -1,6 +1,6 @@
 # Opt-in application certificate rotation
 
-GraphEssentials maintains an application's own certificate using the official Microsoft Graph PowerShell modules. `Register-MyAppCertificateRotation` enrolls an existing software certificate, `Get-MyAppCertificateRotation` reads status or loads the active certificate, and `Invoke-MyAppCertificateRotation` advances renewal when due. Importing the module and connecting to Graph do not rotate credentials.
+GraphEssentials maintains an application's own certificate using the official Microsoft Graph PowerShell modules. `Register-MyAppCertificateRotation` enrolls an existing software certificate, `Get-MyAppCertificateRotation` reads status or loads the active certificate, and `Invoke-MyAppCertificateRotation` advances renewal when due. Importing the module and connecting to Graph do not rotate credentials. See the [local and Azure DevOps hosting walkthrough](CertificateRotationHosting.md) for the first/later-run sequence, unchanged bootstrap thumbprints, persistent-agent setup and common questions.
 
 The feature supports Windows PowerShell 5.1 and PowerShell 7 on Windows. It uses the existing `Microsoft.Graph.Authentication` and `Microsoft.Graph.Applications` dependencies, Windows DPAPI, and .NET cryptography. It does not require an additional engine, a new assembly, a certificate-store installation, or a new scheduled task.
 
