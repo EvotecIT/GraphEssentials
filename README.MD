@@ -63,6 +63,8 @@ That's it. Whenever there's a new version, you run the command, and you can enjo
 
 `Register-MyAppCertificateRotation`, `Get-MyAppCertificateRotation`, and `Invoke-MyAppCertificateRotation` let scheduled scripts renew an application's own certificate through the official Graph SDK. The Windows profile protects private credentials with DPAPI, verifies fresh authentication before activation, and retains the previous key for a configured overlap. See [certificate rotation](Docs/CertificateRotation.md) for enrollment, scheduling, permissions, and recovery.
 
+`Invoke-MyAppCertificateSession` manages the connection and active certificate for one synchronous workload. The original thumbprint/PFX is used for enrollment; subsequent runs load the protected profile. Read the [local server and Azure DevOps walkthrough](Docs/CertificateRotationHosting.md) before enabling it. The current provider requires a persistent Windows identity and disk; Key Vault-backed sessions are on the [roadmap](ROADMAP.md).
+
 #### Connecting with ApplicationID, ApplicationSecret as an application
 
 
