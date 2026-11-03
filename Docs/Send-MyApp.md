@@ -4,40 +4,47 @@ Module Name: GraphEssentials
 online version:
 schema: 2.0.0
 ---
-
 # Send-MyApp
-
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Creates application credentials and emails them to specified recipients.
 
 ## SYNTAX
-
-```
-Send-MyApp [-ApplicationName] <Array> [-EmailFrom] <String> [-EmailTo] <String[]> [[-EmailSubject] <String>]
- [-Domain] <String> [-RemoveOldCredentials] [<CommonParameters>]
+### __AllParameterSets
+```powershell
+Send-MyApp [-ApplicationName] <array> [-EmailFrom] <string> [-EmailTo] <string[]> [[-EmailSubject] <string>] [-Domain] <string> [-RemoveOldCredentials] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Creates new Azure AD/Entra applications or adds credentials to existing applications,
+then sends the credentials securely via email to specified recipients. Optionally can
+remove old credentials during the process.
 
 ## EXAMPLES
 
-### Example 1
+### EXAMPLE 1
 ```powershell
-PS C:\> {{ Add example code here }}
+PS > Send-MyApp -ApplicationName "MyAPI" -EmailFrom "admin@contoso.com" -EmailTo "developer@contoso.com" -Domain "contoso.com"
+Creates or updates an application named "MyAPI" and emails the credentials to developer@contoso.com.
 ```
 
-{{ Add example description here }}
+
+### EXAMPLE 2
+```powershell
+PS > Send-MyApp -ApplicationName @("API1", "API2") -EmailFrom "admin@contoso.com" -EmailTo "team@contoso.com" -Domain "contoso.com" -RemoveOldCredentials
+Creates or updates two applications, removes any existing credentials, and emails the new credentials to team@contoso.com.
+```
+
 
 ## PARAMETERS
 
 ### -ApplicationName
-{{ Fill ApplicationName Description }}
+An array of application names to create or update. Can be strings or hashtables with configuration details.
 
 ```yaml
 Type: Array
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: True
 Position: 0
@@ -47,12 +54,13 @@ Accept wildcard characters: False
 ```
 
 ### -Domain
-{{ Fill Domain Description }}
+The domain name of the tenant where applications are registered.
 
 ```yaml
 Type: String
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: True
 Position: 4
@@ -62,12 +70,13 @@ Accept wildcard characters: False
 ```
 
 ### -EmailFrom
-{{ Fill EmailFrom Description }}
+The email address to send notifications from.
 
 ```yaml
 Type: String
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: True
 Position: 1
@@ -77,12 +86,13 @@ Accept wildcard characters: False
 ```
 
 ### -EmailSubject
-{{ Fill EmailSubject Description }}
+The subject line for the email. Defaults to 'Service Principal for Applications'.
 
 ```yaml
 Type: String
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
 Position: 3
@@ -92,12 +102,13 @@ Accept wildcard characters: False
 ```
 
 ### -EmailTo
-{{ Fill EmailTo Description }}
+One or more email addresses to send the credentials to.
 
 ```yaml
 Type: String[]
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: True
 Position: 2
@@ -107,15 +118,16 @@ Accept wildcard characters: False
 ```
 
 ### -RemoveOldCredentials
-{{ Fill RemoveOldCredentials Description }}
+If specified, removes any existing credentials before adding new ones.
 
 ```yaml
 Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -126,11 +138,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### None
+- `None`
 
 ## OUTPUTS
 
-### System.Object
-## NOTES
+- `None`
 
 ## RELATED LINKS
+
+- None

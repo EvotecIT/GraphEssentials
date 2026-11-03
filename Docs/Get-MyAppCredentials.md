@@ -4,40 +4,61 @@ Module Name: GraphEssentials
 online version:
 schema: 2.0.0
 ---
-
 # Get-MyAppCredentials
-
 ## SYNOPSIS
-{{ Fill in the Synopsis }}
+Retrieves Azure AD application credentials information.
 
 ## SYNTAX
-
-```
-Get-MyAppCredentials [[-ApplicationName] <String>] [[-LessThanDaysToExpire] <Int32>]
- [[-GreaterThanDaysToExpire] <Int32>] [-Expired] [[-DisplayNameCredentials] <String>] [<CommonParameters>]
+### __AllParameterSets
+```powershell
+Get-MyAppCredentials [[-ApplicationName] <string>] [[-LessThanDaysToExpire] <int>] [[-GreaterThanDaysToExpire] <int>] [[-DisplayNameCredentials] <string>] [-Expired] [-IncludeFederated] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-{{ Fill in the Description }}
+Gets detailed information about Azure AD/Entra application credentials (secrets and certificates),
+including expiration dates, types, and associated metadata. Allows filtering based on
+various criteria such as expiration date, display name, and application name.
 
 ## EXAMPLES
 
-### Example 1
+### EXAMPLE 1
 ```powershell
-PS C:\> {{ Add example code here }}
+PS > Get-MyAppCredentials
+Returns credentials for all Azure AD applications.
 ```
 
-{{ Add example description here }}
+
+### EXAMPLE 2
+```powershell
+PS > Get-MyAppCredentials -ApplicationName "MyAPI"
+Returns credentials for a specific application named "MyAPI".
+```
+
+
+### EXAMPLE 3
+```powershell
+PS > Get-MyAppCredentials -LessThanDaysToExpire 30
+Returns only credentials that expire within the next 30 days.
+```
+
+
+### EXAMPLE 4
+```powershell
+PS > Get-MyAppCredentials -Expired
+Returns only expired credentials across all applications.
+```
+
 
 ## PARAMETERS
 
 ### -ApplicationName
-{{ Fill ApplicationName Description }}
+Optional. The display name of a specific application to retrieve credentials for.
 
 ```yaml
 Type: String
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
 Position: 0
@@ -47,12 +68,13 @@ Accept wildcard characters: False
 ```
 
 ### -DisplayNameCredentials
-{{ Fill DisplayNameCredentials Description }}
+Optional. Filters credentials to those with a display name matching the specified pattern.
 
 ```yaml
 Type: String
-Parameter Sets: (All)
+Parameter Sets: __AllParameterSets
 Aliases: DescriptionCredentials, ClientSecretName
+Possible values:
 
 Required: False
 Position: 3
@@ -62,27 +84,29 @@ Accept wildcard characters: False
 ```
 
 ### -Expired
-{{ Fill Expired Description }}
+Switch parameter. When specified, returns only expired credentials.
 
 ```yaml
 Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
-Position: Named
+Position: named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -GreaterThanDaysToExpire
-{{ Fill GreaterThanDaysToExpire Description }}
+Optional. Filters credentials to return only those that expire in more than the specified number of days.
 
 ```yaml
 Type: Int32
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
 Position: 2
@@ -91,13 +115,30 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+### -IncludeFederated
+Specifies the include federated switch.
+
+```yaml
+Type: SwitchParameter
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
+
+Required: False
+Position: named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 ### -LessThanDaysToExpire
-{{ Fill LessThanDaysToExpire Description }}
+Optional. Filters credentials to return only those that expire in less than the specified number of days.
 
 ```yaml
 Type: Int32
-Parameter Sets: (All)
-Aliases:
+Parameter Sets: __AllParameterSets
+Aliases: None
+Possible values:
 
 Required: False
 Position: 1
@@ -111,11 +152,12 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ## INPUTS
 
-### None
+- `None`
 
 ## OUTPUTS
 
-### System.Object
-## NOTES
+- `None`
 
 ## RELATED LINKS
+
+- None

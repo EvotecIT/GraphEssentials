@@ -119,7 +119,7 @@ Possible values:
 
 Required: False
 Position: named
-Default value: False
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -137,7 +137,7 @@ Possible values:
 
 Required: False
 Position: named
-Default value: 0
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
@@ -154,7 +154,7 @@ Possible values:
 
 Required: False
 Position: named
-Default value: @('Id', 'DisplayName', 'UserPrincipalName', 'Mail', 'AccountEnabled', 'UserType')
+Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
 ```

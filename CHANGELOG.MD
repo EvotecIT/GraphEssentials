@@ -1,4 +1,9 @@
-﻿### Unreleased
+### Unreleased
+
+- Add opt-in application certificate renewal with protected local profiles, fresh authentication checks, overlap, and explicit recovery after interrupted writes.
+- Use the shared approved-certificate selection for signed builds and public releases.
+
+### 0.0.69
 
 - Add selected-property directory user queries with manager identity, manager employee ID and extension projections for automation.
 - Add a caller-supplied minimum-count safeguard to directory inventories before any records are returned.

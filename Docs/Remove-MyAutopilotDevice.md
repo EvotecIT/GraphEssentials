@@ -4,36 +4,89 @@ Module Name: GraphEssentials
 online version:
 schema: 2.0.0
 ---
-
 # Remove-MyAutopilotDevice
-
 ## SYNOPSIS
 Removes a Windows Autopilot device identity.
 
+## SYNTAX
+### ByObject (Default)
+```powershell
+Remove-MyAutopilotDevice -InputObject <psobject> [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
+### ById
+```powershell
+Remove-MyAutopilotDevice -AutopilotDeviceId <string> [-WhatIf] [-Confirm] [<CommonParameters>]
+```
+
 ## DESCRIPTION
-`Remove-MyAutopilotDevice` deletes a Windows Autopilot device identity through Microsoft Graph.
-Use it only when the Autopilot registration itself should be removed, not merely the Intune
-managed-device record or Microsoft Entra device object.
-
-The cmdlet supports `-WhatIf` and accepts objects returned by `Get-MyDevice` or
-`Get-MyDeviceIntune` when they were called with `-IncludeAutopilotInventory`.
-
-Microsoft Graph requires `DeviceManagementServiceConfig.ReadWrite.All` for this action.
+Deletes a Windows Autopilot device identity using Microsoft Graph.
+The function accepts either a device object returned by Get-MyDevice or
+Get-MyDeviceIntune with Autopilot enrichment, or an explicit Windows
+Autopilot device identity id.
 
 ## EXAMPLES
 
-### Example 1
+### EXAMPLE 1
 ```powershell
-Get-MyDeviceIntune -IncludeAutopilotInventory |
+PS > Get-MyDeviceIntune -IncludeAutopilotInventory |
     Where-Object AutopilotOnboarded |
     Remove-MyAutopilotDevice -WhatIf
 ```
 
-Preview removing Autopilot identities from enriched Intune device inventory.
 
-### Example 2
+### EXAMPLE 2
 ```powershell
-Remove-MyAutopilotDevice -AutopilotDeviceId '00000000-0000-0000-0000-000000000000'
+PS > Remove-MyAutopilotDevice -AutopilotDeviceId '00000000-0000-0000-0000-000000000000'
 ```
 
-Remove a Windows Autopilot device identity by id.
+
+## PARAMETERS
+
+### -AutopilotDeviceId
+The Windows Autopilot device identity id to remove.
+
+```yaml
+Type: String
+Parameter Sets: ById
+Aliases: None
+Possible values:
+
+Required: True
+Position: named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+### -InputObject
+Device object that exposes AutopilotDeviceId or
+WindowsAutopilotDeviceIdentityId.
+
+```yaml
+Type: PSObject
+Parameter Sets: ByObject
+Aliases: None
+Possible values:
+
+Required: True
+Position: named
+Default value: None
+Accept pipeline input: True (ByValue)
+Accept wildcard characters: False
+```
+
+### CommonParameters
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+
+## INPUTS
+
+- `PSObject`
+
+## OUTPUTS
+
+- `None`
+
+## RELATED LINKS
+
+- None
