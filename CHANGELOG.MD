@@ -1,4 +1,4 @@
-### Unreleased
+### 0.0.70
 
 - Add opt-in application certificate renewal with protected local profiles, fresh authentication checks, overlap, and explicit recovery after interrupted writes.
 - Use the shared approved-certificate selection for signed builds and public releases.

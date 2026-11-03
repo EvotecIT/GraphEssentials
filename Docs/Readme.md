@@ -2,7 +2,7 @@
 Module Name: GraphEssentials
 Module Guid: 75ef812f-6d8e-4898-81bb-8029e0560ef3
 Download Help Link: {{ Update Download Link }}
-Help Version: 0.0.69
+Help Version: 0.0.70
 Locale: en-US
 ---
 # GraphEssentials Module
